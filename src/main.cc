@@ -153,6 +153,8 @@ int main( int argc, char** argv )
     Grid_FFT<real_t> phi2({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
     Grid_FFT<real_t> phi3a({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
     Grid_FFT<real_t> phi3b({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
+
+    OrszagConvolver<real_t> Conv({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
     
     phi.FillRandomReal(6519);
 
@@ -224,9 +226,9 @@ int main( int argc, char** argv )
             {
                 size_t idx = phi2.get_idx(i, j, k);
 
-                phi2.relem(idx) = ((phi_xx.relem(idx)*phi_yy.relem(idx)-phi_xy.relem(idx)*phi_xy.relem(idx))
-                                  +(phi_xx.relem(idx)*phi_zz.relem(idx)-phi_xz.relem(idx)*phi_xz.relem(idx))
-                                  +(phi_yy.relem(idx)*phi_zz.relem(idx)-phi_yz.relem(idx)*phi_yz.relem(idx)));
+                phi2.relem(idx) =  phi_xx.relem(idx)*phi_yy.relem(idx)-phi_xy.relem(idx)*phi_xy.relem(idx)
+                                  +phi_xx.relem(idx)*phi_zz.relem(idx)-phi_xz.relem(idx)*phi_xz.relem(idx)
+                                  +phi_yy.relem(idx)*phi_zz.relem(idx)-phi_yz.relem(idx)*phi_yz.relem(idx);
             }
         }
     }

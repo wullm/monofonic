@@ -55,7 +55,7 @@ void Grid_FFT<data_t>::Setup(void)
     }
     else
     {
-        csoca::elog.Print("invalid data type in field3d<data_t>::setup_fft_interface\n");
+        csoca::elog.Print("invalid data type in Grid_FFT<data_t>::setup_fft_interface\n");
     }
 
     fft_norm_fac_ = 1.f / sqrtf((float)((size_t)n_[0] * (size_t)n_[1] * (size_t)n_[2]));
@@ -135,7 +135,7 @@ void Grid_FFT<data_t>::Setup(void)
     }
     else
     {
-        csoca::elog.Print("unknown data type in field3d<data_t>::setup_fft_interface\n");
+        csoca::elog.Print("unknown data type in Grid_FFT<data_t>::setup_fft_interface\n");
         abort();
     }
 
@@ -214,7 +214,7 @@ void Grid_FFT<data_t>::FourierTransformForward(bool do_transform)
             this->ApplyNorm();
 
             wtime = get_wtime() - wtime;
-            csoca::ilog.Print("[FFT] Completed field3d::to_kspace (%lux%lux%lu), took %f s", sizes_[0], sizes_[1], sizes_[2], wtime);
+            csoca::ilog.Print("[FFT] Completed Grid_FFT::to_kspace (%lux%lux%lu), took %f s", sizes_[0], sizes_[1], sizes_[2], wtime);
         }
 
         sizes_[0] = local_1_size_;
@@ -242,7 +242,7 @@ void Grid_FFT<data_t>::FourierTransformBackward(bool do_transform)
             this->ApplyNorm();
 
             wtime = get_wtime() - wtime;
-            csoca::ilog.Print("[FFT] Completed field3d::to_rspace (%dx%dx%d), took %f s\n", sizes_[0], sizes_[1], sizes_[2], wtime);
+            csoca::ilog.Print("[FFT] Completed Grid_FFT::to_rspace (%dx%dx%d), took %f s\n", sizes_[0], sizes_[1], sizes_[2], wtime);
         }
         sizes_[0] = local_0_size_;
         sizes_[1] = n_[1];
@@ -990,6 +990,9 @@ void unpad(const Grid_FFT<data_t> &fp, Grid_FFT<data_t> &f)
 
 #endif /// end of ifdef/ifndef USE_MPI //////////////////////////////////////////////////////////////
 }
+
+/********************************************************************************************/
+
 
 template class Grid_FFT<real_t>;
 template class Grid_FFT<ccomplex_t>;
