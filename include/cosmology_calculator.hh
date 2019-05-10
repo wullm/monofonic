@@ -18,7 +18,7 @@
  */
 class CosmologyCalculator
 {
-  private:
+private:
     static constexpr double REL_PRECISION = 1e-5;
 
     real_t integrate(double (*func)(double x, void *params), double a, double b, void *params)
@@ -44,7 +44,7 @@ class CosmologyCalculator
         return (real_t)result;
     }
 
-  public:
+public:
     //! data structure to store cosmological parameters
     CosmologyParameters cosmo_param_;
 
@@ -57,7 +57,7 @@ class CosmologyCalculator
 	 * @param pTransferFunction pointer to an instance of a transfer function object
 	 */
 
-    CosmologyCalculator(const CosmologyParameters& cp, TransferFunction_plugin *ptransfer_fun)
+    CosmologyCalculator(const CosmologyParameters &cp, TransferFunction_plugin *ptransfer_fun)
     {
         cosmo_param_ = cp;
         ptransfer_fun_ = ptransfer_fun;
@@ -66,13 +66,14 @@ class CosmologyCalculator
     }
 
     CosmologyCalculator(ConfigFile &cf, TransferFunction_plugin *ptransfer_fun)
-    : cosmo_param_(cf), ptransfer_fun_(ptransfer_fun)
+        : cosmo_param_(cf), ptransfer_fun_(ptransfer_fun)
     {
         cosmo_param_.pnorm = this->ComputePNorm();
         cosmo_param_.sqrtpnorm = std::sqrt(cosmo_param_.pnorm);
     }
 
-    const CosmologyParameters& GetParams( void ) const{
+    const CosmologyParameters &GetParams(void) const
+    {
         return cosmo_param_;
     }
 
@@ -177,7 +178,7 @@ class CosmologyCalculator
 
         std::array<void *, 2> *Params = (std::array<void *, 2> *)pParams;
         TransferFunction_plugin *ptf = (TransferFunction_plugin *)(*Params)[0];
-        CosmologyParameters *pcosmo = (CosmologyParameters*)(*Params)[1];
+        CosmologyParameters *pcosmo = (CosmologyParameters *)(*Params)[1];
 
         double x = k * 8.0;
         double w = 3.0 * (sin(x) - x * cos(x)) / (x * x * x);
@@ -223,12 +224,12 @@ class CosmologyCalculator
         kmin = ptransfer_fun_->get_kmin(); //0.0;
 
         std::array<void *, 2> Params = {(void *)ptransfer_fun_,
-                                        (void *)&cosmo_param_ };
+                                        (void *)&cosmo_param_};
 
         if (!ptransfer_fun_->tf_has_total0())
-            sigma0 = 4.0 * M_PI * integrate(&dSigma8, (double)kmin, (double)kmax, (void *)&Params);//ptransfer_fun_);
+            sigma0 = 4.0 * M_PI * integrate(&dSigma8, (double)kmin, (double)kmax, (void *)&Params); //ptransfer_fun_);
         else
-            sigma0 = 4.0 * M_PI * integrate(&dSigma8_0, (double)kmin, (double)kmax, (void *)&Params);//ptransfer_fun_);
+            sigma0 = 4.0 * M_PI * integrate(&dSigma8_0, (double)kmin, (double)kmax, (void *)&Params); //ptransfer_fun_);
 
         return cosmo_param_.sigma8 * cosmo_param_.sigma8 / sigma0;
     }
