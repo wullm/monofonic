@@ -50,9 +50,11 @@ int main( int argc, char** argv )
   #endif 
 #endif
 
-#if defined(USE_FFTW_MPI)
+#if defined(USE_MPI)
     fftw_mpi_init();
     csoca::ilog << "MPI is enabled                : " << "yes" << std::endl;
+#else
+    csoca::ilog << "MPI is enabled                : " << "no" << std::endl;
 #endif
 
     csoca::ilog << "MPI supports multi-threading  : " << CONFIG::MPI_threads_ok << std::endl;
@@ -210,14 +212,26 @@ int main( int argc, char** argv )
         }
     }
 
+    auto assign_op = []( ccomplex_t res, ccomplex_t val ) -> ccomplex_t{ return res; };
+    auto add_op = []( ccomplex_t res, ccomplex_t val ) -> ccomplex_t{ return val+res; };
+    auto sub_op = []( ccomplex_t res, ccomplex_t val ) -> ccomplex_t{ return val-res; };
+
+#if 1
+    Conv.convolve2(phi_xx,phi_yy,phi2,assign_op);
+    Conv.convolve2(phi_xx,phi_zz,phi2,add_op);
+    Conv.convolve2(phi_yy,phi_zz,phi2,add_op);
+    Conv.convolve2(phi_xy,phi_xy,phi2,sub_op);
+    Conv.convolve2(phi_xz,phi_xz,phi2,sub_op);
+    Conv.convolve2(phi_yz,phi_yz,phi2,sub_op);
+    
+#else 
+    phi2.FourierTransformBackward();
     phi_xx.FourierTransformBackward();
     phi_xy.FourierTransformBackward();
     phi_xz.FourierTransformBackward();
     phi_yy.FourierTransformBackward();
     phi_yz.FourierTransformBackward();
     phi_zz.FourierTransformBackward();
-
-    
     for (size_t i = 0; i < phi2.size(0); ++i)
     {
         for (size_t j = 0; j < phi2.size(1); ++j)
@@ -233,6 +247,7 @@ int main( int argc, char** argv )
         }
     }
 
+#endif
     phi2.FourierTransformForward();
     phi2.apply_function_k_dep([&](auto x, auto k) {
         real_t kmod2 = k.norm_squared();
@@ -277,6 +292,25 @@ int main( int argc, char** argv )
         }
     }
 
+    #if 1
+    auto sub2_op = []( ccomplex_t res, ccomplex_t val ) -> ccomplex_t{ return val-2.0*res; };
+    Conv.convolve2(phi_xx,phi2_yy,phi3a,assign_op);
+    Conv.convolve2(phi_xx,phi2_zz,phi3a,add_op);
+    Conv.convolve2(phi_yy,phi2_xx,phi3a,add_op);
+    Conv.convolve2(phi_yy,phi2_zz,phi3a,add_op);
+    Conv.convolve2(phi_zz,phi2_xx,phi3a,add_op);
+    Conv.convolve2(phi_zz,phi2_yy,phi3a,add_op);
+    Conv.convolve2(phi_xy,phi2_xy,phi3a,sub2_op);
+    Conv.convolve2(phi_xz,phi2_xz,phi3a,sub2_op);
+    Conv.convolve2(phi_yz,phi2_yz,phi3a,sub2_op);
+
+    phi3a.apply_function_k_dep([&](auto x, auto k) {
+        return 0.5 * x;
+    });
+    
+    #else 
+    
+
     phi2_xx.FourierTransformBackward();
     phi2_xy.FourierTransformBackward();
     phi2_xz.FourierTransformBackward();
@@ -310,6 +344,7 @@ int main( int argc, char** argv )
             }
         }
     }
+    #endif
 
     phi3a.FourierTransformForward();
     phi3a.apply_function_k_dep([&](auto x, auto k) {
@@ -341,7 +376,7 @@ int main( int argc, char** argv )
     Grid_FFT<real_t> &Vy   = phi_yz;
     Grid_FFT<real_t> &Vz   = phi_zz;
 
-    const bool compute_densities = false;
+    const bool compute_densities = true;
     
     phi_xx.FourierTransformForward(false);
     phi_xy.FourierTransformForward(false);
@@ -349,6 +384,13 @@ int main( int argc, char** argv )
     phi_yy.FourierTransformForward(false);
     phi_yz.FourierTransformForward(false);
     phi_zz.FourierTransformForward(false);
+
+    if( compute_densities ){
+        phi.FourierTransformForward();
+        phi2.FourierTransformForward();
+        phi3a.FourierTransformForward();
+        phi3b.FourierTransformForward();
+    }
 
     #pragma omp parallel for
     for (size_t i = 0; i < phi.size(0); ++i)

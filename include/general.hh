@@ -42,6 +42,20 @@ inline double get_wtime()
 {
     return MPI_Wtime();
 }
+
+inline int MPI_Get_rank( void ){
+    int rank, ret;
+    ret = MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+	assert( ret==MPI_SUCCESS );
+    return rank;
+}
+
+inline int MPI_Get_size( void ){
+    int size, ret;
+    ret = MPI_Comm_size(MPI_COMM_WORLD, &size);
+	assert( ret==MPI_SUCCESS );
+    return size;
+}
 #else
   #if defined(_OPENMP)
     #include <omp.h>

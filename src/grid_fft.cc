@@ -587,15 +587,7 @@ void Grid_FFT<data_t>::ComputePowerSpectrum(std::vector<double> &bin_k, std::vec
     }
 }
 
-template <typename array_type>
-int get_task(ptrdiff_t index, const array_type &offsets, const array_type& sizes,
-             const int ntasks )
-{
-    int itask = 0;
-    while (itask < ntasks - 1 && offsets[itask + 1] <= index)
-        ++itask;
-    return itask;
-}
+
 
 template <typename data_t>
 void pad_insert(const Grid_FFT<data_t> &f, Grid_FFT<data_t> &fp)
@@ -604,6 +596,10 @@ void pad_insert(const Grid_FFT<data_t> &f, Grid_FFT<data_t> &fp)
     // assert(fp.n_[0] == 3 * f.n_[0] / 2);
     // assert(fp.n_[1] == 3 * f.n_[1] / 2);
     // assert(fp.n_[2] == 3 * f.n_[2] / 2);
+
+    assert( f.space_ == kspace_id );
+    assert( fp.space_ == kspace_id );
+    
 
     size_t dn[3] = {
         fp.n_[0] - f.n_[0],
@@ -801,195 +797,7 @@ void pad_insert(const Grid_FFT<data_t> &f, Grid_FFT<data_t> &fp)
 }
 
 
-template <typename data_t>
-void unpad(const Grid_FFT<data_t> &fp, Grid_FFT<data_t> &f)
-{
-    // assert(fp.n_[0] == 3 * f.n_[0] / 2);
-    // assert(fp.n_[1] == 3 * f.n_[1] / 2);
-    // assert(fp.n_[2] == 3 * f.n_[2] / 2);
 
-    size_t dn[3] = {
-        fp.n_[0] - f.n_[0],
-        fp.n_[1] - f.n_[1],
-        fp.n_[2] - f.n_[2],
-    };
-
-    const double rfac = std::sqrt(fp.n_[0] * fp.n_[1] * fp.n_[2]) / std::sqrt(f.n_[0] * f.n_[1] * f.n_[2]);
-
-#if !defined(USE_MPI) ////////////////////////////////////////////////////////////////////////////////////
-
-    size_t nhalf[3] = {f.n_[0] / 2, f.n_[1] / 2, f.n_[2] / 2};
-
-    for (size_t i = 0; i < f.size(0); ++i)
-    {
-        size_t ip = (i > nhalf[0]) ? i + dn[0] : i;
-        for (size_t j = 0; j < f.size(1); ++j)
-        {
-            size_t jp = (j > nhalf[1]) ? j + dn[1] : j;
-            for (size_t k = 0; k < f.size(2); ++k)
-            {
-                size_t kp = (k > nhalf[2]) ? k + dn[2] : k;
-                // if( i==nhalf[0]||j==nhalf[1]||k==nhalf[2]) continue;
-                f.kelem(i, j, k) = fp.kelem(ip, jp, kp) / rfac;
-            }
-        }
-    }
-
-#else /// then USE_MPI is defined //////////////////////////////////////////////////////////////
-
-                        /////////////////////////////////////////////////////////////////////
-                        size_t maxslicesz = fp.sizes_[1] * fp.sizes_[3] * 2;
-
-    std::vector<ccomplex_t> crecvbuf_(maxslicesz / 2,0);
-    real_t* recvbuf_ = reinterpret_cast<real_t *>(&crecvbuf_[0]);
-
-    std::vector<ptrdiff_t> 
-        offsets_(CONFIG::MPI_task_size, 0), 
-        offsetsp_(CONFIG::MPI_task_size, 0), 
-        sizes_(CONFIG::MPI_task_size, 0), 
-        sizesp_(CONFIG::MPI_task_size, 0);
-
-    size_t tsize = f.size(0), tsizep = fp.size(0);
-
-    MPI_Allgather(&f.local_1_start_, 1, MPI_LONG_LONG, &offsets_[0], 1,
-                  MPI_LONG_LONG, MPI_COMM_WORLD);
-    MPI_Allgather(&fp.local_1_start_, 1, MPI_LONG_LONG, &offsetsp_[0], 1,
-                  MPI_LONG_LONG, MPI_COMM_WORLD);
-    MPI_Allgather(&tsize, 1, MPI_LONG_LONG, &sizes_[0], 1, MPI_LONG_LONG,
-                  MPI_COMM_WORLD);
-    MPI_Allgather(&tsizep, 1, MPI_LONG_LONG, &sizesp_[0], 1, MPI_LONG_LONG,
-                  MPI_COMM_WORLD);
-    /////////////////////////////////////////////////////////////////////
-
-    double tstart = get_wtime();
-
-    csoca::ilog << "[MPI] Started gather for convolution";
-
-    MPI_Barrier(MPI_COMM_WORLD);
-
-    size_t nf[3] = {f.size(0), f.size(1), f.size(2)};
-    size_t nfp[4] = {fp.size(0), fp.size(1), fp.size(2), fp.size(3)};
-    size_t fny[3] = {f.n_[1] / 2, f.n_[0] / 2, f.n_[2] / 2};
-
-    size_t slicesz = fp.size(1) * fp.size(3);
-
-    if (typeid(data_t) == typeid(real_t))
-        slicesz *= 2; // then sizeof(real_t) gives only half of a complex
-
-    MPI_Datatype datatype =
-        (typeid(data_t) == typeid(float))
-            ? MPI_FLOAT
-            : (typeid(data_t) == typeid(double))
-                  ? MPI_DOUBLE
-                  : (typeid(data_t) == typeid(std::complex<float>))
-                        ? MPI_COMPLEX
-                        : (typeid(data_t) == typeid(std::complex<double>))
-                              ? MPI_DOUBLE_COMPLEX
-                              : MPI_INT;
-
-    MPI_Status status;
-
-    //... local size must be divisible by 2, otherwise this gets too complicated
-    // assert( tsize%2 == 0 );
-
-    f.zero();
-
-    std::vector<MPI_Request> req;
-    MPI_Request temp_req;
-
-    for (size_t i = 0; i < nfp[0]; ++i)
-    {
-        size_t iglobal = i + offsetsp_[CONFIG::MPI_task_rank];
-
-        //... sending
-        if (iglobal < fny[0])
-        {
-            int sendto = get_task(iglobal, offsets_, sizes_, CONFIG::MPI_task_size);
-
-            MPI_Isend(&fp.kelem(i * slicesz), (int)slicesz, datatype, sendto, (int)iglobal,
-                      MPI_COMM_WORLD, &temp_req);
-            req.push_back(temp_req);
-        }
-        else if (iglobal > 2 * fny[0])
-        {
-            int sendto = get_task(iglobal - fny[0], offsets_, sizes_, CONFIG::MPI_task_size);
-            MPI_Isend(&fp.kelem(i * slicesz), (int)slicesz, datatype, sendto, (int)iglobal,
-                      MPI_COMM_WORLD, &temp_req);
-            req.push_back(temp_req);
-        }
-    }
-
-    for (size_t i = 0; i < nf[0]; ++i)
-    {
-        size_t iglobal = i + offsets_[CONFIG::MPI_task_rank];
-
-        int recvfrom = 0;
-        if (iglobal < fny[0])
-        {
-            recvfrom = get_task(iglobal, offsetsp_, sizesp_, CONFIG::MPI_task_size);
-            MPI_Recv(&recvbuf_[0], (int)slicesz, datatype, recvfrom, (int)iglobal,
-                     MPI_COMM_WORLD, &status);
-        }
-        else if (iglobal > fny[0])
-        {
-            recvfrom = get_task(iglobal + fny[0], offsetsp_, sizesp_, CONFIG::MPI_task_size);
-            MPI_Recv(&recvbuf_[0], (int)slicesz, datatype, recvfrom,
-                     (int)(iglobal + fny[0]), MPI_COMM_WORLD, &status);
-        }
-        else
-            continue;
-
-        assert(status.MPI_ERROR == MPI_SUCCESS);
-
-        for (size_t j = 0; j < nf[1]; ++j)
-        {
-
-            if (j < fny[1])
-            {
-                size_t jp = j;
-                for (size_t k = 0; k < nf[2]; ++k)
-                {
-                    // size_t kp = (k>fny[2])? k+fny[2] : k;
-                    // f.kelem(i,j,k) = crecvbuf_[jp*nfp[3]+kp];
-                    if (k < fny[2])
-                        f.kelem(i, j, k) = crecvbuf_[jp * nfp[3] + k];
-                    else if (k > fny[2])
-                        f.kelem(i, j, k) = crecvbuf_[jp * nfp[3] + k + fny[2]];
-                }
-            }
-            if (j > fny[1])
-            {
-                size_t jp = j + fny[1];
-                for (size_t k = 0; k < nf[2]; ++k)
-                {
-                    // size_t kp = (k>fny[2])? k+fny[2] : k;
-                    // f.kelem(i,j,k) = crecvbuf_[jp*nfp[3]+kp];
-                    if (k < fny[2])
-                        f.kelem(i, j, k) = crecvbuf_[jp * nfp[3] + k];
-                    else if (k > fny[2])
-                        f.kelem(i, j, k) = crecvbuf_[jp * nfp[3] + k + fny[2]];
-                }
-            }
-        }
-    }
-
-    for (size_t i = 0; i < req.size(); ++i)
-    {
-        // need to preset status as wait does not necessarily modify it to reflect
-        // success c.f.
-        // http://www.open-mpi.org/community/lists/devel/2007/04/1402.php
-        status.MPI_ERROR = MPI_SUCCESS;
-
-        MPI_Wait(&req[i], &status);
-        assert(status.MPI_ERROR == MPI_SUCCESS);
-    }
-
-    MPI_Barrier(MPI_COMM_WORLD);
-
-    csoca::ilog.Print("[MPI] Completed gather for convolution, took %fs", get_wtime() - tstart);
-
-#endif /// end of ifdef/ifndef USE_MPI //////////////////////////////////////////////////////////////
-}
 
 /********************************************************************************************/
 
@@ -997,8 +805,8 @@ void unpad(const Grid_FFT<data_t> &fp, Grid_FFT<data_t> &f)
 template class Grid_FFT<real_t>;
 template class Grid_FFT<ccomplex_t>;
 
-template void unpad(const Grid_FFT<real_t> &fp, Grid_FFT<real_t> &f);
-template void unpad(const Grid_FFT<ccomplex_t> &fp, Grid_FFT<ccomplex_t> &f);
+// template void unpad(const Grid_FFT<real_t> &fp, Grid_FFT<real_t> &f);
+// template void unpad(const Grid_FFT<ccomplex_t> &fp, Grid_FFT<ccomplex_t> &f);
 
 template void pad_insert(const Grid_FFT<real_t> &f, Grid_FFT<real_t> &fp);
 template void pad_insert(const Grid_FFT<ccomplex_t> &f, Grid_FFT<ccomplex_t> &fp);
