@@ -52,6 +52,7 @@ void pad_insertf( kdep_functor kfunc, Grid_FFT<data_t> &fp ){
     //size_t nhalf[3] = {f.n_[0] / 2, f.n_[1] / 2, f.n_[2] / 2};
     size_t nhalf[3] = {fp.n_[0] / 3, fp.n_[1] / 3, fp.n_[2] / 3};
 
+    #pragma omp parallel for
     for (size_t i = 0; i < 2*fp.size(0)/3; ++i)
     {
         size_t ip = (i > nhalf[0]) ? i + dn[0] : i;
@@ -954,6 +955,24 @@ public:
             }, res, op );
     }
 
+    template< typename opp >
+    void convolve_SumHessians( Grid_FFT<data_t> & inl, const std::array<int,2>& d2l, Grid_FFT<data_t> & inr, const std::array<int,2>& d2r1, 
+                               const std::array<int,2>& d2r2, Grid_FFT<data_t> & res, opp op ){
+        // transform to FS in case fields are not
+        inl.FourierTransformForward();
+        inr.FourierTransformForward();
+        // perform convolution of Hessians
+        this->convolve2__(
+            [&]( size_t i, size_t j, size_t k ) -> ccomplex_t{
+                auto kk = inl.template get_k<real_t>(i,j,k);
+                return -kk[d2l[0]] * kk[d2l[1]] * inl.kelem(i,j,k);// / phifac;
+            },
+            [&]( size_t i, size_t j, size_t k ){
+                auto kk = inr.template get_k<real_t>(i,j,k);
+                return (-kk[d2r1[0]] * kk[d2r1[1]] -kk[d2r2[0]] * kk[d2r2[1]]) * inr.kelem(i,j,k);
+            }, res, op );
+    }
+
     template< typename kfunc1, typename kfunc2, typename opp >
     void convolve2__( kfunc1 kf1, kfunc2 kf2, Grid_FFT<data_t> & res, opp op )
     {
@@ -968,6 +987,8 @@ public:
         //... convolve
         f1p_->FourierTransformBackward();
         f2p_->FourierTransformBackward();
+
+        #pragma omp parallel for
         for (size_t i = 0; i < f1p_->ntot_; ++i){
             (*f2p_).relem(i) *= (*f1p_).relem(i);
         }

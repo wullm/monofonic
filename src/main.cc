@@ -175,43 +175,6 @@ int main( int argc, char** argv )
 
     phi.zero_DC_mode();
 
-    //======================================================================
-    //... compute 2LPT displacement potential
-    Grid_FFT<real_t>
-        phi_xx({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen}),
-        phi_xy({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen}),
-        phi_xz({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen}),
-        phi_yy({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen}),
-        phi_yz({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen}),
-        phi_zz({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
-
-    phi_xx.FourierTransformForward(false);
-    phi_xy.FourierTransformForward(false);
-    phi_xz.FourierTransformForward(false);
-    phi_yy.FourierTransformForward(false);
-    phi_yz.FourierTransformForward(false);
-    phi_zz.FourierTransformForward(false);
-
-    #pragma omp parallel for
-    for (size_t i = 0; i < phi.size(0); ++i)
-    {
-        for (size_t j = 0; j < phi.size(1); ++j)
-        {
-            for (size_t k = 0; k < phi.size(2); ++k)
-            {
-                auto kk = phi.get_k<real_t>(i,j,k);
-                size_t idx = phi.get_idx(i,j,k);
-
-                phi_xx.kelem(idx) = -kk[0] * kk[0] * phi.kelem(idx) / phifac;
-                phi_xy.kelem(idx) = -kk[0] * kk[1] * phi.kelem(idx) / phifac;
-                phi_xz.kelem(idx) = -kk[0] * kk[2] * phi.kelem(idx) / phifac;
-                phi_yy.kelem(idx) = -kk[1] * kk[1] * phi.kelem(idx) / phifac;
-                phi_yz.kelem(idx) = -kk[1] * kk[2] * phi.kelem(idx) / phifac;
-                phi_zz.kelem(idx) = -kk[2] * kk[2] * phi.kelem(idx) / phifac;
-            }
-        }
-    }
-
     auto assign_op = []( ccomplex_t res, ccomplex_t val ) -> ccomplex_t{ return res; };
     auto add_op = []( ccomplex_t res, ccomplex_t val ) -> ccomplex_t{ return val+res; };
     auto sub_op = []( ccomplex_t res, ccomplex_t val ) -> ccomplex_t{ return val-res; };
@@ -224,34 +187,6 @@ int main( int argc, char** argv )
     Conv.convolve_Hessians( phi, {0,1}, phi, {0,1}, phi2, sub_op );
     Conv.convolve_Hessians( phi, {0,2}, phi, {0,2}, phi2, sub_op );
     Conv.convolve_Hessians( phi, {1,2}, phi, {1,2}, phi2, sub_op );
-    
-
-    // Conv.convolve2__( 
-    //     [&]( size_t i, size_t j, size_t k ){
-    //         auto kk = phi.get_k<real_t>(i,j,k);
-    //         return -kk[0] * kk[0] * phi.kelem(i,j,k) / phifac;
-    //     },
-    //     [&]( size_t i, size_t j, size_t k ){
-    //         auto kk = phi.get_k<real_t>(i,j,k);
-    //         return -kk[1] * kk[1] * phi.kelem(i,j,k) / phifac;
-    //     }, phi2, assign_op );
-
-    // Conv.convolve2__( 
-    //     [&]( size_t i, size_t j, size_t k ){
-    //         auto kk = phi.get_k<real_t>(i,j,k);
-    //         return -kk[0] * kk[0] * phi.kelem(i,j,k) / phifac;
-    //     },
-    //     [&]( size_t i, size_t j, size_t k ){
-    //         auto kk = phi.get_k<real_t>(i,j,k);
-    //         return -kk[2] * kk[2] * phi.kelem(i,j,k) / phifac;
-    //     }, phi2, assign_op );
-
-    //Conv.convolve2(phi_xx,phi_yy,phi2,assign_op);
-    // Conv.convolve2(phi_xx,phi_zz,phi2,add_op);
-    // Conv.convolve2(phi_yy,phi_zz,phi2,add_op);
-    // Conv.convolve2(phi_xy,phi_xy,phi2,sub_op);
-    // Conv.convolve2(phi_xz,phi_xz,phi2,sub_op);
-    // Conv.convolve2(phi_yz,phi_yz,phi2,sub_op);
     
 #else 
     phi2.FourierTransformBackward();
@@ -286,52 +221,16 @@ int main( int argc, char** argv )
     
     //======================================================================
     //... compute 3LPT displacement potential
-    Grid_FFT<real_t>
-        phi2_xx({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen}),
-        phi2_xy({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen}),
-        phi2_xz({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen}),
-        phi2_yy({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen}),
-        phi2_yz({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen}),
-        phi2_zz({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
-
-    phi2_xx.FourierTransformForward(false);
-    phi2_xy.FourierTransformForward(false);
-    phi2_xz.FourierTransformForward(false);
-    phi2_yy.FourierTransformForward(false);
-    phi2_yz.FourierTransformForward(false);
-    phi2_zz.FourierTransformForward(false);
-
-    #pragma omp parallel for
-    for (size_t i = 0; i < phi2.size(0); ++i)
-    {
-        for (size_t j = 0; j < phi2.size(1); ++j)
-        {
-            for (size_t k = 0; k < phi2.size(2); ++k)
-            {
-                auto kk = phi2.get_k<real_t>(i,j,k);
-                size_t idx = phi2.get_idx(i,j,k);
-
-                phi2_xx.kelem(idx) = -kk[0] * kk[0] * phi2.kelem(idx) / phifac;
-                phi2_xy.kelem(idx) = -kk[0] * kk[1] * phi2.kelem(idx) / phifac;
-                phi2_xz.kelem(idx) = -kk[0] * kk[2] * phi2.kelem(idx) / phifac;
-                phi2_yy.kelem(idx) = -kk[1] * kk[1] * phi2.kelem(idx) / phifac;
-                phi2_yz.kelem(idx) = -kk[1] * kk[2] * phi2.kelem(idx) / phifac;
-                phi2_zz.kelem(idx) = -kk[2] * kk[2] * phi2.kelem(idx) / phifac;
-            }
-        }
-    }
 
     #if 1
     auto sub2_op = []( ccomplex_t res, ccomplex_t val ) -> ccomplex_t{ return val-2.0*res; };
-    Conv.convolve2(phi_xx,phi2_yy,phi3a,assign_op);
-    Conv.convolve2(phi_xx,phi2_zz,phi3a,add_op);
-    Conv.convolve2(phi_yy,phi2_xx,phi3a,add_op);
-    Conv.convolve2(phi_yy,phi2_zz,phi3a,add_op);
-    Conv.convolve2(phi_zz,phi2_xx,phi3a,add_op);
-    Conv.convolve2(phi_zz,phi2_yy,phi3a,add_op);
-    Conv.convolve2(phi_xy,phi2_xy,phi3a,sub2_op);
-    Conv.convolve2(phi_xz,phi2_xz,phi3a,sub2_op);
-    Conv.convolve2(phi_yz,phi2_yz,phi3a,sub2_op);
+
+    Conv.convolve_SumHessians( phi, {0,0}, phi2, {1,1}, {2,2}, phi3a, assign_op );
+    Conv.convolve_SumHessians( phi, {1,1}, phi2, {2,2}, {0,0}, phi3a, add_op );
+    Conv.convolve_SumHessians( phi, {2,2}, phi2, {0,0}, {1,1}, phi3a, add_op );
+    Conv.convolve_Hessians( phi, {0,1}, phi2, {0,1}, phi3a, sub2_op );
+    Conv.convolve_Hessians( phi, {0,2}, phi2, {0,2}, phi3a, sub2_op );
+    Conv.convolve_Hessians( phi, {1,2}, phi2, {1,2}, phi3a, sub2_op );
 
     phi3a.apply_function_k_dep([&](auto x, auto k) {
         return 0.5 * x;
@@ -378,7 +277,7 @@ int main( int argc, char** argv )
     phi3a.FourierTransformForward();
     phi3a.apply_function_k_dep([&](auto x, auto k) {
         real_t kmod2 = k.norm_squared();
-        return x * (-1.0 / kmod2) * phifac;
+        return x * (-1.0 / kmod2) * phifac / phifac / phifac;
     });
     phi3a.zero_DC_mode();
     
@@ -391,83 +290,46 @@ int main( int argc, char** argv )
     
     ///////////////////////////////////////////////////////////////////////
     // we store the densities here if we compute them
-    Grid_FFT<real_t> &delta = phi_xx;
-    Grid_FFT<real_t> &delta2 = phi_xy;
-    Grid_FFT<real_t> &delta3a = phi_xz;
-    Grid_FFT<real_t> &delta3b = phi_yy;
-    Grid_FFT<real_t> &delta3 = phi_yz;
-
-    // we store displacements and velocities here if we compute them
-    Grid_FFT<real_t> &Psix = phi_xx;
-    Grid_FFT<real_t> &Psiy = phi_xy;
-    Grid_FFT<real_t> &Psiz = phi_xz;
-    Grid_FFT<real_t> &Vx   = phi_yy;
-    Grid_FFT<real_t> &Vy   = phi_yz;
-    Grid_FFT<real_t> &Vz   = phi_zz;
-
     const bool compute_densities = true;
-    
-    phi_xx.FourierTransformForward(false);
-    phi_xy.FourierTransformForward(false);
-    phi_xz.FourierTransformForward(false);
-    phi_yy.FourierTransformForward(false);
-    phi_yz.FourierTransformForward(false);
-    phi_zz.FourierTransformForward(false);
-
     if( compute_densities ){
-        phi.FourierTransformForward();
-        phi2.FourierTransformForward();
-        phi3a.FourierTransformForward();
-        phi3b.FourierTransformForward();
-    }
+        Grid_FFT<real_t> delta   = Grid_FFT<real_t>({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
+        Grid_FFT<real_t> delta2  = Grid_FFT<real_t>({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
+        Grid_FFT<real_t> delta3a = Grid_FFT<real_t>({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
+        Grid_FFT<real_t> delta3b = Grid_FFT<real_t>({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
+        Grid_FFT<real_t> delta3  = Grid_FFT<real_t>({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
+        delta.FourierTransformForward(false);
+        delta2.FourierTransformForward(false);
+        delta3a.FourierTransformForward(false);
+        delta3b.FourierTransformForward(false);
+        delta3.FourierTransformForward(false);
 
-    #pragma omp parallel for
-    for (size_t i = 0; i < phi.size(0); ++i)
-    {
-        for (size_t j = 0; j < phi.size(1); ++j)
+        #pragma omp parallel for
+        for (size_t i = 0; i < phi.size(0); ++i)
         {
-            for (size_t k = 0; k < phi.size(2); ++k)
+            for (size_t j = 0; j < phi.size(1); ++j)
             {
-                auto kk = phi.get_k<real_t>(i,j,k);
-                size_t idx = phi.get_idx(i,j,k);
-                auto laplace = -kk.norm_squared();
+                for (size_t k = 0; k < phi.size(2); ++k)
+                {
+                    auto kk = phi.get_k<real_t>(i,j,k);
+                    size_t idx = phi.get_idx(i,j,k);
+                    auto laplace = -kk.norm_squared();
 
-                // scale potentials with respective order growth factors
-                phi.kelem(idx)   *= g1;
-                phi2.kelem(idx)  *= g2;
-                phi3a.kelem(idx) *= g3a;
-                phi3b.kelem(idx) *= g3b;
+                    // scale potentials with respective order growth factors
+                    phi.kelem(idx)   *= g1;
+                    phi2.kelem(idx)  *= g2;
+                    phi3a.kelem(idx) *= g3a;
+                    phi3b.kelem(idx) *= g3b;
 
-                if( compute_densities ){
                     // compute densities associated to respective potentials as well
                     delta.kelem(idx) = laplace * phi.kelem(idx) / phifac;
                     delta2.kelem(idx) = laplace * phi2.kelem(idx) / phifac;
                     delta3a.kelem(idx) = laplace * phi3a.kelem(idx) / phifac;
                     delta3b.kelem(idx) = laplace * phi3b.kelem(idx) / phifac;
                     delta3.kelem(idx) = delta3a.kelem(idx) + delta3b.kelem(idx);
-                }else{
-                    auto phitot = phi.kelem(idx) + ((LPTorder>1)?phi2.kelem(idx):0.0) + ((LPTorder>2)? phi3a.kelem(idx) + phi3b.kelem(idx) : 0.0);
-                    auto phitot_v = vfac1 * phi.kelem(idx) + ((LPTorder>1)? vfac2 * phi2.kelem(idx) : 0.0) + ((LPTorder>2)? vfac3 * (phi3a.kelem(idx) + phi3b.kelem(idx)) : 0.0);
-
-                    Psix.kelem(idx) = ccomplex_t(0.0,1.0) * kk[0]* boxlen * ( phitot );
-                    Psiy.kelem(idx) = ccomplex_t(0.0,1.0) * kk[1]* boxlen * ( phitot );
-                    Psiz.kelem(idx) = ccomplex_t(0.0,1.0) * kk[2]* boxlen * ( phitot );
-
-                    Vx.kelem(idx)   = ccomplex_t(0.0,1.0) * kk[0]* boxlen * ( phitot_v );
-                    Vy.kelem(idx)   = ccomplex_t(0.0,1.0) * kk[1]* boxlen * ( phitot_v );
-                    Vz.kelem(idx)   = ccomplex_t(0.0,1.0) * kk[2]* boxlen * ( phitot_v );
+                
                 }
             }
         }
-    }
-
-    ///////////////////////////////////////////////////////////////////////
-    
-
-    //... write output .....
-    
-
-    if( compute_densities ){
         phi.FourierTransformBackward();
         phi2.FourierTransformBackward();
         phi3a.FourierTransformBackward();
@@ -491,6 +353,52 @@ int main( int argc, char** argv )
         delta3b.Write_to_HDF5(fname_hdf5, "delta3b");
         delta3.Write_to_HDF5(fname_hdf5, "delta3");
     }else{
+        // we store displacements and velocities here if we compute them
+        Grid_FFT<real_t> Psix = Grid_FFT<real_t>({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
+        Grid_FFT<real_t> Psiy = Grid_FFT<real_t>({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
+        Grid_FFT<real_t> Psiz = Grid_FFT<real_t>({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
+        Grid_FFT<real_t> Vx   = Grid_FFT<real_t>({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
+        Grid_FFT<real_t> Vy   = Grid_FFT<real_t>({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
+        Grid_FFT<real_t> Vz   = Grid_FFT<real_t>({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
+        Psix.FourierTransformForward(false);
+        Psiy.FourierTransformForward(false);
+        Psiz.FourierTransformForward(false);
+        Vx.FourierTransformForward(false);
+        Vy.FourierTransformForward(false);
+        Vz.FourierTransformForward(false);
+
+        #pragma omp parallel for
+        for (size_t i = 0; i < phi.size(0); ++i)
+        {
+            for (size_t j = 0; j < phi.size(1); ++j)
+            {
+                for (size_t k = 0; k < phi.size(2); ++k)
+                {
+                    auto kk = phi.get_k<real_t>(i,j,k);
+                    size_t idx = phi.get_idx(i,j,k);
+                    auto laplace = -kk.norm_squared();
+
+                    // scale potentials with respective order growth factors
+                    phi.kelem(idx)   *= g1;
+                    phi2.kelem(idx)  *= g2;
+                    phi3a.kelem(idx) *= g3a;
+                    phi3b.kelem(idx) *= g3b;
+
+                    
+                    auto phitot = phi.kelem(idx) + ((LPTorder>1)?phi2.kelem(idx):0.0) + ((LPTorder>2)? phi3a.kelem(idx) + phi3b.kelem(idx) : 0.0);
+                    auto phitot_v = vfac1 * phi.kelem(idx) + ((LPTorder>1)? vfac2 * phi2.kelem(idx) : 0.0) + ((LPTorder>2)? vfac3 * (phi3a.kelem(idx) + phi3b.kelem(idx)) : 0.0);
+
+                    Psix.kelem(idx) = ccomplex_t(0.0,1.0) * kk[0]* boxlen * ( phitot );
+                    Psiy.kelem(idx) = ccomplex_t(0.0,1.0) * kk[1]* boxlen * ( phitot );
+                    Psiz.kelem(idx) = ccomplex_t(0.0,1.0) * kk[2]* boxlen * ( phitot );
+
+                    Vx.kelem(idx)   = ccomplex_t(0.0,1.0) * kk[0]* boxlen * ( phitot_v );
+                    Vy.kelem(idx)   = ccomplex_t(0.0,1.0) * kk[1]* boxlen * ( phitot_v );
+                    Vz.kelem(idx)   = ccomplex_t(0.0,1.0) * kk[2]* boxlen * ( phitot_v );
+                }
+            }
+        }
+
         Psix.FourierTransformBackward();
         Psiy.FourierTransformBackward();
         Psiz.FourierTransformBackward();
@@ -518,9 +426,10 @@ int main( int argc, char** argv )
         
         the_output_plugin->finalize();
 		delete the_output_plugin;
-        
     }
-    
+
+
+    ///////////////////////////////////////////////////////////////////////
     
 
 #if defined(USE_MPI)
