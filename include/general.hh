@@ -72,6 +72,17 @@ inline int MPI_Get_size( void ){
   #endif
 #endif
 
+// get task based on offsets
+template <typename array_type>
+int get_task(ptrdiff_t index, const array_type &offsets, const array_type& sizes,
+             const int ntasks )
+{
+    int itask = 0;
+    while (itask < ntasks - 1 && offsets[itask + 1] <= index)
+        ++itask;
+    return itask;
+}
+
 namespace CONFIG
 {
 extern int MPI_thread_support;

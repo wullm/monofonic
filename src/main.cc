@@ -8,6 +8,7 @@
 
 #include <general.hh>
 #include <grid_fft.hh>
+#include <convolution.hh>
 
 #include <transfer_function_plugin.hh>
 #include <random_plugin.hh>
@@ -181,8 +182,7 @@ int main( int argc, char** argv )
 
 #if 1
     // phi_xx * phi_yy
-    Conv.convolve_Hessians( phi, {0,0}, phi, {1,1}, phi2, assign_op );
-    Conv.convolve_Hessians( phi, {0,0}, phi, {2,2}, phi2, add_op );
+    Conv.convolve_SumHessians( phi, {0,0}, phi, {1,1}, {2,2}, phi2, assign_op );
     Conv.convolve_Hessians( phi, {1,1}, phi, {2,2}, phi2, add_op );
     Conv.convolve_Hessians( phi, {0,1}, phi, {0,1}, phi2, sub_op );
     Conv.convolve_Hessians( phi, {0,2}, phi, {0,2}, phi2, sub_op );
@@ -204,9 +204,11 @@ int main( int argc, char** argv )
             {
                 size_t idx = phi2.get_idx(i, j, k);
 
-                phi2.relem(idx) =  phi_xx.relem(idx)*phi_yy.relem(idx)-phi_xy.relem(idx)*phi_xy.relem(idx)
-                                  +phi_xx.relem(idx)*phi_zz.relem(idx)-phi_xz.relem(idx)*phi_xz.relem(idx)
-                                  +phi_yy.relem(idx)*phi_zz.relem(idx)-phi_yz.relem(idx)*phi_yz.relem(idx);
+                phi2.relem(idx) =  phi_xx.relem(idx)*(phi_yy.relem(idx)+phi_zz.relem(idx))
+                                    +phi_yy.relem(idx)*phi_zz.relem(idx)
+                                    -phi_xy.relem(idx)*phi_xy.relem(idx)
+                                    -phi_xz.relem(idx)*phi_xz.relem(idx)
+                                    -phi_yz.relem(idx)*phi_yz.relem(idx);
             }
         }
     }
