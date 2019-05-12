@@ -33,126 +33,210 @@ int get_task(ptrdiff_t index, const array_type &offsets, const array_type& sizes
 template <typename data_t>
 void pad_insert(const Grid_FFT<data_t> &f, Grid_FFT<data_t> &fp);
 
-template< typename data_t >
-class OrszagConvolver
-{
-protected:
-    Grid_FFT<data_t> *f1p_, *f2p_;
-    std::array<size_t,3> np_;
-    std::array<real_t,3> length_;
+template <typename kdep_functor, typename data_t>
+void pad_insertf( kdep_functor kfunc, Grid_FFT<data_t> &fp ){
+    assert( fp.space_ == kspace_id );
     
-    ccomplex_t *crecvbuf_;
-    real_t *recvbuf_;
-    ptrdiff_t *offsets_;
-	ptrdiff_t *offsetsp_;
-	ptrdiff_t *sizes_;
-	ptrdiff_t *sizesp_;
 
-private:
-    int get_task( ptrdiff_t index, const ptrdiff_t *offsets, const ptrdiff_t *sizes, const int ntasks ) const
+    size_t dn[3] = {
+        fp.n_[0]/3,// fp.n_[0] - f.n_[0],
+        fp.n_[1]/3,// fp.n_[1] - f.n_[1],
+        fp.n_[2]/3// fp.n_[2] - f.n_[2],
+    };
+    const double rfac = std::pow(1.5,1.5);//std::sqrt(fp.n_[0] * fp.n_[1] * fp.n_[2]) / std::sqrt(f.n_[0] * f.n_[1] * f.n_[2]);
+
+    fp.zero();
+
+#if !defined(USE_MPI) ////////////////////////////////////////////////////////////////////////////////////
+
+    //size_t nhalf[3] = {f.n_[0] / 2, f.n_[1] / 2, f.n_[2] / 2};
+    size_t nhalf[3] = {fp.n_[0] / 3, fp.n_[1] / 3, fp.n_[2] / 3};
+
+    for (size_t i = 0; i < 2*fp.size(0)/3; ++i)
     {
-        int itask = 0;
-        while( itask < ntasks-1 && offsets[itask+1] <= index ) ++itask;
-        return itask;
-    }
-
-	// void pad_insert( const Grid_FFT<data_t> & f, Grid_FFT<data_t> & fp );
-	// void unpad( const Grid_FFT<data_t> & fp, Grid_FFT< data_t > & f );
-
-public:
-
-    
-    OrszagConvolver( const std::array<size_t, 3> &N, const std::array<real_t, 3> &L )
-    : np_({3*N[0]/2,3*N[1]/2,3*N[2]/2}), length_(L)
-    {
-        //... create temporaries
-        f1p_ = new Grid_FFT<data_t>(np_, length_, kspace_id);
-        f2p_ = new Grid_FFT<data_t>(np_, length_, kspace_id);
-
-#if defined(USE_MPI)
-        size_t maxslicesz = f1p_->sizes_[1] * f1p_->sizes_[3] * 2;
-
-        crecvbuf_ = new ccomplex_t[maxslicesz / 2];
-        recvbuf_ = reinterpret_cast<real_t *>(&crecvbuf_[0]);
-
-        int ntasks(MPI_Get_size());
-
-        offsets_ = new ptrdiff_t[ntasks];
-        offsetsp_ = new ptrdiff_t[ntasks];
-        sizes_ = new ptrdiff_t[ntasks];
-        sizesp_ = new ptrdiff_t[ntasks];
-
-        size_t tsize = N[0], tsizep = f1p_->size(0);
-
-        MPI_Allgather(&f.local_1_start_, 1, MPI_LONG_LONG, &offsets_[0], 1,
-                        MPI_LONG_LONG, MPI_COMM_WORLD);
-        MPI_Allgather(&f1p_->local_1_start_, 1, MPI_LONG_LONG, &offsetsp_[0], 1,
-                        MPI_LONG_LONG, MPI_COMM_WORLD);
-        MPI_Allgather(&tsize, 1, MPI_LONG_LONG, &sizes_[0], 1, MPI_LONG_LONG,
-                        MPI_COMM_WORLD);
-        MPI_Allgather(&tsizep, 1, MPI_LONG_LONG, &sizesp_[0], 1, MPI_LONG_LONG,
-                        MPI_COMM_WORLD);
-#endif
-    }
-
-    ~OrszagConvolver()
-    {
-        delete f1p_;
-        delete f2p_;
-#if defined(USE_MPI)
-        delete[] crecvbuf_;
-        delete[] offsets_;
-        delete[] offsetsp_;
-        delete[] sizes_;
-        delete[] sizesp_;
-#endif
-    }
-
-    //... inplace interface
-    template <typename opp>
-	void convolve2( Grid_FFT<data_t> & f1, Grid_FFT<data_t> & f2, Grid_FFT<data_t> & res, opp op)// = []( ccomplex_t convres, ccomplex_t res ) -> ccomplex_t{ return convres; } )
-    {
-        #if 1
-        // constexpr real_t fac{ std::pow(1.5,1.5) };
-        constexpr real_t fac{ 1.0 };
-        
-        //... copy data 1
-        f1.FourierTransformForward();
-        f1p_->FourierTransformForward(false);
-        pad_insert(f1, *f1p_);
-        //... copy data 2
-        f2.FourierTransformForward();
-        f2p_->FourierTransformForward(false);
-        pad_insert(f2, *f2p_);
-        //... convolve
-        f1p_->FourierTransformBackward();
-        f2p_->FourierTransformBackward();
-        for (size_t i = 0; i < f1p_->ntot_; ++i){
-            (*f2p_).relem(i) *= fac * (*f1p_).relem(i);
+        size_t ip = (i > nhalf[0]) ? i + dn[0] : i;
+        for (size_t j = 0; j < 2*fp.size(1)/3; ++j)
+        {
+            size_t jp = (j > nhalf[1]) ? j + dn[1] : j;
+            for (size_t k = 0; k < 2*fp.size(2)/3; ++k)
+            {
+                size_t kp = (k > nhalf[2]) ? k + dn[2] : k;
+                // if( i==nhalf[0]||j==nhalf[1]||k==nhalf[2]) continue;
+                //fp.kelem(ip, jp, kp) = f.kelem(i, j, k) * rfac;
+                fp.kelem(ip, jp, kp) = kfunc(i, j, k) * rfac;
+            }
         }
-        f2p_->FourierTransformForward();
-        //... copy data back
-        res.FourierTransformForward();
-        unpad(*f2p_, res, op);
-        #else
-        res.FourierTransformBackward();
-        f1.FourierTransformBackward();
-        f2.FourierTransformBackward();
-        
-        for (size_t i = 0; i < res.ntot_; ++i){
-            res.relem(i) = op(f1.relem(i)*f2.relem(i),res.relem(i));
-        }
-
-        #endif
     }
 
-    //... inplace interface
-	/*void convolve3( const Grid_FFT<data_t> & f1, const Grid_FFT<data_t> & f2, const Grid_FFT<data_t> & f3, Grid_FFT<data_t> & res )
+#else /// then USE_MPI is defined ////////////////////////////////////////////////////////////
+
+    throw std::runtime_error("need to implement buffering before sending for MPI");
+
+    MPI_Barrier(MPI_COMM_WORLD);
+
+    /////////////////////////////////////////////////////////////////////
+    size_t maxslicesz = fp.sizes_[1] * fp.sizes_[3] * 2;
+
+    std::vector<ccomplex_t> crecvbuf_(maxslicesz / 2, 0);
+    real_t *recvbuf_ = reinterpret_cast<real_t *>(&crecvbuf_[0]);
+
+    std::vector<ptrdiff_t>
+        offsets_(CONFIG::MPI_task_size, 0),
+        offsetsp_(CONFIG::MPI_task_size, 0),
+        sizes_(CONFIG::MPI_task_size, 0),
+        sizesp_(CONFIG::MPI_task_size, 0);
+
+    size_t tsize = f.size(0), tsizep = fp.size(0);
+
+    MPI_Allgather(&f.local_1_start_, 1, MPI_LONG_LONG, &offsets_[0], 1,
+                  MPI_LONG_LONG, MPI_COMM_WORLD);
+    MPI_Allgather(&fp.local_1_start_, 1, MPI_LONG_LONG, &offsetsp_[0], 1,
+                  MPI_LONG_LONG, MPI_COMM_WORLD);
+    MPI_Allgather(&tsize, 1, MPI_LONG_LONG, &sizes_[0], 1, MPI_LONG_LONG,
+                  MPI_COMM_WORLD);
+    MPI_Allgather(&tsizep, 1, MPI_LONG_LONG, &sizesp_[0], 1, MPI_LONG_LONG,
+                  MPI_COMM_WORLD);
+    /////////////////////////////////////////////////////////////////////
+
+    double tstart = get_wtime();
+    csoca::dlog << "[MPI] Started scatter for convolution" << std::endl;
+
+    //... collect offsets
+
+    assert(f.space_ == kspace_id);
+
+    size_t nf[3] = {f.size(0), f.size(1), f.size(2)};
+    size_t nfp[3] = {fp.size(0), fp.size(1), fp.size(2)};
+    size_t fny[3] = {f.n_[1] / 2, f.n_[0] / 2, f.n_[2] / 2};
+
+    //... local size must be divisible by 2, otherwise this gets too complicated
+    assert(f.n_[1] % 2 == 0);
+
+    size_t slicesz = f.size(1) * f.size(3); //*2;
+
+    // comunicate
+    if (typeid(data_t) == typeid(real_t))
+        slicesz *= 2; // then sizeof(real_t) gives only half of a complex
+
+    MPI_Datatype datatype =
+        (typeid(data_t) == typeid(float))
+            ? MPI_FLOAT
+            : (typeid(data_t) == typeid(double))
+                  ? MPI_DOUBLE
+                  : (typeid(data_t) == typeid(std::complex<float>))
+                        ? MPI_COMPLEX
+                        : (typeid(data_t) == typeid(std::complex<double>))
+                              ? MPI_DOUBLE_COMPLEX
+                              : MPI_INT;
+
+    MPI_Status status;
+
+    std::vector<MPI_Request> req;
+    MPI_Request temp_req;
+
+    for (size_t i = 0; i < nf[0]; ++i)
     {
-        convolve2( f1, f2, res );
-        convolve2( res, f3, res );
-    }*/
-};
+        size_t iglobal = i + offsets_[CONFIG::MPI_task_rank];
+
+        if (iglobal < fny[0])
+        {
+            int sendto = get_task(iglobal, offsetsp_, sizesp_, CONFIG::MPI_task_size);
+            MPI_Isend(&f.kelem(i * slicesz), (int)slicesz, datatype, sendto,
+                      (int)iglobal, MPI_COMM_WORLD, &temp_req);
+            req.push_back(temp_req);
+            // ofs << "task " << CONFIG::MPI_task_rank << " : added request No" << req.size()-1 << ":
+            // Isend #" << iglobal << " to task " << sendto << std::endl;
+        }
+        if (iglobal > fny[0])
+        {
+            int sendto = get_task(iglobal + fny[0], offsetsp_, sizesp_, CONFIG::MPI_task_size);
+            MPI_Isend(&f.kelem(i * slicesz), (int)slicesz, datatype, sendto,
+                      (int)(iglobal + fny[0]), MPI_COMM_WORLD, &temp_req);
+            req.push_back(temp_req);
+            // ofs << "task " << CONFIG::MPI_task_rank << " : added request No" << req.size()-1 << ":
+            // Isend #" << iglobal+fny[0] << " to task " << sendto << std::endl;
+        }
+    }
+
+    for (size_t i = 0; i < nfp[0]; ++i)
+    {
+        size_t iglobal = i + offsetsp_[CONFIG::MPI_task_rank];
+
+        if (iglobal < fny[0] || iglobal > 2 * fny[0])
+        {
+            int recvfrom = 0;
+            if (iglobal <= fny[0])
+                recvfrom = get_task(iglobal, offsets_, sizes_, CONFIG::MPI_task_size);
+            else
+                recvfrom = get_task(iglobal - fny[0], offsets_, sizes_, CONFIG::MPI_task_size);
+
+            // ofs << "task " << CONFIG::MPI_task_rank << " : receive #" << iglobal << " from task "
+            // << recvfrom << std::endl;
+
+            MPI_Recv(&recvbuf_[0], (int)slicesz, datatype, recvfrom, (int)iglobal,
+                     MPI_COMM_WORLD, &status);
+            // ofs << "---> ok!  " << (bool)(status.Get_error()==MPI::SUCCESS) <<
+            // std::endl;
+
+            assert(status.MPI_ERROR == MPI_SUCCESS);
+
+            for (size_t j = 0; j < nf[1]; ++j)
+            {
+                if (j < fny[1])
+                {
+                    size_t jp = j;
+                    for (size_t k = 0; k < nf[2]; ++k)
+                    {
+                        // size_t kp = (k>fny[2])? k+fny[2] : k;
+                        if (k < fny[2])
+                            fp.kelem(i, jp, k) = crecvbuf_[j * f.sizes_[3] + k];
+                        else if (k > fny[2])
+                            fp.kelem(i, jp, k + fny[2]) = crecvbuf_[j * f.sizes_[3] + k];
+                    }
+                }
+
+                else if (j > fny[1])
+                {
+                    size_t jp = j + fny[1];
+                    for (size_t k = 0; k < nf[2]; ++k)
+                    {
+                        // size_t kp = (k>fny[2])? k+fny[2] : k;
+                        // fp.kelem(i,jp,kp) = crecvbuf_[j*f.sizes_[3]+k];
+                        if (k < fny[2])
+                            fp.kelem(i, jp, k) = crecvbuf_[j * f.sizes_[3] + k];
+                        else if (k > fny[2])
+                            fp.kelem(i, jp, k + fny[2]) = crecvbuf_[j * f.sizes_[3] + k];
+                    }
+                }
+            }
+        }
+    }
+
+    for (size_t i = 0; i < req.size(); ++i)
+    {
+        // need to set status as wait does not necessarily modify it
+        // c.f. http://www.open-mpi.org/community/lists/devel/2007/04/1402.php
+        status.MPI_ERROR = MPI_SUCCESS;
+        // ofs << "task " << CONFIG::MPI_task_rank << " : checking request No" << i << std::endl;
+        MPI_Wait(&req[i], &status);
+        // ofs << "---> ok!" << std::endl;
+        assert(status.MPI_ERROR == MPI_SUCCESS);
+    }
+
+    // usleep(1000);
+
+    MPI_Barrier(MPI_COMM_WORLD);
+
+    // std::cerr << ">>>>> task " << CONFIG::MPI_task_rank << " all transfers completed! <<<<<"
+    // << std::endl;  ofs << ">>>>> task " << CONFIG::MPI_task_rank << " all transfers completed!
+    // <<<<<" << std::endl;
+    csoca::dlog.Print("[MPI] Completed scatter for convolution, took %fs\n",
+                get_wtime() - tstart);
+
+#endif /// end of ifdef/ifndef USE_MPI ///////////////////////////////////////////////////////////////
+}
+
+
 
 
 template <typename data_t>
@@ -300,7 +384,7 @@ public:
     }
 
     template <typename ft>
-    vec3<ft> get_k(const size_t &i, const size_t &j, const size_t &k) const
+    vec3<ft> get_k(const size_t i, const size_t j, const size_t k) const
     {
         vec3<ft> kk;
 
@@ -543,9 +627,9 @@ public:
     void zero_DC_mode(void)
     {
         if( space_ == kspace_id ){
-#ifdef USE_MPI
+        #ifdef USE_MPI
         if (CONFIG::MPI_task_rank == 0)
-#endif
+        #endif
             cdata_[0] = (data_t)0.0;
         }else{
             data_t sum = 0.0;
@@ -557,7 +641,7 @@ public:
                     for (size_t k = 0; k < sizes_[2]; ++k)
                     {
                         sum += this->relem(i, j, k);
-    }
+                    }
                 }
             }
             #if defined(USE_MPI)
@@ -774,3 +858,167 @@ void unpad(const Grid_FFT<data_t> &fp, Grid_FFT<data_t> &f, operator_t op )
 
 #endif /// end of ifdef/ifndef USE_MPI //////////////////////////////////////////////////////////////
 }
+
+
+
+
+template< typename data_t >
+class OrszagConvolver
+{
+protected:
+    Grid_FFT<data_t> *f1p_, *f2p_;
+    std::array<size_t,3> np_;
+    std::array<real_t,3> length_;
+    
+    ccomplex_t *crecvbuf_;
+    real_t *recvbuf_;
+    ptrdiff_t *offsets_;
+	ptrdiff_t *offsetsp_;
+	ptrdiff_t *sizes_;
+	ptrdiff_t *sizesp_;
+
+private:
+    int get_task( ptrdiff_t index, const ptrdiff_t *offsets, const ptrdiff_t *sizes, const int ntasks ) const
+    {
+        int itask = 0;
+        while( itask < ntasks-1 && offsets[itask+1] <= index ) ++itask;
+        return itask;
+    }
+
+	// void pad_insert( const Grid_FFT<data_t> & f, Grid_FFT<data_t> & fp );
+	// void unpad( const Grid_FFT<data_t> & fp, Grid_FFT< data_t > & f );
+
+public:
+
+    
+    OrszagConvolver( const std::array<size_t, 3> &N, const std::array<real_t, 3> &L )
+    : np_({3*N[0]/2,3*N[1]/2,3*N[2]/2}), length_(L)
+    {
+        //... create temporaries
+        f1p_ = new Grid_FFT<data_t>(np_, length_, kspace_id);
+        f2p_ = new Grid_FFT<data_t>(np_, length_, kspace_id);
+
+#if defined(USE_MPI)
+        size_t maxslicesz = f1p_->sizes_[1] * f1p_->sizes_[3] * 2;
+
+        crecvbuf_ = new ccomplex_t[maxslicesz / 2];
+        recvbuf_ = reinterpret_cast<real_t *>(&crecvbuf_[0]);
+
+        int ntasks(MPI_Get_size());
+
+        offsets_ = new ptrdiff_t[ntasks];
+        offsetsp_ = new ptrdiff_t[ntasks];
+        sizes_ = new ptrdiff_t[ntasks];
+        sizesp_ = new ptrdiff_t[ntasks];
+
+        size_t tsize = N[0], tsizep = f1p_->size(0);
+
+        MPI_Allgather(&f.local_1_start_, 1, MPI_LONG_LONG, &offsets_[0], 1,
+                        MPI_LONG_LONG, MPI_COMM_WORLD);
+        MPI_Allgather(&f1p_->local_1_start_, 1, MPI_LONG_LONG, &offsetsp_[0], 1,
+                        MPI_LONG_LONG, MPI_COMM_WORLD);
+        MPI_Allgather(&tsize, 1, MPI_LONG_LONG, &sizes_[0], 1, MPI_LONG_LONG,
+                        MPI_COMM_WORLD);
+        MPI_Allgather(&tsizep, 1, MPI_LONG_LONG, &sizesp_[0], 1, MPI_LONG_LONG,
+                        MPI_COMM_WORLD);
+#endif
+    }
+
+    ~OrszagConvolver()
+    {
+        delete f1p_;
+        delete f2p_;
+#if defined(USE_MPI)
+        delete[] crecvbuf_;
+        delete[] offsets_;
+        delete[] offsetsp_;
+        delete[] sizes_;
+        delete[] sizesp_;
+#endif
+    }
+
+    template< typename opp >
+    void convolve_Hessians( Grid_FFT<data_t> & inl, const std::array<int,2>& d2l, Grid_FFT<data_t> & inr, const std::array<int,2>& d2r, Grid_FFT<data_t> & res, opp op ){
+        // transform to FS in case fields are not
+        inl.FourierTransformForward();
+        inr.FourierTransformForward();
+        // perform convolution of Hessians
+        this->convolve2__(
+            [&]( size_t i, size_t j, size_t k ) -> ccomplex_t{
+                auto kk = inl.template get_k<real_t>(i,j,k);
+                return -kk[d2l[0]] * kk[d2l[1]] * inl.kelem(i,j,k);// / phifac;
+            },
+            [&]( size_t i, size_t j, size_t k ){
+                auto kk = inr.template get_k<real_t>(i,j,k);
+                return -kk[d2r[0]] * kk[d2r[1]] * inr.kelem(i,j,k);// / phifac;
+            }, res, op );
+    }
+
+    template< typename kfunc1, typename kfunc2, typename opp >
+    void convolve2__( kfunc1 kf1, kfunc2 kf2, Grid_FFT<data_t> & res, opp op )
+    {
+        //... prepare data 1
+        f1p_->FourierTransformForward(false);
+        pad_insertf( kf1, *f1p_ );
+
+        //... prepare data 1
+        f2p_->FourierTransformForward(false);
+        pad_insertf( kf2, *f2p_ );
+
+        //... convolve
+        f1p_->FourierTransformBackward();
+        f2p_->FourierTransformBackward();
+        for (size_t i = 0; i < f1p_->ntot_; ++i){
+            (*f2p_).relem(i) *= (*f1p_).relem(i);
+        }
+        f2p_->FourierTransformForward();
+        //... copy data back
+        res.FourierTransformForward();
+        unpad(*f2p_, res, op);
+    }
+
+    //... inplace interface
+    template <typename opp>
+	void convolve2( Grid_FFT<data_t> & f1, Grid_FFT<data_t> & f2, Grid_FFT<data_t> & res, opp op)// = []( ccomplex_t convres, ccomplex_t res ) -> ccomplex_t{ return convres; } )
+    {
+        #if 1
+        // constexpr real_t fac{ std::pow(1.5,1.5) };
+        constexpr real_t fac{ 1.0 };
+        
+        //... copy data 1
+        f1.FourierTransformForward();
+        f1p_->FourierTransformForward(false);
+        pad_insert(f1, *f1p_);
+        //... copy data 2
+        f2.FourierTransformForward();
+        f2p_->FourierTransformForward(false);
+        pad_insert(f2, *f2p_);
+        //... convolve
+        f1p_->FourierTransformBackward();
+        f2p_->FourierTransformBackward();
+        for (size_t i = 0; i < f1p_->ntot_; ++i){
+            (*f2p_).relem(i) *= fac * (*f1p_).relem(i);
+        }
+        f2p_->FourierTransformForward();
+        //... copy data back
+        res.FourierTransformForward();
+        unpad(*f2p_, res, op);
+        #else
+        res.FourierTransformBackward();
+        f1.FourierTransformBackward();
+        f2.FourierTransformBackward();
+        
+        for (size_t i = 0; i < res.ntot_; ++i){
+            res.relem(i) = op(f1.relem(i)*f2.relem(i),res.relem(i));
+        }
+
+        #endif
+    }
+
+    //... inplace interface
+	/*void convolve3( const Grid_FFT<data_t> & f1, const Grid_FFT<data_t> & f2, const Grid_FFT<data_t> & f3, Grid_FFT<data_t> & res )
+    {
+        convolve2( f1, f2, res );
+        convolve2( res, f3, res );
+    }*/
+};

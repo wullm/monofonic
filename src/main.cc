@@ -217,12 +217,41 @@ int main( int argc, char** argv )
     auto sub_op = []( ccomplex_t res, ccomplex_t val ) -> ccomplex_t{ return val-res; };
 
 #if 1
-    Conv.convolve2(phi_xx,phi_yy,phi2,assign_op);
-    Conv.convolve2(phi_xx,phi_zz,phi2,add_op);
-    Conv.convolve2(phi_yy,phi_zz,phi2,add_op);
-    Conv.convolve2(phi_xy,phi_xy,phi2,sub_op);
-    Conv.convolve2(phi_xz,phi_xz,phi2,sub_op);
-    Conv.convolve2(phi_yz,phi_yz,phi2,sub_op);
+    // phi_xx * phi_yy
+    Conv.convolve_Hessians( phi, {0,0}, phi, {1,1}, phi2, assign_op );
+    Conv.convolve_Hessians( phi, {0,0}, phi, {2,2}, phi2, add_op );
+    Conv.convolve_Hessians( phi, {1,1}, phi, {2,2}, phi2, add_op );
+    Conv.convolve_Hessians( phi, {0,1}, phi, {0,1}, phi2, sub_op );
+    Conv.convolve_Hessians( phi, {0,2}, phi, {0,2}, phi2, sub_op );
+    Conv.convolve_Hessians( phi, {1,2}, phi, {1,2}, phi2, sub_op );
+    
+
+    // Conv.convolve2__( 
+    //     [&]( size_t i, size_t j, size_t k ){
+    //         auto kk = phi.get_k<real_t>(i,j,k);
+    //         return -kk[0] * kk[0] * phi.kelem(i,j,k) / phifac;
+    //     },
+    //     [&]( size_t i, size_t j, size_t k ){
+    //         auto kk = phi.get_k<real_t>(i,j,k);
+    //         return -kk[1] * kk[1] * phi.kelem(i,j,k) / phifac;
+    //     }, phi2, assign_op );
+
+    // Conv.convolve2__( 
+    //     [&]( size_t i, size_t j, size_t k ){
+    //         auto kk = phi.get_k<real_t>(i,j,k);
+    //         return -kk[0] * kk[0] * phi.kelem(i,j,k) / phifac;
+    //     },
+    //     [&]( size_t i, size_t j, size_t k ){
+    //         auto kk = phi.get_k<real_t>(i,j,k);
+    //         return -kk[2] * kk[2] * phi.kelem(i,j,k) / phifac;
+    //     }, phi2, assign_op );
+
+    //Conv.convolve2(phi_xx,phi_yy,phi2,assign_op);
+    // Conv.convolve2(phi_xx,phi_zz,phi2,add_op);
+    // Conv.convolve2(phi_yy,phi_zz,phi2,add_op);
+    // Conv.convolve2(phi_xy,phi_xy,phi2,sub_op);
+    // Conv.convolve2(phi_xz,phi_xz,phi2,sub_op);
+    // Conv.convolve2(phi_yz,phi_yz,phi2,sub_op);
     
 #else 
     phi2.FourierTransformBackward();
@@ -246,12 +275,12 @@ int main( int argc, char** argv )
             }
         }
     }
-
+    
 #endif
     phi2.FourierTransformForward();
     phi2.apply_function_k_dep([&](auto x, auto k) {
         real_t kmod2 = k.norm_squared();
-        return x * (-1.0 / kmod2) * phifac;
+        return x * (-1.0 / kmod2) * phifac / phifac / phifac;
     });
     phi2.zero_DC_mode();
     
