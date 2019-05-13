@@ -58,7 +58,7 @@ void Grid_FFT<data_t>::Setup(void)
         csoca::elog.Print("invalid data type in Grid_FFT<data_t>::setup_fft_interface\n");
     }
 
-    fft_norm_fac_ = 1.f / sqrtf((float)((size_t)n_[0] * (size_t)n_[1] * (size_t)n_[2]));
+    fft_norm_fac_ = 1.0 / std::sqrt((double)((size_t)n_[0] * (double)n_[1] * (double)n_[2]));
 
     if (typeid(data_t) == typeid(real_t))
     {
@@ -278,96 +278,151 @@ void create_hdf5(std::string Filename)
 template <typename data_t>
 void Grid_FFT<data_t>::Write_to_HDF5(std::string fname, std::string datasetname)
 {
-    const bool bComplexType(typeid(data_t) == typeid(std::complex<double>) ||
-                            typeid(data_t) == typeid(std::complex<float>));
-
-    std::string datasetname_real = datasetname + std::string("_real");
-    std::string datasetname_imag = datasetname + std::string("_imag");
-
-    hid_t file_id, dset_id;    /* file and dataset identifiers */
-    hid_t filespace, memspace; /* file and memory dataspace identifiers */
-    hsize_t offset[3], count[3];
-    hid_t dtype_id;
-    hid_t plist_id;
+  hid_t file_id, dset_id;    /* file and dataset identifiers */
+  hid_t filespace, memspace; /* file and memory dataspace identifiers */
+  hsize_t offset[3], count[3];
+  hid_t dtype_id = H5T_NATIVE_FLOAT;
+  hid_t plist_id;
 
 #if defined(USE_MPI)
 
-    if (!file_exists(fname) && CONFIG::MPI_task_rank == 0)
-        create_hdf5(fname);
+  int mpi_size, mpi_rank;
+
+  mpi_size = MPI_Get_size();
+  mpi_rank = MPI_Get_rank();
+
+  if (!file_exists(fname) && mpi_rank == 0)
+    create_hdf5(fname);
+  MPI_Barrier(MPI_COMM_WORLD);
+
+#if defined(USE_MPI_IO)
+  plist_id = H5Pcreate(H5P_FILE_ACCESS);
+  H5Pset_fapl_mpio(plist_id, MPI_COMM_WORLD, MPI_INFO_NULL);
+#else
+  plist_id = H5P_DEFAULT;
+#endif
+
+#else
+
+  if (!file_exists(fname))
+    create_hdf5(fname);
+
+  plist_id = H5P_DEFAULT;
+
+#endif
+
+#if defined(USE_MPI) && !defined(USE_MPI_IO)
+  for (int itask = 0; itask < mpi_size; ++itask) {
     MPI_Barrier(MPI_COMM_WORLD);
+    if (itask != mpi_rank)
+      continue;
 
-#ifndef NOMPIIO
-    plist_id = H5Pcreate(H5P_FILE_ACCESS);
+#endif
+
+    // file_id = H5Fcreate( fname.c_str(), H5F_ACC_RDWR, H5P_DEFAULT,
+    // H5P_DEFAULT );
+    file_id = H5Fopen(fname.c_str(), H5F_ACC_RDWR, plist_id);
+
+    for (int i = 0; i < 3; ++i)
+      count[i] = size(i);
+
+#if defined(USE_MPI)
+    count[0] *= mpi_size;
+#endif
+
+    if (typeid(data_t) == typeid(float))
+      dtype_id = H5T_NATIVE_FLOAT;
+    else if (typeid(data_t) == typeid(double))
+      dtype_id = H5T_NATIVE_DOUBLE;
+    else if (typeid(data_t) == typeid(std::complex<float>)) {
+      dtype_id = H5T_NATIVE_FLOAT;
+    } else if (typeid(data_t) == typeid(std::complex<double>)) {
+      dtype_id = H5T_NATIVE_DOUBLE;
+    }
+
+#if defined(USE_MPI) && !defined(USE_MPI_IO)
+    if (itask == 0) {
+      filespace = H5Screate_simple(3, count, NULL);
+      dset_id = H5Dcreate2(file_id, datasetname.c_str(), dtype_id, filespace,
+                           H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+      H5Sclose(filespace);
+    } else {
+      dset_id = H5Dopen1(file_id, datasetname.c_str());
+    }
 #else
-    plist_id = H5P_DEFAULT;
+  filespace = H5Screate_simple(3, count, NULL);
+  dset_id = H5Dcreate2(file_id, datasetname.c_str(), dtype_id, filespace,
+                       H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+  H5Sclose(filespace);
 #endif
 
+    hsize_t slice_sz = size(1) * size(2);
+
+    real_t *buf = new real_t[slice_sz];
+
+    count[0] = 1;
+    count[1] = size(1);
+    count[2] = size(2);
+
+    offset[1] = 0;
+    offset[2] = 0;
+
+#if defined(USE_MPI) && defined(USE_MPI_IO)
+    H5Pclose(plist_id);
+    plist_id = H5Pcreate(H5P_DATASET_XFER);
+    H5Pset_dxpl_mpio(plist_id, H5FD_MPIO_COLLECTIVE);
 #else
-
-    if (!file_exists(fname))
-        create_hdf5(fname);
-
-    plist_id = H5P_DEFAULT;
-
+  plist_id = H5P_DEFAULT;
 #endif
 
-#if defined(USE_MPI) && defined(NOMPIIO)
-    for (int itask = 0; itask < CONFIG::MPI_task_size; ++itask)
-    {
-        MPI_Barrier(MPI_COMM_WORLD);
-        if (itask != CONFIG::MPI_task_rank)
-            continue;
-
-#endif
-
-        // file_id = H5Fcreate( fname.c_str(), H5F_ACC_RDWR, H5P_DEFAULT,
-        // H5P_DEFAULT );
-        file_id = H5Fopen(fname.c_str(), H5F_ACC_RDWR, plist_id);
-
-        for (int i = 0; i < 3; ++i)
-            count[i] = size(i);
-
-        assert(typeid(real_t) == typeid(float) || typeid(real_t) == typeid(double));
-
-        if (typeid(real_t) == typeid(float))
-            dtype_id = H5T_NATIVE_FLOAT;
-        else
-            dtype_id = H5T_NATIVE_DOUBLE;
-
-        hsize_t slice_sz = size(1) * size(2);
-
-        count[0] = size(0);
-        count[1] = size(1);
-        count[2] = size(2);
-
-        offset[1] = 0;
-        offset[2] = 0;
-
-#if defined(USE_MPI) && !defined(NOMPIIO)
-        H5Pclose(plist_id);
-        plist_id = H5Pcreate(H5P_DATASET_XFER);
-// H5Pset_dxpl_mpio(plist_id, H5FD_MPIO_COLLECTIVE);
+    for (size_t i = 0; i < size(0); ++i) {
+#if defined(USE_MPI)
+      offset[0] = mpi_rank * size(0) + i;
 #else
-    plist_id = H5P_DEFAULT;
+    offset[0] = i;
 #endif
 
-        real_t *buf = new real_t[slice_sz];
-
-        //-------- write real part
-        //-----------------------------------------------------------
-
-#if defined(USE_MPI) && defined(NOMPIIO)
-        if (itask == 0)
-        {
-            filespace = H5Screate_simple(3, count, NULL);
-            dset_id = H5Dcreate2(file_id, datasetname.c_str(), dtype_id, filespace,
-                                 H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
-            H5Sclose(filespace);
+      for (size_t j = 0; j < size(1); ++j)
+        for (size_t k = 0; k < size(2); ++k) {
+          buf[j * size(2) + k] = std::real(relem(i, j, k));
         }
-        else
-        {
-            dset_id = H5Dopen1(file_id, datasetname.c_str());
-        }
+
+      memspace = H5Screate_simple(3, count, NULL);
+      filespace = H5Dget_space(dset_id);
+
+      H5Sselect_hyperslab(filespace, H5S_SELECT_SET, offset, NULL, count, NULL);
+      H5Dwrite(dset_id, dtype_id, memspace, filespace, H5P_DEFAULT, buf);
+
+      H5Sclose(memspace);
+      H5Sclose(filespace);
+    }
+
+#if defined(USE_MPI) && defined(USE_MPI_IO)
+    H5Pclose(plist_id);
+#endif
+
+    // H5Sclose(filespace);
+    H5Dclose(dset_id);
+
+    if (typeid(data_t) == typeid(std::complex<float>) ||
+        typeid(data_t) == typeid(std::complex<double>)) {
+      datasetname += std::string(".im");
+
+      for (int i = 0; i < 3; ++i)
+        count[i] = size(i);
+#if defined(USE_MPI)
+      count[0] *= mpi_size;
+#endif
+
+#if defined(USE_MPI) && !defined(USE_MPI_IO)
+      if (itask == 0) {
+        filespace = H5Screate_simple(3, count, NULL);
+        dset_id = H5Dcreate2(file_id, datasetname.c_str(), dtype_id, filespace,
+                             H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+        H5Sclose(filespace);
+      } else {
+        dset_id = H5Dopen1(file_id, datasetname.c_str());
+      }
 #else
     filespace = H5Screate_simple(3, count, NULL);
     dset_id = H5Dcreate2(file_id, datasetname.c_str(), dtype_id, filespace,
@@ -375,90 +430,53 @@ void Grid_FFT<data_t>::Write_to_HDF5(std::string fname, std::string datasetname)
     H5Sclose(filespace);
 #endif
 
-        count[0] = 1;
-
-        for (size_t i = 0; i < size(0); ++i)
-        {
-            offset[0] = i;
-
-            for (size_t j = 0; j < size(1); ++j)
-                for (size_t k = 0; k < size(2); ++k){
-                    buf[j * size(2) + k] = std::real(relem(i, j, k));
-                }
-
-            memspace = H5Screate_simple(3, count, NULL);
-
-            filespace = H5Dget_space(dset_id);
-            H5Sselect_hyperslab(filespace, H5S_SELECT_SET, offset, NULL, count, NULL);
-            // H5Dwrite( dset_id, H5T_NATIVE_DOUBLE, memspace, filespace, H5P_DEFAULT,
-            // m_Data );
-
-            H5Dwrite(dset_id, dtype_id, memspace, filespace, plist_id, buf);
-            H5Sclose(memspace);
-            H5Sclose(filespace);
-        }
-
-        H5Dclose(dset_id);
-
-        //-------- write imaginary part
-        //-----------------------------------------------------------
-        if( bComplexType ){
-
-            count[0] = size(0);
-
-#if defined(USE_MPI) && defined(NOMPIIO)
-            if (itask == 0)
-            {
-                filespace = H5Screate_simple(3, count, NULL);
-                dset_id = H5Dcreate2(file_id, datasetname_imag.c_str(), dtype_id,
-                                     filespace, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
-                H5Sclose(filespace);
-            }
-            else
-            {
-                dset_id = H5Dopen1(file_id, datasetname_imag.c_str());
-            }
+#if defined(USE_MPI) && defined(USE_MPI_IO)
+      // H5Pclose( plist_id );
+      plist_id = H5Pcreate(H5P_DATASET_XFER);
+      H5Pset_dxpl_mpio(plist_id, H5FD_MPIO_COLLECTIVE);
 #else
-            filespace = H5Screate_simple(3, count, NULL);
-            dset_id = H5Dcreate2(file_id, datasetname_imag.c_str(), dtype_id, filespace,
-                                 H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
-            H5Sclose(filespace);
-#endif
-            count[0] = 1;
-
-            for (size_t i = 0; i < size(0); ++i)
-            {
-                offset[0] = i;
-
-                for (size_t j = 0; j < size(1); ++j)
-                    for (size_t k = 0; k < size(2); ++k)
-                        buf[j * size(2) + k] = std::imag(relem(i, j, k));
-
-                memspace = H5Screate_simple(3, count, NULL);
-
-                filespace = H5Dget_space(dset_id);
-                H5Sselect_hyperslab(filespace, H5S_SELECT_SET, offset, NULL, count, NULL);
-                // H5Dwrite( dset_id, H5T_NATIVE_DOUBLE, memspace, filespace, H5P_DEFAULT,
-                // m_Data );
-                H5Dwrite(dset_id, dtype_id, memspace, filespace, H5P_DEFAULT, buf);
-                H5Sclose(memspace);
-                H5Sclose(filespace);
-            }
-
-            H5Dclose(dset_id);
-        }
-        //------------------------------------------------------------------------------------
-
-#if defined(USE_MPI) && !defined(NOMPIIO)
-        H5Pclose(plist_id);
+    plist_id = H5P_DEFAULT;
 #endif
 
-        H5Fclose(file_id);
+      count[0] = 1;
 
-        delete[] buf;
+      for (size_t i = 0; i < size(0); ++i) {
+#if defined(USE_MPI)
+        offset[0] = mpi_rank * size(0) + i;
+#else
+      offset[0] = i;
+#endif
 
-#if defined(USE_MPI) && defined(NOMPIIO)
+        for (size_t j = 0; j < size(1); ++j)
+          for (size_t k = 0; k < size(2); ++k) {
+            buf[j * size(2) + k] = std::imag(relem(i, j, k));
+          }
+
+        memspace = H5Screate_simple(3, count, NULL);
+        filespace = H5Dget_space(dset_id);
+
+        H5Sselect_hyperslab(filespace, H5S_SELECT_SET, offset, NULL, count,
+                            NULL);
+
+        H5Dwrite(dset_id, dtype_id, memspace, filespace, H5P_DEFAULT, buf);
+
+        H5Sclose(memspace);
+        H5Sclose(filespace);
+      }
+
+#if defined(USE_MPI) && defined(USE_MPI_IO)
+      H5Pclose(plist_id);
+#endif
+
+      H5Dclose(dset_id);
+
+      delete[] buf;
     }
+
+    H5Fclose(file_id);
+
+#if defined(USE_MPI) && !defined(USE_MPI_IO)
+  }
 #endif
 }
 

@@ -343,7 +343,12 @@ int main( int argc, char** argv )
         delta3b.FourierTransformBackward();
         delta3.FourierTransformBackward();
 
-        unlink(fname_hdf5.c_str());
+#if defined(USE_MPI)
+        if( CONFIG::MPI_task_rank == 0 )
+            unlink(fname_hdf5.c_str());
+        MPI_Barrier( MPI_COMM_WORLD );
+#endif
+
         phi.Write_to_HDF5(fname_hdf5, "phi");
         phi2.Write_to_HDF5(fname_hdf5, "phi2");
         phi3a.Write_to_HDF5(fname_hdf5, "phi3a");

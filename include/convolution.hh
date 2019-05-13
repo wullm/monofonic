@@ -230,19 +230,24 @@ private:
         size_t slicesz = fMPIbuf_->size(1) * fMPIbuf_->size(3); //*2;
 
         // comunicate
-        if (typeid(data_t) == typeid(real_t))
-            slicesz *= 2; // then sizeof(real_t) gives only half of a complex
+        // check if this is a real field (then we get the wrong size)
+        // if (typeid(data_t) == typeid(real_t))
+            // slicesz *= 2; // then sizeof(real_t) gives only half of a complex
 
-        MPI_Datatype datatype =
-            (typeid(data_t) == typeid(float))
-                ? MPI_FLOAT
-                : (typeid(data_t) == typeid(double))
-                    ? MPI_DOUBLE
-                    : (typeid(data_t) == typeid(std::complex<float>))
-                            ? MPI_COMPLEX
-                            : (typeid(data_t) == typeid(std::complex<double>))
-                                ? MPI_DOUBLE_COMPLEX
-                                : MPI_INT;
+        // MPI_Datatype datatype =
+        //     (typeid(data_t) == typeid(float))
+        //         ? MPI_FLOAT
+        //         : (typeid(data_t) == typeid(double))
+        //             ? MPI_DOUBLE
+        //             : (typeid(data_t) == typeid(std::complex<float>))
+        //                     ? MPI_COMPLEX
+        //                     : (typeid(data_t) == typeid(std::complex<double>))
+        //                         ? MPI_DOUBLE_COMPLEX
+        //                         : MPI_INT;
+
+        MPI_Datatype datatype = 
+            (typeid(data_t) == typeid(float)) ? MPI_COMPLEX : 
+            (typeid(data_t) == typeid(double)) ? MPI_DOUBLE_COMPLEX : MPI_BYTE;
 
 
         // fill MPI send buffer
@@ -275,7 +280,7 @@ private:
                 MPI_Isend(&fMPIbuf_->kelem(i * slicesz), (int)slicesz, datatype, sendto,
                         (int)iglobal, MPI_COMM_WORLD, &temp_req);
                 req.push_back(temp_req);
-                std::cout << "task " << CONFIG::MPI_task_rank << " : added request No" << req.size()-1 << ": Isend #" << iglobal << " to task " << sendto << ", size = " << slicesz << std::endl;
+                // std::cout << "task " << CONFIG::MPI_task_rank << " : added request No" << req.size()-1 << ": Isend #" << iglobal << " to task " << sendto << ", size = " << slicesz << std::endl;
             }
             if (iglobal > fny[0])
             {
@@ -283,7 +288,7 @@ private:
                 MPI_Isend(&fMPIbuf_->kelem(i * slicesz), (int)slicesz, datatype, sendto,
                         (int)(iglobal + fny[0]), MPI_COMM_WORLD, &temp_req);
                 req.push_back(temp_req);
-                std::cout << "task " << CONFIG::MPI_task_rank << " : added request No" << req.size()-1 << ": Isend #" << iglobal+fny[0] << " to task " << sendto << ", size = " << slicesz<< std::endl;
+                // std::cout << "task " << CONFIG::MPI_task_rank << " : added request No" << req.size()-1 << ": Isend #" << iglobal+fny[0] << " to task " << sendto << ", size = " << slicesz<< std::endl;
             }
         }
 
@@ -299,12 +304,12 @@ private:
                 else
                     recvfrom = get_task(iglobal - fny[0], offsets_, sizes_, CONFIG::MPI_task_size);
 
-                std::cout << "task " << CONFIG::MPI_task_rank << " : receive #" << iglobal << " from task "
-                << recvfrom << ", size = " << slicesz << ", " << crecvbuf_ << ", " << datatype << std::endl;
+                // std::cout << "task " << CONFIG::MPI_task_rank << " : receive #" << iglobal << " from task "
+                // << recvfrom << ", size = " << slicesz << ", " << crecvbuf_ << ", " << datatype << std::endl;
 
                 MPI_Recv(&recvbuf_[0], (int)slicesz, datatype, recvfrom, (int)iglobal,
                         MPI_COMM_WORLD, &status);
-                std::cout << "---> ok!  " << (bool)(status.MPI_ERROR==MPI_SUCCESS) << std::endl;
+                // std::cout << "---> ok!  " << (bool)(status.MPI_ERROR==MPI_SUCCESS) << std::endl;
 
                 // assert(status.MPI_ERROR == MPI_SUCCESS);
 
@@ -416,19 +421,23 @@ private:
 
         size_t slicesz = fp.size(1) * fp.size(3);
 
-        if (typeid(data_t) == typeid(real_t))
-            slicesz *= 2; // then sizeof(real_t) gives only half of a complex
+        // if (typeid(data_t) == typeid(real_t))
+        //     slicesz *= 2; // then sizeof(real_t) gives only half of a complex
 
-        MPI_Datatype datatype =
-            (typeid(data_t) == typeid(float))
-                ? MPI_FLOAT
-                : (typeid(data_t) == typeid(double))
-                    ? MPI_DOUBLE
-                    : (typeid(data_t) == typeid(std::complex<float>))
-                            ? MPI_COMPLEX
-                            : (typeid(data_t) == typeid(std::complex<double>))
-                                ? MPI_DOUBLE_COMPLEX
-                                : MPI_INT;
+        // MPI_Datatype datatype =
+        //     (typeid(data_t) == typeid(float))
+        //         ? MPI_FLOAT
+        //         : (typeid(data_t) == typeid(double))
+        //             ? MPI_DOUBLE
+        //             : (typeid(data_t) == typeid(std::complex<float>))
+        //                     ? MPI_COMPLEX
+        //                     : (typeid(data_t) == typeid(std::complex<double>))
+        //                         ? MPI_DOUBLE_COMPLEX
+        //                         : MPI_INT;
+
+        MPI_Datatype datatype = 
+            (typeid(data_t) == typeid(float)) ? MPI_COMPLEX : 
+            (typeid(data_t) == typeid(double)) ? MPI_DOUBLE_COMPLEX : MPI_BYTE;
 
         MPI_Status status;
 
