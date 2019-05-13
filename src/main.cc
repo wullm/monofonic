@@ -53,7 +53,7 @@ int main( int argc, char** argv )
 
 #if defined(USE_MPI)
     fftw_mpi_init();
-    csoca::ilog << "MPI is enabled                : " << "yes" << std::endl;
+    csoca::ilog << "MPI is enabled                : " << "yes (" << CONFIG::MPI_task_size << " tasks)" << std::endl;
 #else
     csoca::ilog << "MPI is enabled                : " << "no" << std::endl;
 #endif

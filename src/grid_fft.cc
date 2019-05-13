@@ -31,8 +31,11 @@ void Grid_FFT<data_t>::FillRandomReal( unsigned long int seed )
 template <typename data_t>
 void Grid_FFT<data_t>::Setup(void)
 {
+
+#if defined(USE_FFTW_THREADS)
     if (CONFIG::FFTW_threads_ok)
         fftw_plan_with_nthreads(std::thread::hardware_concurrency());
+#endif
 
 #if !defined(USE_MPI) ////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -204,6 +207,9 @@ void Grid_FFT<data_t>::ApplyNorm(void)
 template <typename data_t>
 void Grid_FFT<data_t>::FourierTransformForward(bool do_transform)
 {
+#if defined(USE_MPI)
+    MPI_Barrier( MPI_COMM_WORLD );
+#endif
 
     if (space_ != kspace_id)
     {
@@ -212,8 +218,7 @@ void Grid_FFT<data_t>::FourierTransformForward(bool do_transform)
         {
             double wtime = get_wtime();
 
-            FFTW_API(execute)
-            (plan_);
+            FFTW_API(execute)(plan_);
             this->ApplyNorm();
 
             wtime = get_wtime() - wtime;
@@ -233,6 +238,10 @@ void Grid_FFT<data_t>::FourierTransformForward(bool do_transform)
 template <typename data_t>
 void Grid_FFT<data_t>::FourierTransformBackward(bool do_transform)
 {
+#if defined(USE_MPI)
+    MPI_Barrier( MPI_COMM_WORLD );
+#endif
+
     if (space_ != rspace_id)
     {
         //.............................
@@ -240,8 +249,7 @@ void Grid_FFT<data_t>::FourierTransformBackward(bool do_transform)
         {
             double wtime = get_wtime();
 
-            FFTW_API(execute)
-            (iplan_);
+            FFTW_API(execute)(iplan_);
             this->ApplyNorm();
 
             wtime = get_wtime() - wtime;

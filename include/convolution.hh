@@ -475,6 +475,8 @@ private:
         {
             size_t iglobal = i + offsets_[CONFIG::MPI_task_rank];
 
+            status.MPI_ERROR = MPI_SUCCESS;
+
             int recvfrom = 0;
             if (iglobal < fny[0])
             {
