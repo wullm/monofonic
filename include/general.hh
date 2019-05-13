@@ -56,6 +56,36 @@ inline int MPI_Get_size( void ){
 	assert( ret==MPI_SUCCESS );
     return size;
 }
+
+template<typename T>
+MPI_Datatype GetMPIDatatype( void )
+{
+  if( typeid(T) == typeid(std::complex<float>) )
+    return MPI_COMPLEX;
+  
+  if( typeid(T) == typeid(std::complex<double>) )
+    return MPI_DOUBLE_COMPLEX;
+
+  if( typeid(T) == typeid(int) )
+    return MPI_INT;
+
+  if( typeid(T) == typeid(unsigned) )
+    return MPI_UNSIGNED;
+
+  if( typeid(T) == typeid(float) )
+    return MPI_FLOAT;
+
+  if( typeid(T) == typeid(double) )
+    return MPI_DOUBLE;
+
+  if( typeid(T) == typeid(char) )
+    return MPI_CHAR;
+
+  abort();
+
+}
+
+
 #else
   #if defined(_OPENMP)
     #include <omp.h>
@@ -72,16 +102,7 @@ inline int MPI_Get_size( void ){
   #endif
 #endif
 
-// get task based on offsets
-template <typename array_type>
-int get_task(ptrdiff_t index, const array_type &offsets, const array_type& sizes,
-             const int ntasks )
-{
-    int itask = 0;
-    while (itask < ntasks - 1 && offsets[itask + 1] <= index)
-        ++itask;
-    return itask;
-}
+
 
 namespace CONFIG
 {
