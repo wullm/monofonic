@@ -9,6 +9,9 @@ template <typename data_t>
 void Grid_FFT<data_t>::FillRandomReal( unsigned long int seed )
 {
     gsl_rng *RNG = gsl_rng_alloc(gsl_rng_mt19937);
+#if defined(USE_MPI)
+    seed += 17321 * CONFIG::MPI_task_rank;
+#endif
     gsl_rng_set(RNG, seed);
 
     for (size_t i = 0; i < sizes_[0]; ++i)
