@@ -36,13 +36,13 @@ struct eisenstein_transfer
   alpha_gamma;	/* Gamma suppression in approximate TF */
 
   template <typename T>
-  inline T SQR(T x) { return x * x; };
+  inline T SQR(T x) { return x * x; }
 
   template <typename T>
-  inline T CUBE(T x) { return x * SQR(x); };
+  inline T CUBE(T x) { return x * SQR(x); }
 
   template<typename T>
-  inline T POW4( T x ){ return SQR(SQR(x)); };
+  inline T POW4( T x ){ return SQR(SQR(x)); }
   
   //! private member function: sets internal quantities for Eisenstein & Hu fitting
   void TFset_parameters(double omega0hh, double f_baryon, double Tcmb)

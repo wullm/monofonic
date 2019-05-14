@@ -112,4 +112,4 @@ extern int MPI_task_size;
 extern bool MPI_ok;
 extern bool MPI_threads_ok;
 extern bool FFTW_threads_ok;
-}; // namespace CONFIG
+} // namespace CONFIG
