@@ -164,6 +164,7 @@ int main( int argc, char** argv )
     //======================================================================
     //... compute 1LPT displacement potential ....
     // phi = - delta / k^2
+    csoca::ilog << "Computing phi(1) term..." << std::endl;
     phi.FourierTransformForward();
     
     phi.apply_function_k_dep([&](auto x, auto k) -> ccomplex_t {
@@ -181,8 +182,12 @@ int main( int argc, char** argv )
     auto sub_op = []( ccomplex_t res, ccomplex_t val ) -> ccomplex_t{ return val-res; };
 
 #if 1
-    // phi_xx * phi_yy
+    csoca::ilog << "Computing phi(2) term..." << std::endl;
+    // Compute the source term for phi(2)
     Conv.convolve_SumHessians( phi, {0,0}, phi, {1,1}, {2,2}, phi2, assign_op );
+    // Conv.convolve_Hessians( phi, {0,0}, phi, {1,1}, phi2, assign_op );
+    // Conv.convolve_Hessians( phi, {0,0}, phi, {2,2}, phi2, add_op );
+    
     Conv.convolve_Hessians( phi, {1,1}, phi, {2,2}, phi2, add_op );
     Conv.convolve_Hessians( phi, {0,1}, phi, {0,1}, phi2, sub_op );
     Conv.convolve_Hessians( phi, {0,2}, phi, {0,2}, phi2, sub_op );
@@ -226,7 +231,9 @@ int main( int argc, char** argv )
 
     #if 1
     auto sub2_op = []( ccomplex_t res, ccomplex_t val ) -> ccomplex_t{ return val-2.0*res; };
+    auto add2_op = []( ccomplex_t res, ccomplex_t val ) -> ccomplex_t{ return val+2.0*res; };
 
+    csoca::ilog << "Computing phi(3a) term..." << std::endl;
     Conv.convolve_SumHessians( phi, {0,0}, phi2, {1,1}, {2,2}, phi3a, assign_op );
     Conv.convolve_SumHessians( phi, {1,1}, phi2, {2,2}, {0,0}, phi3a, add_op );
     Conv.convolve_SumHessians( phi, {2,2}, phi2, {0,0}, {1,1}, phi3a, add_op );
@@ -237,6 +244,14 @@ int main( int argc, char** argv )
     phi3a.apply_function_k_dep([&](auto x, auto k) {
         return 0.5 * x;
     });
+
+    csoca::ilog << "Computing phi(3b) term..." << std::endl;
+    Conv.convolve_Hessians( phi, {0,0}, phi, {1,1}, phi, {2,2}, phi3b, assign_op );
+    Conv.convolve_Hessians( phi, {0,1}, phi, {0,2}, phi, {1,2}, phi3b, add2_op );
+    Conv.convolve_Hessians( phi, {1,2}, phi, {1,2}, phi, {0,0}, phi3b, sub_op );
+    Conv.convolve_Hessians( phi, {0,2}, phi, {0,2}, phi, {1,1}, phi3b, sub_op );
+    Conv.convolve_Hessians( phi, {0,1}, phi, {0,1}, phi, {2,2}, phi3b, sub_op );
+    
     
     #else 
     
@@ -286,7 +301,7 @@ int main( int argc, char** argv )
     phi3b.FourierTransformForward();
     phi3b.apply_function_k_dep([&](auto x, auto k) {
         real_t kmod2 = k.norm_squared();
-        return x * (-1.0 / kmod2) * phifac;
+        return x * (-1.0 / kmod2) * phifac / phifac / phifac;
     });
     phi3b.zero_DC_mode();
     
@@ -347,6 +362,8 @@ int main( int argc, char** argv )
         if( CONFIG::MPI_task_rank == 0 )
             unlink(fname_hdf5.c_str());
         MPI_Barrier( MPI_COMM_WORLD );
+#else
+        unlink(fname_hdf5.c_str());
 #endif
 
         phi.Write_to_HDF5(fname_hdf5, "phi");

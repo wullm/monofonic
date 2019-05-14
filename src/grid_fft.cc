@@ -42,7 +42,7 @@ void Grid_FFT<data_t>::Setup(void)
     ntot_ = (n_[2] + 2) * n_[1] * n_[0];
 
     
-    csoca::ilog.Print("[FFT] Setting up a shared memory field %lux%lux%lu\n", n_[0], n_[1], n_[2]);
+    csoca::dlog.Print("[FFT] Setting up a shared memory field %lux%lux%lu\n", n_[0], n_[1], n_[2]);
     if (typeid(data_t) == typeid(real_t))
     {
         data_ = reinterpret_cast<data_t *>(fftw_malloc(ntot_ * sizeof(real_t)));
@@ -120,7 +120,8 @@ void Grid_FFT<data_t>::Setup(void)
         cmplxsz = FFTW_API(mpi_local_size_3d_transposed)(n_[0], n_[1], n_[2] / 2 + 1, MPI_COMM_WORLD,
                                                          &local_0_size_, &local_0_start_, &local_1_size_, &local_1_start_);
         ntot_ = 2 * cmplxsz;
-        data_ = (data_t*)fftw_malloc(ntot_ * sizeof(real_t));
+        data_ = 
+        (data_t*)fftw_malloc(ntot_ * sizeof(real_t));
         cdata_ = reinterpret_cast<ccomplex_t *>(data_);
         plan_ = FFTW_API(mpi_plan_dft_r2c_3d)(n_[0], n_[1], n_[2], (real_t *)data_, (complex_t *)data_,
                                               MPI_COMM_WORLD, FFTW_RUNMODE | FFTW_MPI_TRANSPOSED_OUT);
@@ -146,7 +147,7 @@ void Grid_FFT<data_t>::Setup(void)
     }
 
     
-    csoca::ilog.Print("[FFT] Setting up a distributed memory field %lux%lux%lu\n", n_[0], n_[1], n_[2]);
+    csoca::dlog.Print("[FFT] Setting up a distributed memory field %lux%lux%lu\n", n_[0], n_[1], n_[2]);
 
 
     fft_norm_fac_ = 1.0 / sqrt((double)n_[0] * (double)n_[1] * (double)n_[2]);
@@ -222,7 +223,7 @@ void Grid_FFT<data_t>::FourierTransformForward(bool do_transform)
             this->ApplyNorm();
 
             wtime = get_wtime() - wtime;
-            csoca::ilog.Print("[FFT] Completed Grid_FFT::to_kspace (%lux%lux%lu), took %f s", sizes_[0], sizes_[1], sizes_[2], wtime);
+            csoca::dlog.Print("[FFT] Completed Grid_FFT::to_kspace (%lux%lux%lu), took %f s", sizes_[0], sizes_[1], sizes_[2], wtime);
         }
 
         sizes_[0] = local_1_size_;
@@ -253,7 +254,7 @@ void Grid_FFT<data_t>::FourierTransformBackward(bool do_transform)
             this->ApplyNorm();
 
             wtime = get_wtime() - wtime;
-            csoca::ilog.Print("[FFT] Completed Grid_FFT::to_rspace (%dx%dx%d), took %f s\n", sizes_[0], sizes_[1], sizes_[2], wtime);
+            csoca::dlog.Print("[FFT] Completed Grid_FFT::to_rspace (%dx%dx%d), took %f s\n", sizes_[0], sizes_[1], sizes_[2], wtime);
         }
         sizes_[0] = local_0_size_;
         sizes_[1] = n_[1];
@@ -386,28 +387,34 @@ void Grid_FFT<data_t>::Write_to_HDF5(std::string fname, std::string datasetname)
   plist_id = H5P_DEFAULT;
 #endif
 
+    memspace = H5Screate_simple(3, count, NULL);
+    filespace = H5Dget_space(dset_id);
+
     for (size_t i = 0; i < size(0); ++i) {
 #if defined(USE_MPI)
       offset[0] = mpi_rank * size(0) + i;
 #else
-    offset[0] = i;
+      offset[0] = i;
 #endif
 
-      for (size_t j = 0; j < size(1); ++j)
+      for (size_t j = 0; j < size(1); ++j){
         for (size_t k = 0; k < size(2); ++k) {
           buf[j * size(2) + k] = std::real(relem(i, j, k));
         }
+      }
 
-      memspace = H5Screate_simple(3, count, NULL);
-      filespace = H5Dget_space(dset_id);
+      
 
       H5Sselect_hyperslab(filespace, H5S_SELECT_SET, offset, NULL, count, NULL);
       H5Dwrite(dset_id, dtype_id, memspace, filespace, H5P_DEFAULT, buf);
 
-      H5Sclose(memspace);
-      H5Sclose(filespace);
+      
     }
 
+    
+    H5Sclose(filespace);
+    H5Sclose(memspace);
+    
 #if defined(USE_MPI) && defined(USE_MPI_IO)
     H5Pclose(plist_id);
 #endif
@@ -455,7 +462,7 @@ void Grid_FFT<data_t>::Write_to_HDF5(std::string fname, std::string datasetname)
 #if defined(USE_MPI)
         offset[0] = mpi_rank * size(0) + i;
 #else
-      offset[0] = i;
+        offset[0] = i;
 #endif
 
         for (size_t j = 0; j < size(1); ++j)
