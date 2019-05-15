@@ -55,10 +55,10 @@ target_include_directories(class_cpp
   PRIVATE ${CMAKE_CURRENT_LIST_DIR}/class/include)
 
 # test executable
-add_executable(testKlass
-  ${CMAKE_CURRENT_LIST_DIR}/class/cpp/testKlass.cc)
-target_include_directories(testKlass
+add_executable(testTk
+  ${CMAKE_CURRENT_LIST_DIR}/class/cpp/testTk.cc)
+target_include_directories(testTk
   PRIVATE ${CMAKE_CURRENT_LIST_DIR}/class/include)
-target_link_libraries(testKlass ${CLASS_OBJECT_FILES})
-target_link_libraries(testKlass class_cpp)
-add_dependencies(testKlass class_objects)
+target_link_libraries(testTk ${CLASS_OBJECT_FILES})
+target_link_libraries(testTk class_cpp)
+add_dependencies(testTk class_objects)
