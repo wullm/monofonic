@@ -5,8 +5,8 @@ project(fastLPT)
 # include class submodule
 include(${CMAKE_CURRENT_SOURCE_DIR}/external/class.cmake)
 
-#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O0 -march=native -Wall -fno-omit-frame-pointer -g  -fsanitize=address")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -march=native -Wall")
+#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O0 -march=native -Wall -fno-omit-frame-pointer -g  -fsanitize=undefined")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -march=native -Wall -pedantic")
 find_package(PkgConfig REQUIRED)
 
 set(CMAKE_MODULE_PATH
@@ -61,6 +61,7 @@ file( GLOB PLUGINS
 )
 
 add_executable(${PRGNAME} ${SOURCES} ${PLUGINS})
+target_setup_class(${PRGNAME})
 
 set_target_properties(${PRGNAME} PROPERTIES CXX_STANDARD 14)
 

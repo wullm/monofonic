@@ -58,8 +58,8 @@ int main( int argc, char** argv )
     csoca::ilog << "MPI is enabled                : " << "no" << std::endl;
 #endif
 
-    csoca::ilog << "MPI supports multi-threading  : " << CONFIG::MPI_threads_ok << std::endl;
-    csoca::ilog << "FFTW supports multi-threading : " << CONFIG::FFTW_threads_ok << std::endl;
+    csoca::ilog << "MPI supports multi-threading  : " << (CONFIG::MPI_threads_ok? "yes" : "no") << std::endl;
+    csoca::ilog << "FFTW supports multi-threading : " << (CONFIG::FFTW_threads_ok? "yes" : "no") << std::endl;
     csoca::ilog << "Available HW threads / task   : " << std::thread::hardware_concurrency() << std::endl;
 
     //------------------------------------------------------------------------------
@@ -89,36 +89,21 @@ int main( int argc, char** argv )
     const real_t astart = 1.0/(1.0+zstart);
     const real_t volfac(std::pow(boxlen / ngrid / 2.0 / M_PI, 1.5));
     const real_t phifac = 1.0 / boxlen / boxlen; // to have potential in box units
-    // const real_t deriv_fac = 1.0 ;//boxlen;
-
-    // real_t Dplus0 = the_config.GetValue<real_t>("setup", "Dplus0");
-    // real_t Ddot0 = 1.0;
 
     const bool bDoFixing = false;
 
-    
-    
     //...
     const std::string fname_hdf5 = the_config.GetValueSafe<std::string>("output", "fname_hdf5", "output.hdf5");
     //////////////////////////////////////////////////////////////////////////////////////////////
 
-    std::unique_ptr<CosmologyCalculator>
-        the_cosmo_calc;
+    std::unique_ptr<CosmologyCalculator>  the_cosmo_calc;
     
-
     try
     {
         the_random_number_generator = select_RNG_plugin(the_config);
         the_transfer_function       = select_TransferFunction_plugin(the_config);
         the_output_plugin           = select_output_plugin(the_config);
-
         the_cosmo_calc = std::make_unique<CosmologyCalculator>(the_config, the_transfer_function);
-
-        // double pnorm = the_cosmo_calc->ComputePNorm();        
-        // csoca::ilog << "power spectrum is output for D+ =" << Dplus0 << std::endl;
-        //csoca::ilog << "power spectrum normalisation is " << pnorm << std::endl;
-        //csoca::ilog << "power spectrum normalisation is " << pnorm*Dplus*Dplus << std::endl;
-
     }catch(...){
         csoca::elog << "Problem during initialisation. See error(s) above. Exiting..." << std::endl;
         #if defined(USE_MPI) 

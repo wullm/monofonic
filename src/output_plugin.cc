@@ -24,7 +24,7 @@ void print_output_plugins()
 	
 	std::map< std::string, output_plugin_creator *>::iterator it;
 	it = m.begin();
-	csoca::ilog << " - Available output plug-ins:\n";
+	csoca::ilog << "Available output plug-ins:\n";
 	while( it!=m.end() )
 	{
 		if( (*it).second )
@@ -43,12 +43,12 @@ output_plugin *select_output_plugin( ConfigFile& cf )
 	
 	if( !the_output_plugin_creator )
 	{	
-		csoca::elog << " - Error: output plug-in \'" << formatname << "\' not found." << std::endl;
+		csoca::elog << "Error: output plug-in \'" << formatname << "\' not found." << std::endl;
 		print_output_plugins();
 		throw std::runtime_error("Unknown output plug-in");
 		
 	}else
-		csoca::ilog << " - Selecting output plug-in \'" << formatname << "\'..." << std::endl;
+		csoca::ilog << "Selecting output plug-in \'" << formatname << "\'..." << std::endl;
 	
 	output_plugin *the_output_plugin 
 	= the_output_plugin_creator->create( cf );
