@@ -22,7 +22,7 @@ int  MPI_task_size = 1;
 bool MPI_ok = false;
 bool MPI_threads_ok = false;
 bool FFTW_threads_ok = false;
-};
+}
 
 RNG_plugin *the_random_number_generator;
 TransferFunction_plugin *the_transfer_function;
@@ -89,7 +89,7 @@ int main( int argc, char** argv )
     const real_t astart = 1.0/(1.0+zstart);
     const real_t volfac(std::pow(boxlen / ngrid / 2.0 / M_PI, 1.5));
     const real_t phifac = 1.0 / boxlen / boxlen; // to have potential in box units
-    const real_t deriv_fac = 1.0 ;//boxlen;
+    // const real_t deriv_fac = 1.0 ;//boxlen;
 
     // real_t Dplus0 = the_config.GetValue<real_t>("setup", "Dplus0");
     // real_t Ddot0 = 1.0;
@@ -179,46 +179,19 @@ int main( int argc, char** argv )
 
     auto assign_op = []( ccomplex_t res, ccomplex_t val ) -> ccomplex_t{ return res; };
     auto add_op = []( ccomplex_t res, ccomplex_t val ) -> ccomplex_t{ return val+res; };
+    auto add2_op = []( ccomplex_t res, ccomplex_t val ) -> ccomplex_t{ return val+2.0*res; };
     auto sub_op = []( ccomplex_t res, ccomplex_t val ) -> ccomplex_t{ return val-res; };
+    auto sub2_op = []( ccomplex_t res, ccomplex_t val ) -> ccomplex_t{ return val-2.0*res; };
 
-#if 1
+
     csoca::ilog << "Computing phi(2) term..." << std::endl;
     // Compute the source term for phi(2)
     Conv.convolve_SumHessians( phi, {0,0}, phi, {1,1}, {2,2}, phi2, assign_op );
-    // Conv.convolve_Hessians( phi, {0,0}, phi, {1,1}, phi2, assign_op );
-    // Conv.convolve_Hessians( phi, {0,0}, phi, {2,2}, phi2, add_op );
-    
     Conv.convolve_Hessians( phi, {1,1}, phi, {2,2}, phi2, add_op );
     Conv.convolve_Hessians( phi, {0,1}, phi, {0,1}, phi2, sub_op );
     Conv.convolve_Hessians( phi, {0,2}, phi, {0,2}, phi2, sub_op );
     Conv.convolve_Hessians( phi, {1,2}, phi, {1,2}, phi2, sub_op );
     
-#else 
-    phi2.FourierTransformBackward();
-    phi_xx.FourierTransformBackward();
-    phi_xy.FourierTransformBackward();
-    phi_xz.FourierTransformBackward();
-    phi_yy.FourierTransformBackward();
-    phi_yz.FourierTransformBackward();
-    phi_zz.FourierTransformBackward();
-    for (size_t i = 0; i < phi2.size(0); ++i)
-    {
-        for (size_t j = 0; j < phi2.size(1); ++j)
-        {
-            for (size_t k = 0; k < phi2.size(2); ++k)
-            {
-                size_t idx = phi2.get_idx(i, j, k);
-
-                phi2.relem(idx) =  phi_xx.relem(idx)*(phi_yy.relem(idx)+phi_zz.relem(idx))
-                                    +phi_yy.relem(idx)*phi_zz.relem(idx)
-                                    -phi_xy.relem(idx)*phi_xy.relem(idx)
-                                    -phi_xz.relem(idx)*phi_xz.relem(idx)
-                                    -phi_yz.relem(idx)*phi_yz.relem(idx);
-            }
-        }
-    }
-    
-#endif
     phi2.FourierTransformForward();
     phi2.apply_function_k_dep([&](auto x, auto k) {
         real_t kmod2 = k.norm_squared();
@@ -228,11 +201,7 @@ int main( int argc, char** argv )
     
     //======================================================================
     //... compute 3LPT displacement potential
-
-    #if 1
-    auto sub2_op = []( ccomplex_t res, ccomplex_t val ) -> ccomplex_t{ return val-2.0*res; };
-    auto add2_op = []( ccomplex_t res, ccomplex_t val ) -> ccomplex_t{ return val+2.0*res; };
-
+    
     csoca::ilog << "Computing phi(3a) term..." << std::endl;
     Conv.convolve_SumHessians( phi, {0,0}, phi2, {1,1}, {2,2}, phi3a, assign_op );
     Conv.convolve_SumHessians( phi, {1,1}, phi2, {2,2}, {0,0}, phi3a, add_op );
@@ -245,6 +214,13 @@ int main( int argc, char** argv )
         return 0.5 * x;
     });
 
+    phi3a.FourierTransformForward();
+    phi3a.apply_function_k_dep([&](auto x, auto k) {
+        real_t kmod2 = k.norm_squared();
+        return x * (-1.0 / kmod2) * phifac / phifac / phifac;
+    });
+    phi3a.zero_DC_mode();
+
     csoca::ilog << "Computing phi(3b) term..." << std::endl;
     Conv.convolve_Hessians( phi, {0,0}, phi, {1,1}, phi, {2,2}, phi3b, assign_op );
     Conv.convolve_Hessians( phi, {0,1}, phi, {0,2}, phi, {1,2}, phi3b, add2_op );
@@ -252,56 +228,10 @@ int main( int argc, char** argv )
     Conv.convolve_Hessians( phi, {0,2}, phi, {0,2}, phi, {1,1}, phi3b, sub_op );
     Conv.convolve_Hessians( phi, {0,1}, phi, {0,1}, phi, {2,2}, phi3b, sub_op );
     
-    
-    #else 
-    
-
-    phi2_xx.FourierTransformBackward();
-    phi2_xy.FourierTransformBackward();
-    phi2_xz.FourierTransformBackward();
-    phi2_yy.FourierTransformBackward();
-    phi2_yz.FourierTransformBackward();
-    phi2_zz.FourierTransformBackward();
-
-    for (size_t i = 0; i < phi3a.size(0); ++i)
-    {
-        for (size_t j = 0; j < phi3a.size(1); ++j)
-        {
-            for (size_t k = 0; k < phi3a.size(2); ++k)
-            {
-                size_t idx = phi3a.get_idx(i, j, k);
-
-                phi3a.relem(idx) = 0.5 * (
-                    + phi_xx.relem(idx) * ( phi2_yy.relem(idx) + phi2_zz.relem(idx) )
-                    + phi_yy.relem(idx) * ( phi2_zz.relem(idx) + phi2_xx.relem(idx) )
-                    + phi_zz.relem(idx) * ( phi2_xx.relem(idx) + phi2_yy.relem(idx) )
-                    - phi_xy.relem(idx) * phi2_xy.relem(idx) * 2.0
-                    - phi_xz.relem(idx) * phi2_xz.relem(idx) * 2.0
-                    - phi_yz.relem(idx) * phi2_yz.relem(idx) * 2.0
-                );
-                
-                phi3b.relem(idx) = 
-                    + phi_xx.relem(idx)*phi_yy.relem(idx)*phi_zz.relem(idx)
-                    + phi_xy.relem(idx)*phi_xz.relem(idx)*phi_yz.relem(idx) * 2.0
-                    - phi_yz.relem(idx)*phi_yz.relem(idx)*phi_xx.relem(idx)
-                    - phi_xz.relem(idx)*phi_xz.relem(idx)*phi_yy.relem(idx)
-                    - phi_xy.relem(idx)*phi_xy.relem(idx)*phi_zz.relem(idx);
-            }
-        }
-    }
-    #endif
-
-    phi3a.FourierTransformForward();
-    phi3a.apply_function_k_dep([&](auto x, auto k) {
-        real_t kmod2 = k.norm_squared();
-        return x * (-1.0 / kmod2) * phifac / phifac / phifac;
-    });
-    phi3a.zero_DC_mode();
-    
     phi3b.FourierTransformForward();
     phi3b.apply_function_k_dep([&](auto x, auto k) {
         real_t kmod2 = k.norm_squared();
-        return x * (-1.0 / kmod2) * phifac / phifac / phifac;
+        return x * (-1.0 / kmod2) * phifac / phifac / phifac/phifac;
     });
     phi3b.zero_DC_mode();
     
@@ -400,7 +330,7 @@ int main( int argc, char** argv )
                 {
                     auto kk = phi.get_k<real_t>(i,j,k);
                     size_t idx = phi.get_idx(i,j,k);
-                    auto laplace = -kk.norm_squared();
+                    // auto laplace = -kk.norm_squared();
 
                     // scale potentials with respective order growth factors
                     phi.kelem(idx)   *= g1;

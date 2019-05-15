@@ -133,7 +133,7 @@ public:
     }
 
     template <typename ft>
-    vec3<ft> get_r(const size_t &i, const size_t &j, const size_t &k) const
+    vec3<ft> get_r(const size_t i, const size_t j, const size_t k) const
     {
         vec3<ft> rr;
 
@@ -149,7 +149,7 @@ public:
     }
 
     void cell_pos( int ilevel, size_t i, size_t j, size_t k, double* x ) const {
-        
+        #warning needs to be fixed for MPI
         x[0] = double(i)/size(0);
         x[1] = double(j)/size(1);
         x[2] = double(k)/size(2);

@@ -1018,9 +1018,9 @@ public:
 
 			ofs_temp.write((char *)&blksize, sizeof(size_t));
 
-			int levelmaxcoarse = gh.levelmax() - 4;
-			if (!spread_coarse_acrosstypes_)
-				levelmaxcoarse = gh.levelmax() - 1;
+			// int levelmaxcoarse = gh.levelmax() - 4;
+			// if (!spread_coarse_acrosstypes_)
+			// 	levelmaxcoarse = gh.levelmax() - 1;
 
 			//for( int ilevel=levelmaxcoarse; ilevel>=(int)gh.levelmin(); --ilevel )
 

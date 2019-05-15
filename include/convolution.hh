@@ -11,7 +11,7 @@ class OrszagConvolver
 {
 protected:
     Grid_FFT<data_t> *f1p_, *f2p_;
-    Grid_FFT<data_t> *fbuf_;
+    Grid_FFT<data_t> *fbuf_, *fbuf2_;
 
     std::array<size_t,3> np_;
     std::array<real_t,3> length_;
@@ -56,6 +56,7 @@ public:
         f1p_  = new Grid_FFT<data_t>(np_, length_, kspace_id);
         f2p_  = new Grid_FFT<data_t>(np_, length_, kspace_id);
         fbuf_ = new Grid_FFT<data_t>(N, length_, kspace_id); // needed for MPI, or for triple conv.
+        fbuf2_ = new Grid_FFT<data_t>(N, length_, kspace_id); // needed for MPI, or for triple conv.
 
 #if defined(USE_MPI)
         maxslicesz_ = f1p_->sizes_[1] * f1p_->sizes_[3] * 2;
@@ -88,6 +89,7 @@ public:
         delete f1p_;
         delete f2p_;
         delete fbuf_;
+        delete fbuf2_;
 #if defined(USE_MPI)
         delete[] crecvbuf_;
 #endif
@@ -122,15 +124,15 @@ public:
         inr.FourierTransformForward();
         // perform convolution of Hessians
         this->convolve3(
-            [&]( size_t i, size_t j, size_t k ) -> ccomplex_t{
+            [&inl,&d2l]( size_t i, size_t j, size_t k ) -> ccomplex_t{
                 auto kk = inl.template get_k<real_t>(i,j,k);
                 return -kk[d2l[0]] * kk[d2l[1]] * inl.kelem(i,j,k);
             },
-            [&]( size_t i, size_t j, size_t k ) -> ccomplex_t{
-                auto kk = inl.template get_k<real_t>(i,j,k);
+            [&inm,&d2m]( size_t i, size_t j, size_t k ) -> ccomplex_t{
+                auto kk = inm.template get_k<real_t>(i,j,k);
                 return -kk[d2m[0]] * kk[d2m[1]] * inm.kelem(i,j,k);
             },
-            [&]( size_t i, size_t j, size_t k ){
+            [&inr,&d2r]( size_t i, size_t j, size_t k ) -> ccomplex_t{
                 auto kk = inr.template get_k<real_t>(i,j,k);
                 return -kk[d2r[0]] * kk[d2r[1]] * inr.kelem(i,j,k);
             }, res, op );
@@ -144,11 +146,11 @@ public:
         inr.FourierTransformForward();
         // perform convolution of Hessians
         this->convolve2(
-            [&]( size_t i, size_t j, size_t k ) -> ccomplex_t{
+            [&inl,&d2l]( size_t i, size_t j, size_t k ) -> ccomplex_t{
                 auto kk = inl.template get_k<real_t>(i,j,k);
                 return -kk[d2l[0]] * kk[d2l[1]] * inl.kelem(i,j,k);
             },
-            [&]( size_t i, size_t j, size_t k ){
+            [&inr,&d2r1,&d2r2]( size_t i, size_t j, size_t k ) -> ccomplex_t{
                 auto kk = inr.template get_k<real_t>(i,j,k);
                 return (-kk[d2r1[0]] * kk[d2r1[1]] -kk[d2r2[0]] * kk[d2r2[1]]) * inr.kelem(i,j,k);
             }, res, op );
@@ -182,15 +184,19 @@ public:
     template< typename kfunc1, typename kfunc2, typename kfunc3, typename opp >
     void convolve3( kfunc1 kf1, kfunc2 kf2, kfunc3 kf3, Grid_FFT<data_t> & res, opp op )
     {
-        convolve2( kf1, kf2, *fbuf_, []( ccomplex_t res, ccomplex_t ){ return res; } );
+        #warning double check if fbuf_ can be used here, or fbuf2, in case remove fbuf2
+        fbuf_->FourierTransformForward(false);
+        // convolve kf1 and kf2, store result in fbuf_
+        convolve2( kf1, kf2, *fbuf_, []( ccomplex_t r, ccomplex_t )->ccomplex_t{ return r; } );
         //... prepare data 1
         f1p_->FourierTransformForward(false);
-        this->pad_insert( [&]( size_t i, size_t j, size_t k ){return fbuf_->kelem(i,j,k);}, *f1p_ );
+        // pad result from fbuf_ to f1p_, fbuf_ is now unused
+        this->pad_insert( [&]( size_t i, size_t j, size_t k )->ccomplex_t{return fbuf_->kelem(i,j,k);}, *f1p_ );
 
         //... prepare data 2
         f2p_->FourierTransformForward(false);
         this->pad_insert( kf3, *f2p_ );
-
+        
         //... convolve
         f1p_->FourierTransformBackward();
         f2p_->FourierTransformBackward();
@@ -210,20 +216,12 @@ public:
     {
         //... prepare data 1
         f1p_->FourierTransformForward(false);
-        this->pad_insert( [&]( size_t i, size_t j, size_t k ){return in.kelem(i,j,k);}, *f1p_ );
+        this->pad_insert( [&in]( size_t i, size_t j, size_t k ){return in.kelem(i,j,k);}, *f1p_ );
         f1p_->FourierTransformBackward();
         f1p_->FourierTransformForward();
         res.FourierTransformForward();
         unpad(*f1p_, res, op);
     }
-
-    //... inplace interface
-	/*void convolve3( const Grid_FFT<data_t> & f1, const Grid_FFT<data_t> & f2, const Grid_FFT<data_t> & f3, Grid_FFT<data_t> & res )
-    {
-        convolve2( f1, f2, res );
-        convolve2( res, f3, res );
-    }*/
-
 
 private:
     template <typename kdep_functor>
@@ -302,7 +300,7 @@ private:
         {
             size_t iglobal = i + offsets_[CONFIG::MPI_task_rank];
 
-            if (iglobal < nf[0]/2 )//fny[0])
+            if (iglobal <= nf[0]/2 )//fny[0])
             {
                 int sendto = get_task(iglobal, offsetsp_, sizesp_, CONFIG::MPI_task_size);
                 MPI_Isend(&fbuf_->kelem(i * slicesz), (int)slicesz, datatype, sendto,
@@ -310,7 +308,7 @@ private:
                 req.push_back(temp_req);
                 // std::cout << "task " << CONFIG::MPI_task_rank << " : added request No" << req.size()-1 << ": Isend #" << iglobal << " to task " << sendto << ", size = " << slicesz << std::endl;
             }
-            if (iglobal > nf[0]/2) //fny[0])
+            if (iglobal >= nf[0]/2) //fny[0])
             {
                 int sendto = get_task(iglobal + nf[0]/2, offsetsp_, sizesp_, CONFIG::MPI_task_size);
                 MPI_Isend(&fbuf_->kelem(i * slicesz), (int)slicesz, datatype, sendto,
@@ -324,10 +322,10 @@ private:
         {
             size_t iglobal = i + offsetsp_[CONFIG::MPI_task_rank];
 
-            if (iglobal < nf[0]/2 || iglobal > nf[0])
+            if (iglobal <= nf[0]/2 || iglobal >= nf[0])
             {
                 int recvfrom = 0;
-                if (iglobal < nf[0]/2)
+                if (iglobal <= nf[0]/2)
                     recvfrom = get_task(iglobal, offsets_, sizes_, CONFIG::MPI_task_size);
                 else
                     recvfrom = get_task(iglobal - nf[0]/2, offsets_, sizes_, CONFIG::MPI_task_size);
@@ -343,27 +341,36 @@ private:
 
                 for (size_t j = 0; j < nf[1]; ++j)
                 {
-                    if (j < nf[1]/2)
+                    if (j <= nf[1]/2)
                     {
                         size_t jp = j;
                         for (size_t k = 0; k < nf[2]; ++k)
                         {
-                            if (k < nf[2]/2)
+                            if( typeid(data_t)==typeid(real_t) ){
                                 fp.kelem(i, jp, k) = crecvbuf_[j * fbuf_->sizes_[3] + k];
-                            else if (k > nf[2]/2)
-                                fp.kelem(i, jp, k + nf[2]/2) = crecvbuf_[j * fbuf_->sizes_[3] + k];
+                            }else{
+                                if (k <= nf[2]/2)
+                                    fp.kelem(i, jp, k) = crecvbuf_[j * fbuf_->sizes_[3] + k];
+                                if (k >= nf[2]/2)
+                                    fp.kelem(i, jp, k + nf[2]/2) = crecvbuf_[j * fbuf_->sizes_[3] + k];
+                            }
+                            
                         }
                     }
 
-                    else if (j > nf[1]/2)
+                     if (j >= nf[1]/2)
                     {
                         size_t jp = j + nf[1]/2;
                         for (size_t k = 0; k < nf[2]; ++k)
                         {
-                            if (k < nf[2]/2)
+                            if( typeid(data_t)==typeid(real_t) ){
                                 fp.kelem(i, jp, k) = crecvbuf_[j * fbuf_->sizes_[3] + k];
-                            else if (k > nf[2]/2)
-                                fp.kelem(i, jp, k + nf[2]/2) = crecvbuf_[j * fbuf_->sizes_[3] + k];
+                            }else{
+                                if (k <= nf[2]/2)
+                                    fp.kelem(i, jp, k) = crecvbuf_[j * fbuf_->sizes_[3] + k];
+                                if (k >= nf[2]/2)
+                                    fp.kelem(i, jp, k + nf[2]/2) = crecvbuf_[j * fbuf_->sizes_[3] + k];
+                            }
                         }
                     }
                 }
@@ -455,7 +462,7 @@ private:
             size_t iglobal = i + offsetsp_[CONFIG::MPI_task_rank];
 
             //... sending
-            if (iglobal < fny[0])
+            if (iglobal <= fny[0])
             {
                 int sendto = get_task(iglobal, offsets_, sizes_, CONFIG::MPI_task_size);
 
@@ -463,7 +470,7 @@ private:
                         MPI_COMM_WORLD, &temp_req);
                 req.push_back(temp_req);
             }
-            else if (iglobal > 2 * fny[0])
+            else if (iglobal >= 2 * fny[0])
             {
                 int sendto = get_task(iglobal - fny[0], offsets_, sizes_, CONFIG::MPI_task_size);
                 MPI_Isend(&fp.kelem(i * slicesz), (int)slicesz, datatype, sendto, (int)iglobal,
@@ -472,54 +479,132 @@ private:
             }
         }
 
+        fbuf_->zero();
+
         for (size_t i = 0; i < nf[0]; ++i)
         {
             size_t iglobal = i + offsets_[CONFIG::MPI_task_rank];
-
-            status.MPI_ERROR = MPI_SUCCESS;
-
             int recvfrom = 0;
-            if (iglobal < fny[0])
+            if (iglobal <= fny[0])
             {
+                real_t wi = (iglobal == fny[0])? 0.5 : 1.0;
+
                 recvfrom = get_task(iglobal, offsetsp_, sizesp_, CONFIG::MPI_task_size);
                 MPI_Recv(&recvbuf_[0], (int)slicesz, datatype, recvfrom, (int)iglobal,
                         MPI_COMM_WORLD, &status);
+
+                for (size_t j = 0; j < nf[1]; ++j)
+                {
+                    real_t wj = (j==fny[1])? 0.5 : 1.0;
+                    if (j <= fny[1])
+                    {
+                        size_t jp = j;
+                        for (size_t k = 0; k < nf[2]; ++k)
+                        {
+                            if( typeid(data_t)==typeid(real_t) ){
+                                real_t w = wi*wj;
+                                fbuf_->kelem(i, j, k) += w*crecvbuf_[jp * nfp[3] + k]/rfac;
+                            }else{
+                                real_t wk = (k==fny[2])? 0.5 : 1.0;
+                                real_t w = wi*wj*wk;
+                                if (k <= fny[2])
+                                    fbuf_->kelem(i, j, k) += w*crecvbuf_[jp * nfp[3] + k]/rfac;
+                                if (k >= fny[2])
+                                    fbuf_->kelem(i, j, k) += w*crecvbuf_[jp * nfp[3] + k + fny[2]]/rfac;
+                                if( w<1.0 ){
+                                    fbuf_->kelem(i, j, k) = std::real(fbuf_->kelem(i, j, k));
+                                }
+                            }
+                        }
+                    }
+                    if (j >= fny[1])
+                    {
+                        size_t jp = j + fny[1];
+                        for (size_t k = 0; k < nf[2]; ++k)
+                        {
+                            if( typeid(data_t)==typeid(real_t) ){
+                                real_t w = wi*wj;
+                                fbuf_->kelem(i, j, k) += w*crecvbuf_[jp * nfp[3] + k]/rfac;
+                            }else{
+                                real_t wk = (k==fny[2])? 0.5 : 1.0;
+                                real_t w = wi*wj*wk;
+                                if (k <= fny[2])
+                                    fbuf_->kelem(i, j, k) += w*crecvbuf_[jp * nfp[3] + k]/rfac;
+                                if (k >= fny[2])
+                                    fbuf_->kelem(i, j, k) += w*crecvbuf_[jp * nfp[3] + k + fny[2]]/rfac;
+                                if( w<1.0 ){
+                                    fbuf_->kelem(i, j, k) = std::real(fbuf_->kelem(i, j, k));
+                                }
+                            }
+                        }
+                    }
+                }
             }
-            else if (iglobal > fny[0])
+            if (iglobal >= fny[0])
             {
+                real_t wi = (iglobal == fny[0])? 0.5 : 1.0;
+
                 recvfrom = get_task(iglobal + fny[0], offsetsp_, sizesp_, CONFIG::MPI_task_size);
                 MPI_Recv(&recvbuf_[0], (int)slicesz, datatype, recvfrom,
                         (int)(iglobal + fny[0]), MPI_COMM_WORLD, &status);
-            }
-            else
-                continue;
 
-            assert(status.MPI_ERROR == MPI_SUCCESS);
-
-            for (size_t j = 0; j < nf[1]; ++j)
-            {
-
-                if (j < fny[1])
+                for (size_t j = 0; j < nf[1]; ++j)
                 {
-                    size_t jp = j;
-                    for (size_t k = 0; k < nf[2]; ++k)
+                    real_t wj = (j==fny[1])? 0.5 : 1.0;
+                    if (j <= fny[1])
                     {
-                        if (k < fny[2])
-                            f.kelem(i, j, k) = op(crecvbuf_[jp * nfp[3] + k]/rfac,f.kelem(i, j, k));
-                        else if (k > fny[2])
-                            f.kelem(i, j, k) = op(crecvbuf_[jp * nfp[3] + k + fny[2]]/rfac, f.kelem(i, j, k));
+                        size_t jp = j;
+                        for (size_t k = 0; k < nf[2]; ++k)
+                        {
+                            if( typeid(data_t)==typeid(real_t) ){
+                                real_t w = wi*wj;
+                                fbuf_->kelem(i, j, k) += w*crecvbuf_[jp * nfp[3] + k]/rfac;
+                            }else{
+                                real_t wk = (k==fny[2])? 0.5 : 1.0;
+                                real_t w = wi*wj*wk;
+                                if (k <= fny[2])
+                                    fbuf_->kelem(i, j, k) += w*crecvbuf_[jp * nfp[3] + k]/rfac;
+                                if (k >= fny[2])
+                                    fbuf_->kelem(i, j, k) += w*crecvbuf_[jp * nfp[3] + k + fny[2]]/rfac;
+                                if( w<1.0 ){
+                                    fbuf_->kelem(i, j, k) = std::real(fbuf_->kelem(i, j, k));
+                                }
+                            }
+                        }
+                    }
+                    if (j >= fny[1])
+                    {
+                        size_t jp = j + fny[1];
+                        for (size_t k = 0; k < nf[2]; ++k)
+                        {
+                            if( typeid(data_t)==typeid(real_t) ){
+                                real_t w = wi*wj;
+                                fbuf_->kelem(i, j, k) += w*crecvbuf_[jp * nfp[3] + k]/rfac;
+                            }else{
+                                real_t wk = (k==fny[2])? 0.5 : 1.0;
+                                real_t w = wi*wj*wk;
+                                if (k <= fny[2])
+                                    fbuf_->kelem(i, j, k) += w*crecvbuf_[jp * nfp[3] + k]/rfac;
+                                if (k >= fny[2])
+                                    fbuf_->kelem(i, j, k) += w*crecvbuf_[jp * nfp[3] + k + fny[2]]/rfac;
+                                if( w<1.0 ){
+                                    fbuf_->kelem(i, j, k) = std::real(fbuf_->kelem(i, j, k));
+                                }
+                            }
+                        }
                     }
                 }
-                if (j > fny[1])
+            }
+        }
+
+        #pragma omp parallel for
+        for (size_t i = 0; i < fbuf_->size(0); ++i)
+        {
+            for (size_t j = 0; j < fbuf_->size(1); ++j)
+            {
+                for (size_t k = 0; k < fbuf_->size(2); ++k)
                 {
-                    size_t jp = j + fny[1];
-                    for (size_t k = 0; k < nf[2]; ++k)
-                    {
-                        if (k < fny[2])
-                            f.kelem(i, j, k) = op(crecvbuf_[jp * nfp[3] + k]/rfac, f.kelem(i, j, k));
-                        else if (k > fny[2])
-                            f.kelem(i, j, k) = op(crecvbuf_[jp * nfp[3] + k + fny[2]]/rfac, f.kelem(i, j, k));
-                    }
+                    f.kelem(i, j, k) = op(fbuf_->kelem(i, j, k), f.kelem(i, j, k));
                 }
             }
         }
