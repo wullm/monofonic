@@ -1,0 +1,3 @@
+[submodule "external/class"]
+	path = external/class
+	url = https://github.com/lesgourg/class_public.git
