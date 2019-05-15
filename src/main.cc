@@ -132,7 +132,7 @@ int main( int argc, char** argv )
     {
         // write power spectrum to a file
         std::ofstream ofs("input_powerspec.txt");
-        for( double k=1e-4; k<1e4; k*=1.1 ){
+        for( double k=the_transfer_function->get_kmin(); k<the_transfer_function->get_kmax(); k*=1.1 ){
             ofs << std::setw(16) << k
                 << std::setw(16) << std::pow(the_cosmo_calc->GetAmplitude(k, total) * Dplus0, 2.0)
                 << std::setw(16) << std::pow(the_cosmo_calc->GetAmplitude(k, total), 2.0)
@@ -164,7 +164,8 @@ int main( int argc, char** argv )
     //======================================================================
     //... compute 1LPT displacement potential ....
     // phi = - delta / k^2
-    csoca::ilog << "Computing phi(1) term..." << std::endl;
+    double wtime = get_wtime();    
+    csoca::ilog << "Computing phi(1) term..." << std::flush;
     phi.FourierTransformForward();
     
     phi.apply_function_k_dep([&](auto x, auto k) -> ccomplex_t {
@@ -174,23 +175,25 @@ int main( int argc, char** argv )
         ccomplex_t delta = x * the_cosmo_calc->GetAmplitude(kmod, total);
         return -delta / (kmod * kmod) * phifac / volfac;
     });
-
     phi.zero_DC_mode();
-
+    csoca::ilog << "   took " << get_wtime()-wtime << "s" << std::endl;
+    
+    //////////////////////////////////////////////////////////////////////////////////////////////////
     auto assign_op = []( ccomplex_t res, ccomplex_t val ) -> ccomplex_t{ return res; };
     auto add_op = []( ccomplex_t res, ccomplex_t val ) -> ccomplex_t{ return val+res; };
     auto add2_op = []( ccomplex_t res, ccomplex_t val ) -> ccomplex_t{ return val+2.0*res; };
     auto sub_op = []( ccomplex_t res, ccomplex_t val ) -> ccomplex_t{ return val-res; };
     auto sub2_op = []( ccomplex_t res, ccomplex_t val ) -> ccomplex_t{ return val-2.0*res; };
 
-
-    csoca::ilog << "Computing phi(2) term..." << std::endl;
+    wtime = get_wtime();    
+    csoca::ilog << "Computing phi(2) term..." << std::flush;
     // Compute the source term for phi(2)
     Conv.convolve_SumHessians( phi, {0,0}, phi, {1,1}, {2,2}, phi2, assign_op );
     Conv.convolve_Hessians( phi, {1,1}, phi, {2,2}, phi2, add_op );
     Conv.convolve_Hessians( phi, {0,1}, phi, {0,1}, phi2, sub_op );
     Conv.convolve_Hessians( phi, {0,2}, phi, {0,2}, phi2, sub_op );
     Conv.convolve_Hessians( phi, {1,2}, phi, {1,2}, phi2, sub_op );
+    csoca::ilog << "   took " << get_wtime()-wtime << "s" << std::endl;
     
     phi2.FourierTransformForward();
     phi2.apply_function_k_dep([&](auto x, auto k) {
@@ -202,7 +205,8 @@ int main( int argc, char** argv )
     //======================================================================
     //... compute 3LPT displacement potential
     
-    csoca::ilog << "Computing phi(3a) term..." << std::endl;
+    wtime = get_wtime();    
+    csoca::ilog << "Computing phi(3a) term..." << std::flush;
     Conv.convolve_SumHessians( phi, {0,0}, phi2, {1,1}, {2,2}, phi3a, assign_op );
     Conv.convolve_SumHessians( phi, {1,1}, phi2, {2,2}, {0,0}, phi3a, add_op );
     Conv.convolve_SumHessians( phi, {2,2}, phi2, {0,0}, {1,1}, phi3a, add_op );
@@ -213,6 +217,8 @@ int main( int argc, char** argv )
     phi3a.apply_function_k_dep([&](auto x, auto k) {
         return 0.5 * x;
     });
+    csoca::ilog << "   took " << get_wtime()-wtime << "s" << std::endl;
+    
 
     phi3a.FourierTransformForward();
     phi3a.apply_function_k_dep([&](auto x, auto k) {
@@ -221,7 +227,8 @@ int main( int argc, char** argv )
     });
     phi3a.zero_DC_mode();
 
-    csoca::ilog << "Computing phi(3b) term..." << std::endl;
+    wtime = get_wtime();    
+    csoca::ilog << "Computing phi(3b) term..." << std::flush;
     Conv.convolve_Hessians( phi, {0,0}, phi, {1,1}, phi, {2,2}, phi3b, assign_op );
     Conv.convolve_Hessians( phi, {0,1}, phi, {0,2}, phi, {1,2}, phi3b, add2_op );
     Conv.convolve_Hessians( phi, {1,2}, phi, {1,2}, phi, {0,0}, phi3b, sub_op );
@@ -234,6 +241,7 @@ int main( int argc, char** argv )
         return x * (-1.0 / kmod2) * phifac / phifac / phifac/phifac;
     });
     phi3b.zero_DC_mode();
+    csoca::ilog << "   took " << get_wtime()-wtime << "s" << std::endl;
     
     ///////////////////////////////////////////////////////////////////////
     // we store the densities here if we compute them

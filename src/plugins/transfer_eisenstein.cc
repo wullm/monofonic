@@ -36,13 +36,13 @@ struct eisenstein_transfer
   alpha_gamma;	/* Gamma suppression in approximate TF */
 
   template <typename T>
-  inline T SQR(T x) { return x * x; }
+  inline T SQR(T x) const { return x * x; }
 
   template <typename T>
-  inline T CUBE(T x) { return x * SQR(x); }
+  inline T CUBE(T x) const { return x * SQR(x); }
 
   template<typename T>
-  inline T POW4( T x ){ return SQR(SQR(x)); }
+  inline T POW4( T x ) const { return SQR(SQR(x)); }
   
   //! private member function: sets internal quantities for Eisenstein & Hu fitting
   void TFset_parameters(double omega0hh, double f_baryon, double Tcmb)
@@ -111,7 +111,7 @@ struct eisenstein_transfer
   }
   
   //! private member function: computes transfer function for mode k (k in Mpc)
-  inline double TFfit_onek(double k, double *tf_baryon, double *tf_cdm)
+  inline double TFfit_onek(double k, double *tf_baryon, double *tf_cdm) const
   /* Input: k -- Wavenumber at which to calculate transfer function, in Mpc^-1.
    *tf_baryon, *tf_cdm -- Input value not used; replaced on output if
    the input was not NULL. */
@@ -177,7 +177,7 @@ struct eisenstein_transfer
     fc_ = (Omega_m-Omega_b)/(Omega_m) ;
   }
   
-  inline double at_k( double k )
+  inline double at_k( double k ) const
   {
     double tfb, tfcdm;
     TFfit_onek( k*m_h0, &tfb, &tfcdm );
@@ -218,15 +218,15 @@ public:
 	}
 	
 	//! Computes the transfer function for k in Mpc/h by calling TFfit_onek
-	inline double compute( double k, tf_type type ){
+	inline double compute( double k, tf_type type ) const{
         return etf_.at_k( k );
 	}
 	
-	inline double get_kmin( void ){
+	inline double get_kmin( void ) const{
 		return 1e-4;
 	}
 	
-	inline double get_kmax( void ){
+	inline double get_kmax( void ) const{
 		return 1.e4;
 	}
 	
@@ -313,16 +313,16 @@ public:
         std::cerr << "WDM alpha = " << m_WDMalpha << std::endl;
 	}
 	
-	inline double compute( double k, tf_type type )
+	inline double compute( double k, tf_type type ) const
 	{
 		return etf_.at_k( k )*pow(1.0+pow(m_WDMalpha*k,2.0*wdmnu_),-5.0/wdmnu_);
 	}
   
-    inline double get_kmin( void ){
+    inline double get_kmin( void ) const{
       return 1e-4;
     }
     
-    inline double get_kmax( void ){
+    inline double get_kmax( void ) const{
       return 1.e4;
     }
 	
@@ -358,7 +358,7 @@ public:
         //LOGINFO(" bino CDM: k_fs = %g, k_d = %g", kfs_, kd_ );
 	}
 	
-	inline double compute( double k, tf_type type )
+	inline double compute( double k, tf_type type ) const
 	{
         double kkfs = k/kfs_;
         double kkfs2 = kkfs*kkfs;
@@ -372,11 +372,11 @@ public:
             return 0.0;
 	}
     
-    inline double get_kmin( void ){
+    inline double get_kmin( void ) const{
         return 1e-4;
     }
     
-    inline double get_kmax( void ){
+    inline double get_kmax( void ) const{
         return 1.e8;
     }
 	
