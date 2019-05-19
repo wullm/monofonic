@@ -3,6 +3,7 @@
 
 //  Copyright (C) 2019  Oliver Hahn
 
+#ifdef USE_CLASS
 
 #include <cmath>
 #include <string>
@@ -17,8 +18,6 @@
 
 #include <gsl/gsl_errno.h>
 #include <gsl/gsl_spline.h>
-
-const double tiny = 1e-30;
 
 class transfer_CLASS_plugin : public TransferFunction_plugin {
 
@@ -142,3 +141,5 @@ public:
 namespace {
 TransferFunction_plugin_creator_concrete<transfer_CLASS_plugin> creator("CLASS");
 }
+
+#endif // USE_CLASS
