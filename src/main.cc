@@ -15,6 +15,7 @@
 #include <output_plugin.hh>
 #include <cosmology_calculator.hh>
 
+// initialise with "default" values
 namespace CONFIG{
 int  MPI_thread_support = -1;
 int  MPI_task_rank = 0;
@@ -94,6 +95,7 @@ int main( int argc, char** argv )
 
     //...
     const std::string fname_hdf5 = the_config.GetValueSafe<std::string>("output", "fname_hdf5", "output.hdf5");
+    const std::string fname_analysis = the_config.GetValueSafe<std::string>("output", "fbase_analysis", "output");
     //////////////////////////////////////////////////////////////////////////////////////////////
 
     std::unique_ptr<CosmologyCalculator>  the_cosmo_calc;
@@ -276,6 +278,13 @@ int main( int argc, char** argv )
                 }
             }
         }
+
+        delta.Write_PowerSpectrum(fname_analysis+"_"+"power_delta1.txt");
+        delta2.Write_PowerSpectrum(fname_analysis+"_"+"power_delta2.txt");
+        delta3a.Write_PowerSpectrum(fname_analysis+"_"+"power_delta3a.txt");
+        delta3b.Write_PowerSpectrum(fname_analysis+"_"+"power_delta3b.txt");
+        delta3.Write_PowerSpectrum(fname_analysis+"_"+"power_delta3.txt");
+
         phi.FourierTransformBackward();
         phi2.FourierTransformBackward();
         phi3a.FourierTransformBackward();

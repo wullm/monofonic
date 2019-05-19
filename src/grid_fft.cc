@@ -501,7 +501,7 @@ void Grid_FFT<data_t>::Write_to_HDF5(std::string fname, std::string datasetname)
 #include <iomanip>
 
 template <typename data_t>
-void Grid_FFT<data_t>::Compute_PDF( std::string ofname, int nbins, double scale, double vmin, double vmax )
+void Grid_FFT<data_t>::Write_PDF( std::string ofname, int nbins, double scale, double vmin, double vmax )
 {
     double logvmin = std::log10(vmin);
     double logvmax = std::log10(vmax);
@@ -551,14 +551,43 @@ void Grid_FFT<data_t>::Compute_PDF( std::string ofname, int nbins, double scale,
 }
 
 template <typename data_t>
-void Grid_FFT<data_t>::ComputePowerSpectrum(std::vector<double> &bin_k, std::vector<double> &bin_P, std::vector<double> &bin_eP, int nbins)
+void Grid_FFT<data_t>::Write_PowerSpectrum( std::string ofname )
+{
+    std::vector<double> bin_k, bin_P, bin_eP;
+    std::vector<size_t> bin_count;
+    int nbins = 4*std::max( nhalf_[0], std::max(nhalf_[1], nhalf_[2]) );
+    this->Compute_PowerSpectrum( bin_k, bin_P, bin_eP, bin_count, nbins );
+#if defined(USE_MPI)
+    if (CONFIG::MPI_task_rank == 0)
+    {
+#endif
+        std::ofstream ofs( ofname.c_str());
+        std::size_t numcells = size(0) * size(1) * size(2);
+
+        //ofs << "# a = " << aexp << std::endl;
+        ofs << "# " << std::setw(14) << "k" << std::setw(16) << "P(k)" << std::setw(16) << "err. P(k)"
+            << std::setw(16) <<"#modes" << "\n";
+
+        for( int ibin=0; ibin<nbins; ++ibin ){
+            if( bin_count[ibin] > 0 )
+            ofs << std::setw(16) << bin_k[ibin]
+                << std::setw(16) << bin_P[ibin]
+                << std::setw(16) << bin_eP[ibin]
+                << std::setw(16) << bin_count[ibin]
+                << std::endl;
+        }
+#if defined(USE_MPI)
+    }
+#endif
+}
+
+template <typename data_t>
+void Grid_FFT<data_t>::Compute_PowerSpectrum(std::vector<double> &bin_k, std::vector<double> &bin_P, std::vector<double> &bin_eP, std::vector<size_t> &bin_count, int nbins)
 {
     real_t kmax = std::max(std::max(kfac_[0] * nhalf_[0], kfac_[1] * nhalf_[1]),
                            kfac_[2] * nhalf_[2]),
            kmin = std::min(std::min(kfac_[0], kfac_[1]), kfac_[2]),
            dklog = log10(kmax / kmin) / nbins;
-
-    std::vector<size_t> bin_count;
 
     bin_count.assign(nbins,0);
     bin_k.assign(nbins, 0);

@@ -430,9 +430,11 @@ public:
 
     void Write_to_HDF5(std::string fname, std::string datasetname);
 
-    void ComputePowerSpectrum(std::vector<double> &bin_k, std::vector<double> &bin_P, std::vector<double> &bin_eP, int nbins);
+    void Write_PowerSpectrum( std::string ofname );
 
-    void Compute_PDF(std::string ofname, int nbins = 1000, double scale = 1.0, double rhomin = 1e-3, double rhomax = 1e3);
+    void Compute_PowerSpectrum(std::vector<double> &bin_k, std::vector<double> &bin_P, std::vector<double> &bin_eP, std::vector<size_t> &bin_count, int nbins);
+
+    void Write_PDF(std::string ofname, int nbins = 1000, double scale = 1.0, double rhomin = 1e-3, double rhomax = 1e3);
 
     void zero_DC_mode(void)
     {
