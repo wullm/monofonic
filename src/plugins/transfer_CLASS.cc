@@ -25,7 +25,7 @@ private:
     std::vector<double> tab_lnk_, tab_dtot_, tab_dc_, tab_db_, tab_ttot_, tab_tc_, tab_tb_;
     gsl_interp_accel *gsl_ia_dtot_, *gsl_ia_dc_, *gsl_ia_db_, *gsl_ia_ttot_, *gsl_ia_tc_, *gsl_ia_tb_;
     gsl_spline *gsl_sp_dtot_, *gsl_sp_dc_, *gsl_sp_db_, *gsl_sp_ttot_, *gsl_sp_tc_, *gsl_sp_tb_;
-    double Omega_m_, Omega_b_, zstart_, ztarget_, kmax_, kmin_, h_;
+    double Omega_m_, Omega_b_, N_ur_, zstart_, ztarget_, kmax_, kmin_, h_;
 
     void ClassEngine_get_data( void ){
         std::vector<double> d_ncdm, t_ncdm, phi, psi;
@@ -43,7 +43,7 @@ private:
         pars.add("Omega_b",Omega_b_);
         // pars.add("Omega_k",0.0);
         // pars.add("Omega_ur",0.0);
-        pars.add("N_ur",3.046);
+        pars.add("N_ur",N_ur_);
         pars.add("Omega_cdm",Omega_m_-Omega_b_);
         pars.add("Omega_Lambda",1.0-Omega_m_);
         // pars.add("Omega_fld",0.0);
@@ -71,8 +71,9 @@ public:
     h_       = cf.GetValue<double>("cosmology","H0") / 100.0; 
     Omega_m_ = cf.GetValue<double>("cosmology","Omega_m"); 
     Omega_b_ = cf.GetValue<double>("cosmology","Omega_b");
-    zstart_  = cf.GetValue<double>("setup","zstart");
+    N_ur_    = cf.GetValueSafe<double>("cosmology","N_ur", 3.046);
     ztarget_ = cf.GetValueSafe<double>("cosmology","ztarget",0.0);
+    zstart_  = cf.GetValue<double>("setup","zstart");
     kmax_    = 1000.0;
 
     this->ClassEngine_get_data();
