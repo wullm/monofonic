@@ -194,6 +194,26 @@ public:
         return *this;
     }
 
+    Grid_FFT<data_t> apply_Laplacian( void ){
+        this->FourierTransformForward();
+        this->apply_function_k_dep([&](auto x, auto k) {
+            real_t kmod2 = k.norm_squared();
+            return -x*kmod2;
+        });
+        this->zero_DC_mode();
+        return *this;
+    }
+
+    Grid_FFT<data_t> apply_InverseLaplacian( void ){
+        this->FourierTransformForward();
+        this->apply_function_k_dep([&](auto x, auto k) {
+            real_t kmod2 = k.norm_squared();
+            return -x/kmod2;
+        });
+        this->zero_DC_mode();
+        return *this;
+    }
+
     template <typename functional>
     void apply_function_k(const functional &f)
     {
