@@ -87,6 +87,8 @@ void Grid_FFT<data_t>::Setup(void)
 
     local_0_size_ = n_[0];
     local_1_size_ = n_[1];
+    local_0_start_= 0;
+    local_1_start_= 0;
 
     if (space_ == rspace_id)
     {
