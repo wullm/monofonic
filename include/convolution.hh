@@ -22,20 +22,7 @@ protected:
     std::vector<ptrdiff_t> offsets_, offsetsp_;
     std::vector<size_t> sizes_, sizesp_;
 
-    // ptrdiff_t *offsets_;
-	// ptrdiff_t *offsetsp_;
-	// ptrdiff_t *sizes_;
-	// ptrdiff_t *sizesp_;
-
 private:
-    // int get_task( ptrdiff_t index, const ptrdiff_t *offsets, const ptrdiff_t *sizes, const int ntasks ) const
-    // {
-    //     int itask = 0;
-    //     while( itask < ntasks-1 && offsets[itask+1] <= index ) ++itask;
-    //     return itask;
-    // }
-
-    // get task based on offsets
 
     int get_task(ptrdiff_t index, const std::vector<ptrdiff_t>& offsets, const std::vector<size_t>& sizes, const int ntasks )
     {
@@ -43,8 +30,6 @@ private:
         while (itask < ntasks - 1 && offsets[itask + 1] <= index) ++itask;
         return itask;
     }
-	// void pad_insert( const Grid_FFT<data_t> & f, Grid_FFT<data_t> & fp );
-	// void unpad( const Grid_FFT<data_t> & fp, Grid_FFT< data_t > & f );
 
 public:
 
@@ -414,6 +399,7 @@ private:
     #if !defined(USE_MPI) ////////////////////////////////////////////////////////////////////////////////////
         size_t nhalf[3] = {f.n_[0] / 2, f.n_[1] / 2, f.n_[2] / 2};
         
+        #pragma omp parallel for
         for (size_t i = 0; i < f.size(0); ++i)
         {
             size_t ip = (i > nhalf[0]) ? i + nhalf[0] : i;

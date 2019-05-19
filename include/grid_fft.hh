@@ -3,6 +3,7 @@
 #include <cmath>
 #include <array>
 #include <vector>
+#include <execution>
 
 #include <vec3.hh>
 #include <general.hh>
@@ -46,7 +47,7 @@ public:
     ptrdiff_t local_0_size_, local_1_size_;
 
     Grid_FFT(const std::array<size_t, 3> &N, const std::array<real_t, 3> &L, space_t initialspace = rspace_id)
-        : n_(N), length_(L), space_(initialspace), data_(nullptr), cdata_(nullptr) //, RV_(*this), KV_(*this)
+        : n_(N), length_(L), space_(initialspace), data_(nullptr), cdata_(nullptr) 
     {
         for (int i = 0; i < 3; ++i)
         {
@@ -58,20 +59,17 @@ public:
     }
 
     Grid_FFT(const Grid_FFT<data_t> &g)
-        : n_(g.n_), length_(g.length_), space_(g.space_), data_(nullptr), cdata_(nullptr)
+        : n_(g.n_), length_(g.length_), kfac_(g.kfac_), dx_(g.dx_), 
+          space_(g.space_), data_(nullptr), cdata_(nullptr)
     {
-        for (int i = 0; i < 3; ++i)
-        {
-            kfac_[i] = g.kfac_[i];
-            dx_[i] = g.dx_[i];
-        }
         //invalidated = true;
         this->Setup();
 
-        for (size_t i = 0; i < ntot_; ++i)
-        {
-            data_[i] = g.data_[i];
-        }
+        std::copy( &g.data_[0], &g.data_[g.ntot_-1], &data_[0] );
+        // for (size_t i = 0; i < ntot_; ++i)
+        // {
+        //     data_[i] = g.data_[i];
+        // }
     }
 
     ~Grid_FFT()
@@ -94,6 +92,7 @@ public:
 
     void zero()
     {
+        #pragma omp parallel for
         for (size_t i = 0; i < ntot_; ++i)
             data_[i] = 0.0;
     }
@@ -175,6 +174,24 @@ public:
         kk[2] = (real_t(k) - real_t(k > nhalf_[2]) * n_[2]) * kfac_[2];
 
         return kk;
+    }
+
+    Grid_FFT<data_t> operator*=( data_t x ){
+        if( space_ == kspace_id){
+            this->apply_function_k( [&]( ccomplex_t& f ){ return f*x; } );
+        }else{
+            this->apply_function_r( [&]( data_t& f ){ return f*x; } );
+        }
+        return *this;
+    }
+
+    Grid_FFT<data_t> operator/=( data_t x ){
+        if( space_ == kspace_id){
+            this->apply_function_k( [&]( ccomplex_t& f ){ return f/x; } );
+        }else{
+            this->apply_function_r( [&]( data_t& f ){ return f/x; } );
+        }
+        return *this;
     }
 
     template <typename functional>
@@ -406,7 +423,7 @@ public:
             cdata_[0] = (data_t)0.0;
         }else{
             data_t sum = 0.0;
-            //#pragma omp parallel for reduction(+:sum)
+// #pragma omp parallel for reduction(+:sum)
             for (size_t i = 0; i < sizes_[0]; ++i)
             {
                 for (size_t j = 0; j < sizes_[1]; ++j)
@@ -425,7 +442,7 @@ public:
             #endif
             sum /= sizes_[0]*sizes_[1]*sizes_[2];
 
-            #pragma omp parallel for 
+#pragma omp parallel for 
             for (size_t i = 0; i < sizes_[0]; ++i)
             {
                 for (size_t j = 0; j < sizes_[1]; ++j)

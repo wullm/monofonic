@@ -114,6 +114,7 @@ int main( int argc, char** argv )
     const real_t Dplus0 = the_cosmo_calc->CalcGrowthFactor(astart) / the_cosmo_calc->CalcGrowthFactor(1.0);
     const real_t vfac   = the_cosmo_calc->CalcVFact(astart);
 
+    if( CONFIG::MPI_task_rank==0 )
     {
         // write power spectrum to a file
         std::ofstream ofs("input_powerspec.txt");
@@ -199,9 +200,10 @@ int main( int argc, char** argv )
     Conv.convolve_Hessians( phi, {0,2}, phi2, {0,2}, phi3a, sub2_op );
     Conv.convolve_Hessians( phi, {1,2}, phi2, {1,2}, phi3a, sub2_op );
 
-    phi3a.apply_function_k_dep([&](auto x, auto k) {
-        return 0.5 * x;
-    });
+    phi3a *= 0.5;
+    // phi3a.apply_function_k_dep([&](auto x, auto k) {
+    //     return 0.5 * x;
+    // });
     csoca::ilog << "   took " << get_wtime()-wtime << "s" << std::endl;
     
 
