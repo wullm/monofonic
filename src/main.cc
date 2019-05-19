@@ -71,7 +71,7 @@ int main( int argc, char** argv )
     {
         // print_region_generator_plugins();
         print_TransferFunction_plugins();
-        // print_RNG_plugins();
+        print_RNG_plugins();
         print_output_plugins();
 
         csoca::elog << "In order to run, you need to specify a parameter file!" << std::endl;
@@ -147,7 +147,8 @@ int main( int argc, char** argv )
 
     OrszagConvolver<real_t> Conv({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
     
-    phi.FillRandomReal(6519);
+    //phi.FillRandomReal(6519);
+    the_random_number_generator->Fill_Grid( phi );
 
     //======================================================================
     //... compute 1LPT displacement potential ....

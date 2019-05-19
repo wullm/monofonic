@@ -40,6 +40,8 @@ public:
 
   bool isMultiscale() const { return true; }
 
+  void Fill_Grid( Grid_FFT<real_t>& g ) const { }
+
   void initialize_for_grid_structure()//const refinement_hierarchy &refh)
   {
     //prefh_ = &refh;
