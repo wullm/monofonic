@@ -90,6 +90,11 @@ public:
 
     size_t size(size_t i) const { return sizes_[i]; }
 
+    const bounding_box<size_t>& get_global_range( void ) const
+    {
+        return global_range_;
+    }
+
     void zero()
     {
         #pragma omp parallel for

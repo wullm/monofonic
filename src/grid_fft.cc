@@ -564,7 +564,7 @@ void Grid_FFT<data_t>::Write_PowerSpectrum( std::string ofname )
     {
 #endif
         std::ofstream ofs( ofname.c_str());
-
+        
         ofs << "# " << std::setw(14) << "k" << std::setw(16) << "P(k)" << std::setw(16) << "err. P(k)"
             << std::setw(16) <<"#modes" << "\n";
 

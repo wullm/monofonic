@@ -146,7 +146,8 @@ int main( int argc, char** argv )
     Grid_FFT<real_t> phi3b({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
 
     OrszagConvolver<real_t> Conv({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
-    
+    // NaiveConvolver<real_t> Conv({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
+
     //--------------------------------------------------------------------
     // Some operators to add or subtract terms 
     auto assign_op = []( ccomplex_t res, ccomplex_t val ) -> ccomplex_t{ return res; };
@@ -179,7 +180,7 @@ int main( int argc, char** argv )
     
     //======================================================================
     //... compute 2LPT displacement potential ....
-
+    
     wtime = get_wtime();    
     csoca::ilog << "Computing phi(2) term..." << std::flush;
     Conv.convolve_SumHessians( phi, {0,0}, phi, {1,1}, {2,2}, phi2, assign_op );
@@ -190,7 +191,7 @@ int main( int argc, char** argv )
     phi2.apply_InverseLaplacian();
     phi2 /= phifac;
     csoca::ilog << "   took " << get_wtime()-wtime << "s" << std::endl;
-    
+
     //======================================================================
     //... compute 3LPT displacement potential
     
