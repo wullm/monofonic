@@ -137,7 +137,6 @@ void Grid_FFT<data_t>::Setup(void)
     }
     
     csoca::dlog.Print("[FFT] Setting up a distributed memory field %lux%lux%lu\n", n_[0], n_[1], n_[2]);
-    csoca::ilog.Print("[FFT] %f %f %f\n",length_[0],length_[1],length_[2]);
     fft_norm_fac_ = 1.0 / sqrt((double)n_[0] * (double)n_[1] * (double)n_[2]);
 
     if (typeid(data_t) == typeid(real_t))

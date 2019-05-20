@@ -108,7 +108,6 @@ int main( int argc, char** argv )
     const int LPTorder = the_config.GetValueSafe<double>("setup","LPTorder",100);
     const real_t astart = 1.0/(1.0+zstart);
     const real_t volfac(std::pow(boxlen / ngrid / 2.0 / M_PI, 1.5));
-    const real_t phifac = 1.0 / boxlen / boxlen; // to have potential in box units
 
     const bool bDoFixing = false;
 
@@ -191,7 +190,7 @@ int main( int argc, char** argv )
         if( bDoFixing ) x = x / std::abs(x); //std::exp(ccomplex_t(0, iphase * PhaseRotation));
         else x = x;
         ccomplex_t delta = x * the_cosmo_calc->GetAmplitude(kmod, total);
-        return -delta / (kmod * kmod) * phifac / volfac;
+        return -delta / (kmod * kmod) / volfac;
     });
     
     phi.zero_DC_mode();
@@ -208,7 +207,6 @@ int main( int argc, char** argv )
     Conv.convolve_Hessians( phi, {0,2}, phi, {0,2}, phi2, sub_op );
     Conv.convolve_Hessians( phi, {1,2}, phi, {1,2}, phi2, sub_op );
     phi2.apply_InverseLaplacian();
-    phi2 /= phifac;
     phi2.zero_DC_mode();
     csoca::ilog << "   took " << get_wtime()-wtime << "s" << std::endl;
 
@@ -223,7 +221,6 @@ int main( int argc, char** argv )
     Conv.convolve_Hessians( phi, {0,2}, phi, {0,2}, phi, {1,1}, phi3a, sub_op );
     Conv.convolve_Hessians( phi, {0,1}, phi, {0,1}, phi, {2,2}, phi3a, sub_op );
     phi3a.apply_InverseLaplacian();
-    phi3a /= phifac*phifac;
     csoca::ilog << "   took " << get_wtime()-wtime << "s" << std::endl;
     
     //...
@@ -237,7 +234,7 @@ int main( int argc, char** argv )
     Conv.convolve_Hessians( phi, {0,2}, phi2, {0,2}, phi3b, sub2_op );
     Conv.convolve_Hessians( phi, {1,2}, phi2, {1,2}, phi3b, sub2_op );
     phi3b.apply_InverseLaplacian();
-    phi3b *= 0.5/phifac; // factor 1/2 from definition of phi(3b)!
+    phi3b *= 0.5; // factor 1/2 from definition of phi(3b)!
     csoca::ilog << "   took " << get_wtime()-wtime << "s" << std::endl;
     
 
@@ -274,10 +271,10 @@ int main( int argc, char** argv )
                     phi3b.kelem(idx) *= g3b;
 
                     // compute densities associated to respective potentials as well
-                    delta.kelem(idx) = laplace * phi.kelem(idx) / phifac;
-                    delta2.kelem(idx) = laplace * phi2.kelem(idx) / phifac;
-                    delta3a.kelem(idx) = laplace * phi3a.kelem(idx) / phifac;
-                    delta3b.kelem(idx) = laplace * phi3b.kelem(idx) / phifac;
+                    delta.kelem(idx) = laplace * phi.kelem(idx);
+                    delta2.kelem(idx) = laplace * phi2.kelem(idx);
+                    delta3a.kelem(idx) = laplace * phi3a.kelem(idx);
+                    delta3b.kelem(idx) = laplace * phi3b.kelem(idx);
                     delta3.kelem(idx) = delta3a.kelem(idx) + delta3b.kelem(idx);
                 
                 }
@@ -343,14 +340,12 @@ int main( int argc, char** argv )
                 {
                     auto kk = phi.get_k<real_t>(i,j,k);
                     size_t idx = phi.get_idx(i,j,k);
-                    // auto laplace = -kk.norm_squared();
 
                     // scale potentials with respective order growth factors
                     phi.kelem(idx)   *= g1;
                     phi2.kelem(idx)  *= g2;
                     phi3a.kelem(idx) *= g3a;
                     phi3b.kelem(idx) *= g3b;
-
                     
                     auto phitot = phi.kelem(idx) + ((LPTorder>1)?phi2.kelem(idx):0.0) + ((LPTorder>2)? phi3a.kelem(idx) + phi3b.kelem(idx) : 0.0);
                     auto phitot_v = vfac1 * phi.kelem(idx) + ((LPTorder>1)? vfac2 * phi2.kelem(idx) : 0.0) + ((LPTorder>2)? vfac3 * (phi3a.kelem(idx) + phi3b.kelem(idx)) : 0.0);
