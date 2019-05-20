@@ -240,7 +240,7 @@ int main( int argc, char** argv )
 
     ///////////////////////////////////////////////////////////////////////
     // we store the densities here if we compute them
-    const bool compute_densities = true;
+    const bool compute_densities = false;
     if( compute_densities ){
         Grid_FFT<real_t> delta({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
         Grid_FFT<real_t> delta2({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
@@ -350,13 +350,14 @@ int main( int argc, char** argv )
                     auto phitot = phi.kelem(idx) + ((LPTorder>1)?phi2.kelem(idx):0.0) + ((LPTorder>2)? phi3a.kelem(idx) + phi3b.kelem(idx) : 0.0);
                     auto phitot_v = vfac1 * phi.kelem(idx) + ((LPTorder>1)? vfac2 * phi2.kelem(idx) : 0.0) + ((LPTorder>2)? vfac3 * (phi3a.kelem(idx) + phi3b.kelem(idx)) : 0.0);
 
-                    Psix.kelem(idx) = ccomplex_t(0.0,1.0) * kk[0]* boxlen * ( phitot );
-                    Psiy.kelem(idx) = ccomplex_t(0.0,1.0) * kk[1]* boxlen * ( phitot );
-                    Psiz.kelem(idx) = ccomplex_t(0.0,1.0) * kk[2]* boxlen * ( phitot );
+                    // divide by Lbox, because displacement is in box units for output plugin
+                    Psix.kelem(idx) = ccomplex_t(0.0,1.0) * kk[0]/ boxlen * ( phitot );
+                    Psiy.kelem(idx) = ccomplex_t(0.0,1.0) * kk[1]/ boxlen * ( phitot );
+                    Psiz.kelem(idx) = ccomplex_t(0.0,1.0) * kk[2]/ boxlen * ( phitot );
 
-                    Vx.kelem(idx)   = ccomplex_t(0.0,1.0) * kk[0]* boxlen * ( phitot_v );
-                    Vy.kelem(idx)   = ccomplex_t(0.0,1.0) * kk[1]* boxlen * ( phitot_v );
-                    Vz.kelem(idx)   = ccomplex_t(0.0,1.0) * kk[2]* boxlen * ( phitot_v );
+                    Vx.kelem(idx)   = ccomplex_t(0.0,1.0) * kk[0]/ boxlen * ( phitot_v );
+                    Vy.kelem(idx)   = ccomplex_t(0.0,1.0) * kk[1]/ boxlen * ( phitot_v );
+                    Vz.kelem(idx)   = ccomplex_t(0.0,1.0) * kk[2]/ boxlen * ( phitot_v );
                 }
             }
         }
