@@ -64,89 +64,50 @@ public:
 
     void Fill_Grid(Grid_FFT<real_t> &g) const
     {
-        double fnorm = std::pow((double)nres_, -1.5);
         g.FourierTransformForward(false);
 
-#ifdef USE_MPI
         // transform is transposed!
-        for (size_t j = 0; j < g.size(0); ++j)
+        for (size_t i = 0; i < nres_; ++i) 
         {
-            for (size_t i = 0; i < g.size(1); ++i)
+            size_t ii  = (i>0)? nres_ - i : 0;
+            size_t ip  = i - g.local_1_start_;
+            size_t iip = ii- g.local_1_start_;
+            bool i_in_range  = (i >= size_t(g.local_1_start_) && i < size_t(g.local_1_start_+g.local_1_size_));
+            bool ii_in_range = (ii >= size_t(g.local_1_start_) && ii < size_t(g.local_1_start_ + g.local_1_size_));
+
+            if( i_in_range || ii_in_range )
             {
-#else
-        for (size_t i = 0; i < g.size(0); ++i)
-        {
-            for (size_t j = 0; j < g.size(1); ++j)
-            {
-#endif
-                ptrdiff_t ii = (i>0)? g.size(1) - i : 0;
-                gsl_rng_set( pRandomGenerator_, SeedTable_[i * nres_ + j]);
-                for (size_t k = 0; k < g.size(2); ++k)
-                {
-                    double phase = gsl_rng_uniform(pRandomGenerator_) * 2 * M_PI;
-                    double ampl;
-                    do
+                for (size_t j = 0; j < nres_; ++j) 
+                {                   
+                    ptrdiff_t jj = (j>0)? nres_ - j : 0;
+                    gsl_rng_set( pRandomGenerator_, SeedTable_[i * nres_ + j]);
+                    for (size_t k = 0; k < g.size(2); ++k) 
                     {
-                        ampl = gsl_rng_uniform(pRandomGenerator_);
-                    } while (ampl == 0);
-                    if (i == nres_ / 2 || j == nres_ / 2 || k == nres_ / 2)
-                        continue;
-                    if (i == 0 && j == 0 && k == 0)
-                        continue;
+                        double phase = gsl_rng_uniform(pRandomGenerator_) * 2 * M_PI;
+                        double ampl = 0;
 
-                    real_t rp = -std::sqrt(-std::log(ampl)) * std::cos(phase);// * fnorm;
-                    real_t ip = -std::sqrt(-std::log(ampl)) * std::sin(phase);// * fnorm;
-                    ccomplex_t zrand(rp,ip);
+                        do {
+                            ampl = gsl_rng_uniform(pRandomGenerator_);
+                        } while (ampl == 0);
 
-                    if (k > 0)
-                    {
-                        g.kelem(i,j,k) = zrand;
-                        // RE(knoise[(i * res + j) * (res / 2 + 1) + k]) = rp;
-                        // IM(knoise[(i * res + j) * (res / 2 + 1) + k]) = ip;
-                    }
-                    else /* k=0 plane needs special treatment */
-                    {
-                        if (i == 0)
-                        {
-                            if (j >= nres_ / 2)
-                            {
-                                continue;
-                            }
-                            else
-                            {
-                                int jj = (int)nres_ - (int)j; /* note: j!=0 surely holds at this point */
-                                g.kelem(i,j,k) = zrand;
-                                g.kelem(i,jj,k) = std::conj(zrand);
+                        if (i == nres_ / 2 || j == nres_ / 2 || k == nres_ / 2) continue;
+                        if (i == 0 && j == 0 && k == 0) continue;
 
-                                // RE(knoise[(i * res + j) * (res / 2 + 1) + k]) = rp;
-                                // IM(knoise[(i * res + j) * (res / 2 + 1) + k]) = ip;
+                        ampl = -std::sqrt(-std::log(ampl));
+                        ccomplex_t zrand(ampl*std::cos(phase),ampl*std::sin(phase));
 
-                                // RE(knoise[(i * res + jj) * (res / 2 + 1) + k]) = rp;
-                                // IM(knoise[(i * res + jj) * (res / 2 + 1) + k]) = -ip;
-                            }
-                        }
-                        else
-                        {
-                            if (i >= nres_ / 2)
-                            {
-                                continue;
-                            }
-                            else
-                            {
-                                ptrdiff_t ii = (i>0)? nres_ - i : 0;
-                                ptrdiff_t jj = (j>0)? nres_ - j : 0;
-                                
-                                g.kelem(i,j,k) = zrand;
-
-                                // RE(knoise[(i * res + j) * (res / 2 + 1) + k]) = rp;
-                                // IM(knoise[(i * res + j) * (res / 2 + 1) + k]) = ip;
-
-                                if (ii >= 0 && ii < (int)nres_)
+                        if (k > 0) {
+                            if (i_in_range) g.kelem(ip,j,k) = zrand;
+                        } else{ /* k=0 plane needs special treatment */
+                            if (i == 0) {
+                                if (j < nres_ / 2 && i_in_range)
                                 {
-                                    // RE(knoise[(ii * res + jj) * (res / 2 + 1) + k]) = rp;
-                                    // IM(knoise[(ii * res + jj) * (res / 2 + 1) + k]) = -ip;
-                                    g.kelem(ii,jj,k) = std::conj(zrand);
+                                    g.kelem(ip,j,k) = zrand;
+                                    g.kelem(ip,jj,k) = std::conj(zrand);
                                 }
+                            } else if (i < nres_ / 2) {
+                                if(i_in_range) g.kelem(ip,j,k) = zrand;
+                                if (ii_in_range) g.kelem(iip,jj,k) = std::conj(zrand);
                             }
                         }
                     }
