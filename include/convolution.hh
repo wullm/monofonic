@@ -388,6 +388,7 @@ private:
 
         size_t nf[3] = {fbuf_->size(0), fbuf_->size(1), fbuf_->size(2)};
         size_t nfp[3] = {fp.size(0), fp.size(1), fp.size(2)};
+        size_t fny[3] = {fbuf_->n_[1] / 2, fbuf_->n_[0] / 2, fbuf_->n_[2] / 2};
 
         //... local size must be divisible by 2, otherwise this gets too complicated
         assert(fbuf_->n_[1] % 2 == 0);
@@ -422,7 +423,7 @@ private:
         {
             size_t iglobal = i + offsets_[CONFIG::MPI_task_rank];
 
-            if (iglobal <= nf[0]/2 )//fny[0])
+            if (iglobal <= fny[0] )//fny[0])
             {
                 int sendto = get_task(iglobal, offsetsp_, sizesp_, CONFIG::MPI_task_size);
                 MPI_Isend(&fbuf_->kelem(i * slicesz), (int)slicesz, datatype, sendto,
@@ -430,11 +431,11 @@ private:
                 req.push_back(temp_req);
                 // std::cout << "task " << CONFIG::MPI_task_rank << " : added request No" << req.size()-1 << ": Isend #" << iglobal << " to task " << sendto << ", size = " << slicesz << std::endl;
             }
-            if (iglobal >= nf[0]/2) //fny[0])
+            if (iglobal >= fny[0]) //fny[0])
             {
-                int sendto = get_task(iglobal + nf[0]/2, offsetsp_, sizesp_, CONFIG::MPI_task_size);
+                int sendto = get_task(iglobal + fny[0], offsetsp_, sizesp_, CONFIG::MPI_task_size);
                 MPI_Isend(&fbuf_->kelem(i * slicesz), (int)slicesz, datatype, sendto,
-                        (int)(iglobal + nf[0]/2), MPI_COMM_WORLD, &temp_req);
+                        (int)(iglobal + fny[0]), MPI_COMM_WORLD, &temp_req);
                 req.push_back(temp_req);
                 // std::cout << "task " << CONFIG::MPI_task_rank << " : added request No" << req.size()-1 << ": Isend #" << iglobal+fny[0] << " to task " << sendto << ", size = " << slicesz<< std::endl;
             }
@@ -444,13 +445,13 @@ private:
         {
             size_t iglobal = i + offsetsp_[CONFIG::MPI_task_rank];
 
-            if (iglobal <= nf[0]/2 || iglobal >= nf[0])
+            if (iglobal <= fny[0] || iglobal >= 2*fny[0])
             {
                 int recvfrom = 0;
-                if (iglobal <= nf[0]/2)
+                if (iglobal <= fny[0])
                     recvfrom = get_task(iglobal, offsets_, sizes_, CONFIG::MPI_task_size);
                 else
-                    recvfrom = get_task(iglobal - nf[0]/2, offsets_, sizes_, CONFIG::MPI_task_size);
+                    recvfrom = get_task(iglobal - fny[0], offsets_, sizes_, CONFIG::MPI_task_size);
 
                 // std::cout << "task " << CONFIG::MPI_task_rank << " : receive #" << iglobal << " from task "
                 // << recvfrom << ", size = " << slicesz << ", " << crecvbuf_ << ", " << datatype << std::endl;
@@ -463,7 +464,7 @@ private:
 
                 for (size_t j = 0; j < nf[1]; ++j)
                 {
-                    if (j <= nf[1]/2)
+                    if (j <= fny[1])
                     {
                         size_t jp = j;
                         for (size_t k = 0; k < nf[2]; ++k)
@@ -471,27 +472,27 @@ private:
                             if( typeid(data_t)==typeid(real_t) ){
                                 fp.kelem(i, jp, k) = crecvbuf_[j * fbuf_->sizes_[3] + k];
                             }else{
-                                if (k <= nf[2]/2)
+                                if (k <= fny[2])
                                     fp.kelem(i, jp, k) = crecvbuf_[j * fbuf_->sizes_[3] + k];
-                                if (k >= nf[2]/2)
+                                if (k >= fny[2])
                                     fp.kelem(i, jp, k + nf[2]/2) = crecvbuf_[j * fbuf_->sizes_[3] + k];
                             }
                             
                         }
                     }
 
-                     if (j >= nf[1]/2)
+                     if (j >= fny[1])
                     {
-                        size_t jp = j + nf[1]/2;
+                        size_t jp = j + fny[1];
                         for (size_t k = 0; k < nf[2]; ++k)
                         {
                             if( typeid(data_t)==typeid(real_t) ){
                                 fp.kelem(i, jp, k) = crecvbuf_[j * fbuf_->sizes_[3] + k];
                             }else{
-                                if (k <= nf[2]/2)
+                                if (k <= fny[2])
                                     fp.kelem(i, jp, k) = crecvbuf_[j * fbuf_->sizes_[3] + k];
-                                if (k >= nf[2]/2)
-                                    fp.kelem(i, jp, k + nf[2]/2) = crecvbuf_[j * fbuf_->sizes_[3] + k];
+                                if (k >= fny[2])
+                                    fp.kelem(i, jp, k + fny[2]) = crecvbuf_[j * fbuf_->sizes_[3] + k];
                             }
                         }
                     }
@@ -504,9 +505,9 @@ private:
             // need to set status as wait does not necessarily modify it
             // c.f. http://www.open-mpi.org/community/lists/devel/2007/04/1402.php
             status.MPI_ERROR = MPI_SUCCESS;
-            // ofs << "task " << CONFIG::MPI_task_rank << " : checking request No" << i << std::endl;
+            // std::cout << "task " << CONFIG::MPI_task_rank << " : checking request No" << i << std::endl;
             MPI_Wait(&req[i], &status);
-            // ofs << "---> ok!" << std::endl;
+            // std::cout << "---> ok!" << std::endl;
             assert(status.MPI_ERROR == MPI_SUCCESS);
         }
 
