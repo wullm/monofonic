@@ -25,10 +25,10 @@ private:
     std::vector<double> tab_lnk_, tab_dtot_, tab_dc_, tab_db_, tab_ttot_, tab_tc_, tab_tb_;
     gsl_interp_accel *gsl_ia_dtot_, *gsl_ia_dc_, *gsl_ia_db_, *gsl_ia_ttot_, *gsl_ia_tc_, *gsl_ia_tb_;
     gsl_spline *gsl_sp_dtot_, *gsl_sp_dc_, *gsl_sp_db_, *gsl_sp_ttot_, *gsl_sp_tc_, *gsl_sp_tb_;
-    double Omega_m_, Omega_b_, zstart_, ztarget_, kmax_, kmin_, h_;
+    double Omega_m_, Omega_b_, N_ur_, zstart_, ztarget_, kmax_, kmin_, h_;
 
     void ClassEngine_get_data( void ){
-        std::vector<double> d_g, d_ur, t_g, t_ur, phi, psi;
+        std::vector<double> d_ncdm, t_ncdm, phi, psi;
 
         csoca::ilog << "Computing transfer function via ClassEngine..." << std::flush;
         double wtime = get_wtime();
@@ -41,9 +41,13 @@ private:
         pars.add("P_k_max_h/Mpc", kmax_);
         pars.add("h",h_);
         pars.add("Omega_b",Omega_b_);
-        pars.add("Omega_ur",0.0);
+        // pars.add("Omega_k",0.0);
+        // pars.add("Omega_ur",0.0);
+        pars.add("N_ur",N_ur_);
         pars.add("Omega_cdm",Omega_m_-Omega_b_);
         pars.add("Omega_Lambda",1.0-Omega_m_);
+        // pars.add("Omega_fld",0.0);
+        // pars.add("Omega_scf",0.0);
         pars.add("A_s",2.42e-9);
         pars.add("n_s",.96);
         pars.add("output","dTk,vTk");
@@ -51,8 +55,8 @@ private:
 
         std::unique_ptr<ClassEngine> CE = std::make_unique<ClassEngine>(pars, false);
 
-        CE->getTk(target_redshift, tab_lnk_, d_g, tab_db_, tab_dc_, d_ur, tab_dtot_,
-                phi, psi, t_g, tab_tb_, t_ur, tab_ttot_);
+        CE->getTk(target_redshift, tab_lnk_, tab_dc_, tab_db_, d_ncdm, tab_dtot_,
+                tab_tc_, tab_tb_, t_ncdm, tab_ttot_, phi, psi );
         tab_tc_ = tab_ttot_;
         #warning need to fix CDM velocities
 
@@ -67,8 +71,9 @@ public:
     h_       = cf.GetValue<double>("cosmology","H0") / 100.0; 
     Omega_m_ = cf.GetValue<double>("cosmology","Omega_m"); 
     Omega_b_ = cf.GetValue<double>("cosmology","Omega_b");
-    zstart_  = cf.GetValue<double>("setup","zstart");
+    N_ur_    = cf.GetValueSafe<double>("cosmology","N_ur", 3.046);
     ztarget_ = cf.GetValueSafe<double>("cosmology","ztarget",0.0);
+    zstart_  = cf.GetValue<double>("setup","zstart");
     kmax_    = 1000.0;
 
     this->ClassEngine_get_data();
@@ -130,12 +135,12 @@ public:
       }
 
       double d = (k<=kmin_)? gsl_spline_eval(splineT, std::log(kmin_), accT) 
-        : gsl_spline_eval(splineT, std::log(k), accT);
+        : gsl_spline_eval(splineT, std::log(k*h_), accT);
       return -d/(k*k);
   }
 
-  inline double get_kmin(void) const { return std::exp(tab_lnk_[0]); }
-  inline double get_kmax(void) const { return std::exp(tab_lnk_[tab_lnk_.size()-1]); }
+  inline double get_kmin(void) const { return std::exp(tab_lnk_[0])/h_; }
+  inline double get_kmax(void) const { return std::exp(tab_lnk_[tab_lnk_.size()-1])/h_; }
 };
 
 namespace {

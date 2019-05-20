@@ -90,6 +90,11 @@ public:
 
     size_t size(size_t i) const { return sizes_[i]; }
 
+    const bounding_box<size_t>& get_global_range( void ) const
+    {
+        return global_range_;
+    }
+
     void zero()
     {
         #pragma omp parallel for
@@ -148,8 +153,7 @@ public:
     }
 
     void cell_pos( int ilevel, size_t i, size_t j, size_t k, double* x ) const {
-        #warning needs to be fixed for MPI
-        x[0] = double(i)/size(0);
+        x[0] = double(i+local_0_start_)/size(0);
         x[1] = double(j)/size(1);
         x[2] = double(k)/size(2);
     }

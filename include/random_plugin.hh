@@ -2,6 +2,8 @@
 
 #include <map>
 #include <config_file.hh>
+#include <general.hh>
+#include <grid_fft.hh>
 
 #define DEF_RAN_CUBE_SIZE 32
 
@@ -16,6 +18,7 @@ class RNG_plugin
     }
     virtual ~RNG_plugin() {}
     virtual bool isMultiscale() const = 0;
+    virtual void Fill_Grid( Grid_FFT<real_t>& g ) const = 0;
     //virtual void FillGrid(int level, DensityGrid<real_t> &R) = 0;
 };
 

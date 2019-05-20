@@ -71,7 +71,7 @@ int main( int argc, char** argv )
     {
         // print_region_generator_plugins();
         print_TransferFunction_plugins();
-        // print_RNG_plugins();
+        print_RNG_plugins();
         print_output_plugins();
 
         csoca::elog << "In order to run, you need to specify a parameter file!" << std::endl;
@@ -146,8 +146,19 @@ int main( int argc, char** argv )
     Grid_FFT<real_t> phi3b({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
 
     OrszagConvolver<real_t> Conv({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
+    // NaiveConvolver<real_t> Conv({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
+
+    //--------------------------------------------------------------------
+    // Some operators to add or subtract terms 
+    auto assign_op = []( ccomplex_t res, ccomplex_t val ) -> ccomplex_t{ return res; };
+    auto add_op = []( ccomplex_t res, ccomplex_t val ) -> ccomplex_t{ return val+res; };
+    auto add2_op = []( ccomplex_t res, ccomplex_t val ) -> ccomplex_t{ return val+2.0*res; };
+    auto sub_op = []( ccomplex_t res, ccomplex_t val ) -> ccomplex_t{ return val-res; };
+    auto sub2_op = []( ccomplex_t res, ccomplex_t val ) -> ccomplex_t{ return val-2.0*res; };
+    //--------------------------------------------------------------------
     
-    phi.FillRandomReal(6519);
+    //phi.FillRandomReal(6519);
+    the_random_number_generator->Fill_Grid( phi );
 
     //======================================================================
     //... compute 1LPT displacement potential ....
@@ -163,19 +174,15 @@ int main( int argc, char** argv )
         ccomplex_t delta = x * the_cosmo_calc->GetAmplitude(kmod, total);
         return -delta / (kmod * kmod) * phifac / volfac;
     });
+    
     phi.zero_DC_mode();
     csoca::ilog << "   took " << get_wtime()-wtime << "s" << std::endl;
     
-    //////////////////////////////////////////////////////////////////////////////////////////////////
-    auto assign_op = []( ccomplex_t res, ccomplex_t val ) -> ccomplex_t{ return res; };
-    auto add_op = []( ccomplex_t res, ccomplex_t val ) -> ccomplex_t{ return val+res; };
-    auto add2_op = []( ccomplex_t res, ccomplex_t val ) -> ccomplex_t{ return val+2.0*res; };
-    auto sub_op = []( ccomplex_t res, ccomplex_t val ) -> ccomplex_t{ return val-res; };
-    auto sub2_op = []( ccomplex_t res, ccomplex_t val ) -> ccomplex_t{ return val-2.0*res; };
-
+    //======================================================================
+    //... compute 2LPT displacement potential ....
+    
     wtime = get_wtime();    
     csoca::ilog << "Computing phi(2) term..." << std::flush;
-    // Compute the source term for phi(2)
     Conv.convolve_SumHessians( phi, {0,0}, phi, {1,1}, {2,2}, phi2, assign_op );
     Conv.convolve_Hessians( phi, {1,1}, phi, {2,2}, phi2, add_op );
     Conv.convolve_Hessians( phi, {0,1}, phi, {0,1}, phi2, sub_op );
@@ -184,58 +191,36 @@ int main( int argc, char** argv )
     phi2.apply_InverseLaplacian();
     phi2 /= phifac;
     csoca::ilog << "   took " << get_wtime()-wtime << "s" << std::endl;
-    
-    // phi2.FourierTransformForward();
-    // phi2.apply_function_k_dep([&](auto x, auto k) {
-    //     real_t kmod2 = k.norm_squared();
-    //     return x * (-1.0 / kmod2) * phifac / phifac / phifac;
-    // });
-    // phi2.zero_DC_mode();
-    
+
     //======================================================================
     //... compute 3LPT displacement potential
     
     wtime = get_wtime();    
     csoca::ilog << "Computing phi(3a) term..." << std::flush;
-    Conv.convolve_SumHessians( phi, {0,0}, phi2, {1,1}, {2,2}, phi3a, assign_op );
-    Conv.convolve_SumHessians( phi, {1,1}, phi2, {2,2}, {0,0}, phi3a, add_op );
-    Conv.convolve_SumHessians( phi, {2,2}, phi2, {0,0}, {1,1}, phi3a, add_op );
-    Conv.convolve_Hessians( phi, {0,1}, phi2, {0,1}, phi3a, sub2_op );
-    Conv.convolve_Hessians( phi, {0,2}, phi2, {0,2}, phi3a, sub2_op );
-    Conv.convolve_Hessians( phi, {1,2}, phi2, {1,2}, phi3a, sub2_op );
+    Conv.convolve_Hessians( phi, {0,0}, phi, {1,1}, phi, {2,2}, phi3a, assign_op );
+    Conv.convolve_Hessians( phi, {0,1}, phi, {0,2}, phi, {1,2}, phi3a, add2_op );
+    Conv.convolve_Hessians( phi, {1,2}, phi, {1,2}, phi, {0,0}, phi3a, sub_op );
+    Conv.convolve_Hessians( phi, {0,2}, phi, {0,2}, phi, {1,1}, phi3a, sub_op );
+    Conv.convolve_Hessians( phi, {0,1}, phi, {0,1}, phi, {2,2}, phi3a, sub_op );
     phi3a.apply_InverseLaplacian();
-    phi3a *= 0.5/phifac; // factor 1/2 from definition of phi(3a)!
-    // phi3a.apply_function_k_dep([&](auto x, auto k) {
-    //     return 0.5 * x;
-    // });
+    phi3a /= phifac*phifac;
     csoca::ilog << "   took " << get_wtime()-wtime << "s" << std::endl;
     
-
-    // phi3a.FourierTransformForward();
-    // phi3a.apply_function_k_dep([&](auto x, auto k) {
-    //     real_t kmod2 = k.norm_squared();
-    //     return x * (-1.0 / kmod2) * phifac / phifac / phifac;
-    // });
-    // phi3a.zero_DC_mode();
+    //...
 
     wtime = get_wtime();    
     csoca::ilog << "Computing phi(3b) term..." << std::flush;
-    Conv.convolve_Hessians( phi, {0,0}, phi, {1,1}, phi, {2,2}, phi3b, assign_op );
-    Conv.convolve_Hessians( phi, {0,1}, phi, {0,2}, phi, {1,2}, phi3b, add2_op );
-    Conv.convolve_Hessians( phi, {1,2}, phi, {1,2}, phi, {0,0}, phi3b, sub_op );
-    Conv.convolve_Hessians( phi, {0,2}, phi, {0,2}, phi, {1,1}, phi3b, sub_op );
-    Conv.convolve_Hessians( phi, {0,1}, phi, {0,1}, phi, {2,2}, phi3b, sub_op );
-    
-    // phi3b.FourierTransformForward();
-    // phi3b.apply_function_k_dep([&](auto x, auto k) {
-    //     real_t kmod2 = k.norm_squared();
-    //     return x * (-1.0 / kmod2) * phifac / phifac / phifac/phifac;
-    // });
-    // phi3b.zero_DC_mode();
+    Conv.convolve_SumHessians( phi, {0,0}, phi2, {1,1}, {2,2}, phi3b, assign_op );
+    Conv.convolve_SumHessians( phi, {1,1}, phi2, {2,2}, {0,0}, phi3b, add_op );
+    Conv.convolve_SumHessians( phi, {2,2}, phi2, {0,0}, {1,1}, phi3b, add_op );
+    Conv.convolve_Hessians( phi, {0,1}, phi2, {0,1}, phi3b, sub2_op );
+    Conv.convolve_Hessians( phi, {0,2}, phi2, {0,2}, phi3b, sub2_op );
+    Conv.convolve_Hessians( phi, {1,2}, phi2, {1,2}, phi3b, sub2_op );
     phi3b.apply_InverseLaplacian();
-    phi3b /= phifac*phifac;
+    phi3b *= 0.5/phifac; // factor 1/2 from definition of phi(3a)!
     csoca::ilog << "   took " << get_wtime()-wtime << "s" << std::endl;
     
+
     ///////////////////////////////////////////////////////////////////////
     // we store the densities here if we compute them
     const bool compute_densities = true;

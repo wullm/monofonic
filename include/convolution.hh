@@ -5,24 +5,221 @@
 #include <general.hh>
 #include <grid_fft.hh>
 
-//! convolution class, respecting Orszag's 3/2 rule
-template< typename data_t >
-class OrszagConvolver
+template< typename data_t, typename derived_t >
+class BaseConvolver
 {
 protected:
+    std::array<size_t,3> np_;
+    std::array<real_t,3> length_;
+public:
+    BaseConvolver( const std::array<size_t, 3> &N, const std::array<real_t, 3> &L )
+    : np_( N ), length_( L ) {}
+
+    virtual ~BaseConvolver() {}
+
+    // implements convolution of two Fourier-space fields
+    template< typename kfunc1, typename kfunc2, typename opp >
+    void convolve2( kfunc1 kf1, kfunc2 kf2, Grid_FFT<data_t> & res, opp op ) {}
+
+    // implements convolution of three Fourier-space fields
+    template< typename kfunc1, typename kfunc2, typename kfunc3, typename opp >
+    void convolve3( kfunc1 kf1, kfunc2 kf2, kfunc3 kf3, Grid_FFT<data_t> & res, opp op ) {}
+
+public:
+
+    template< typename opp >
+    void convolve_Hessians( Grid_FFT<data_t> & inl, const std::array<int,2>& d2l, Grid_FFT<data_t> & inr, const std::array<int,2>& d2r, Grid_FFT<data_t> & res, opp op ){
+        // transform to FS in case fields are not
+        inl.FourierTransformForward();
+        inr.FourierTransformForward();
+        // perform convolution of Hessians
+        static_cast<derived_t&>(*this).convolve2(
+            [&]( size_t i, size_t j, size_t k ) -> ccomplex_t{
+                auto kk = inl.template get_k<real_t>(i,j,k);
+                return -kk[d2l[0]] * kk[d2l[1]] * inl.kelem(i,j,k);
+            },
+            [&]( size_t i, size_t j, size_t k ){
+                auto kk = inr.template get_k<real_t>(i,j,k);
+                return -kk[d2r[0]] * kk[d2r[1]] * inr.kelem(i,j,k);
+            }, res, op );
+    }
+
+    template< typename opp >
+    void convolve_Hessians( Grid_FFT<data_t> & inl, const std::array<int,2>& d2l, 
+                            Grid_FFT<data_t> & inm, const std::array<int,2>& d2m,
+                            Grid_FFT<data_t> & inr, const std::array<int,2>& d2r, 
+                            Grid_FFT<data_t> & res, opp op )
+    {
+        // transform to FS in case fields are not
+        inl.FourierTransformForward();
+        inm.FourierTransformForward();
+        inr.FourierTransformForward();
+        // perform convolution of Hessians
+        static_cast<derived_t&>(*this).convolve3(
+            [&inl,&d2l]( size_t i, size_t j, size_t k ) -> ccomplex_t{
+                auto kk = inl.template get_k<real_t>(i,j,k);
+                return -kk[d2l[0]] * kk[d2l[1]] * inl.kelem(i,j,k);
+            },
+            [&inm,&d2m]( size_t i, size_t j, size_t k ) -> ccomplex_t{
+                auto kk = inm.template get_k<real_t>(i,j,k);
+                return -kk[d2m[0]] * kk[d2m[1]] * inm.kelem(i,j,k);
+            },
+            [&inr,&d2r]( size_t i, size_t j, size_t k ) -> ccomplex_t{
+                auto kk = inr.template get_k<real_t>(i,j,k);
+                return -kk[d2r[0]] * kk[d2r[1]] * inr.kelem(i,j,k);
+            }, res, op );
+    }
+
+    template< typename opp >
+    void convolve_SumHessians( Grid_FFT<data_t> & inl, const std::array<int,2>& d2l, Grid_FFT<data_t> & inr, const std::array<int,2>& d2r1, 
+                               const std::array<int,2>& d2r2, Grid_FFT<data_t> & res, opp op ){
+        // transform to FS in case fields are not
+        inl.FourierTransformForward();
+        inr.FourierTransformForward();
+        // perform convolution of Hessians
+        static_cast<derived_t&>(*this).convolve2(
+            [&inl,&d2l]( size_t i, size_t j, size_t k ) -> ccomplex_t{
+                auto kk = inl.template get_k<real_t>(i,j,k);
+                return -kk[d2l[0]] * kk[d2l[1]] * inl.kelem(i,j,k);
+            },
+            [&inr,&d2r1,&d2r2]( size_t i, size_t j, size_t k ) -> ccomplex_t{
+                auto kk = inr.template get_k<real_t>(i,j,k);
+                return (-kk[d2r1[0]] * kk[d2r1[1]] -kk[d2r2[0]] * kk[d2r2[1]]) * inr.kelem(i,j,k);
+            }, res, op );
+    }
+};
+
+//! naive convolution class, disrespecting aliasing
+template< typename data_t >
+class NaiveConvolver : public BaseConvolver<data_t, NaiveConvolver<data_t>>
+{
+protected:
+    Grid_FFT<data_t> *fbuf1_, *fbuf2_;
+
+    using BaseConvolver<data_t, NaiveConvolver<data_t>>::np_;
+    using BaseConvolver<data_t, NaiveConvolver<data_t>>::length_;
+
+public:
+    NaiveConvolver( const std::array<size_t, 3> &N, const std::array<real_t, 3> &L )
+    : BaseConvolver<data_t, NaiveConvolver<data_t>>( N, L )
+    {
+        fbuf1_ = new Grid_FFT<data_t>(N, length_, kspace_id);
+        fbuf2_ = new Grid_FFT<data_t>(N, length_, kspace_id);
+    }
+
+    ~NaiveConvolver()
+    {
+        delete fbuf1_;
+        delete fbuf2_;
+    }
+
+    template< typename kfunc1, typename kfunc2, typename opp >
+    void convolve2( kfunc1 kf1, kfunc2 kf2, Grid_FFT<data_t> & res, opp op )
+    {
+        //... prepare data 1
+        fbuf1_->FourierTransformForward(false);
+        this->copy_in( kf1, *fbuf1_ );
+        
+        //... prepare data 2
+        fbuf2_->FourierTransformForward(false);
+        this->copy_in( kf2, *fbuf2_ );
+
+        //... convolve
+        fbuf1_->FourierTransformBackward();
+        fbuf2_->FourierTransformBackward();
+
+        #pragma omp parallel for
+        for (size_t i = 0; i < fbuf1_->ntot_; ++i){
+            (*fbuf2_).relem(i) *= (*fbuf1_).relem(i);
+        }
+        fbuf2_->FourierTransformForward();
+        //... copy data back
+        res.FourierTransformForward();
+        copy_out( *fbuf2_, op, res );
+    }
+
+    template< typename kfunc1, typename kfunc2, typename kfunc3, typename opp >
+    void convolve3( kfunc1 kf1, kfunc2 kf2, kfunc3 kf3, Grid_FFT<data_t> & res, opp op )
+    {
+        //... prepare data 1
+        fbuf1_->FourierTransformForward(false);
+        this->copy_in( kf1, *fbuf1_ );
+        
+        //... prepare data 2
+        fbuf2_->FourierTransformForward(false);
+        this->copy_in( kf2, *fbuf2_ );
+
+        //... convolve
+        fbuf1_->FourierTransformBackward();
+        fbuf2_->FourierTransformBackward();
+
+        #pragma omp parallel for
+        for (size_t i = 0; i < fbuf1_->ntot_; ++i){
+            (*fbuf2_).relem(i) *= (*fbuf1_).relem(i);
+        }
+
+        //... prepare data 2
+        fbuf1_->FourierTransformForward(false);
+        this->copy_in( kf3, *fbuf1_ );
+
+        //... convolve
+        fbuf1_->FourierTransformBackward();
+
+        #pragma omp parallel for
+        for (size_t i = 0; i < fbuf1_->ntot_; ++i){
+            (*fbuf2_).relem(i) *= (*fbuf1_).relem(i);
+        }
+
+        fbuf2_->FourierTransformForward();
+        //... copy data back
+        res.FourierTransformForward();
+        copy_out( *fbuf2_, op, res );
+    }
+
+private:
+    template< typename kfunc >
+    void copy_in( kfunc kf, Grid_FFT<data_t>& g )
+    {
+        #pragma omp parallel for
+        for (size_t i = 0; i < g.size(0); ++i){
+            for (size_t j = 0; j < g.size(1); ++j){
+                for (size_t k = 0; k < g.size(2); ++k){
+                    g.kelem(i, j, k) = kf(i, j, k);
+                }
+            }
+        }
+    }
+
+    template< typename opp >
+    void copy_out( Grid_FFT<data_t>& f, opp op, Grid_FFT<data_t>& res )
+    {
+        #pragma omp parallel for
+        for (size_t i = 0; i < f.size(0); ++i){
+            for (size_t j = 0; j < f.size(1); ++j){
+                for (size_t k = 0; k < f.size(2); ++k){
+                    res.kelem(i, j, k) = op(f.kelem(i, j, k), res.kelem(i, j, k));
+                }
+            }
+        }
+    }
+};
+
+//! convolution class, respecting Orszag's 3/2 rule
+template< typename data_t >
+class OrszagConvolver : public BaseConvolver<data_t, OrszagConvolver<data_t>>
+{
+private:
     Grid_FFT<data_t> *f1p_, *f2p_;
     Grid_FFT<data_t> *fbuf_, *fbuf2_;
 
-    std::array<size_t,3> np_;
-    std::array<real_t,3> length_;
+    using BaseConvolver<data_t, OrszagConvolver<data_t>>::np_;
+    using BaseConvolver<data_t, OrszagConvolver<data_t>>::length_;
     
     ccomplex_t *crecvbuf_;
     real_t *recvbuf_;
     size_t maxslicesz_;
     std::vector<ptrdiff_t> offsets_, offsetsp_;
     std::vector<size_t> sizes_, sizesp_;
-
-private:
 
     int get_task(ptrdiff_t index, const std::vector<ptrdiff_t>& offsets, const std::vector<size_t>& sizes, const int ntasks )
     {
@@ -35,7 +232,8 @@ public:
 
     
     OrszagConvolver( const std::array<size_t, 3> &N, const std::array<real_t, 3> &L )
-    : np_({3*N[0]/2,3*N[1]/2,3*N[2]/2}), length_(L)
+    : BaseConvolver<data_t,OrszagConvolver<data_t>>( {3*N[0]/2,3*N[1]/2,3*N[2]/2}, L )
+    //: np_({3*N[0]/2,3*N[1]/2,3*N[2]/2}), length_(L)
     {
         //... create temporaries
         f1p_  = new Grid_FFT<data_t>(np_, length_, kspace_id);
@@ -78,67 +276,6 @@ public:
 #if defined(USE_MPI)
         delete[] crecvbuf_;
 #endif
-    }
-
-    template< typename opp >
-    void convolve_Hessians( Grid_FFT<data_t> & inl, const std::array<int,2>& d2l, Grid_FFT<data_t> & inr, const std::array<int,2>& d2r, Grid_FFT<data_t> & res, opp op ){
-        // transform to FS in case fields are not
-        inl.FourierTransformForward();
-        inr.FourierTransformForward();
-        // perform convolution of Hessians
-        this->convolve2(
-            [&]( size_t i, size_t j, size_t k ) -> ccomplex_t{
-                auto kk = inl.template get_k<real_t>(i,j,k);
-                return -kk[d2l[0]] * kk[d2l[1]] * inl.kelem(i,j,k);
-            },
-            [&]( size_t i, size_t j, size_t k ){
-                auto kk = inr.template get_k<real_t>(i,j,k);
-                return -kk[d2r[0]] * kk[d2r[1]] * inr.kelem(i,j,k);
-            }, res, op );
-    }
-
-    template< typename opp >
-    void convolve_Hessians( Grid_FFT<data_t> & inl, const std::array<int,2>& d2l, 
-                            Grid_FFT<data_t> & inm, const std::array<int,2>& d2m,
-                            Grid_FFT<data_t> & inr, const std::array<int,2>& d2r, 
-                            Grid_FFT<data_t> & res, opp op )
-    {
-        // transform to FS in case fields are not
-        inl.FourierTransformForward();
-        inm.FourierTransformForward();
-        inr.FourierTransformForward();
-        // perform convolution of Hessians
-        this->convolve3(
-            [&inl,&d2l]( size_t i, size_t j, size_t k ) -> ccomplex_t{
-                auto kk = inl.template get_k<real_t>(i,j,k);
-                return -kk[d2l[0]] * kk[d2l[1]] * inl.kelem(i,j,k);
-            },
-            [&inm,&d2m]( size_t i, size_t j, size_t k ) -> ccomplex_t{
-                auto kk = inm.template get_k<real_t>(i,j,k);
-                return -kk[d2m[0]] * kk[d2m[1]] * inm.kelem(i,j,k);
-            },
-            [&inr,&d2r]( size_t i, size_t j, size_t k ) -> ccomplex_t{
-                auto kk = inr.template get_k<real_t>(i,j,k);
-                return -kk[d2r[0]] * kk[d2r[1]] * inr.kelem(i,j,k);
-            }, res, op );
-    }
-
-    template< typename opp >
-    void convolve_SumHessians( Grid_FFT<data_t> & inl, const std::array<int,2>& d2l, Grid_FFT<data_t> & inr, const std::array<int,2>& d2r1, 
-                               const std::array<int,2>& d2r2, Grid_FFT<data_t> & res, opp op ){
-        // transform to FS in case fields are not
-        inl.FourierTransformForward();
-        inr.FourierTransformForward();
-        // perform convolution of Hessians
-        this->convolve2(
-            [&inl,&d2l]( size_t i, size_t j, size_t k ) -> ccomplex_t{
-                auto kk = inl.template get_k<real_t>(i,j,k);
-                return -kk[d2l[0]] * kk[d2l[1]] * inl.kelem(i,j,k);
-            },
-            [&inr,&d2r1,&d2r2]( size_t i, size_t j, size_t k ) -> ccomplex_t{
-                auto kk = inr.template get_k<real_t>(i,j,k);
-                return (-kk[d2r1[0]] * kk[d2r1[1]] -kk[d2r2[0]] * kk[d2r2[1]]) * inr.kelem(i,j,k);
-            }, res, op );
     }
 
     template< typename kfunc1, typename kfunc2, typename opp >

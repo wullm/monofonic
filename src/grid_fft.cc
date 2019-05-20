@@ -87,6 +87,8 @@ void Grid_FFT<data_t>::Setup(void)
 
     local_0_size_ = n_[0];
     local_1_size_ = n_[1];
+    local_0_start_= 0;
+    local_1_start_= 0;
 
     if (space_ == rspace_id)
     {
@@ -562,9 +564,7 @@ void Grid_FFT<data_t>::Write_PowerSpectrum( std::string ofname )
     {
 #endif
         std::ofstream ofs( ofname.c_str());
-        std::size_t numcells = size(0) * size(1) * size(2);
-
-        //ofs << "# a = " << aexp << std::endl;
+        
         ofs << "# " << std::setw(14) << "k" << std::setw(16) << "P(k)" << std::setw(16) << "err. P(k)"
             << std::setw(16) <<"#modes" << "\n";
 
