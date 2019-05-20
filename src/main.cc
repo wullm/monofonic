@@ -41,28 +41,47 @@ int main( int argc, char** argv )
     MPI_Comm_rank(MPI_COMM_WORLD, &CONFIG::MPI_task_rank);
     MPI_Comm_size(MPI_COMM_WORLD, &CONFIG::MPI_task_size);
     CONFIG::MPI_ok = true;
+
+    // set up lower logging levels for other tasks
+    if( CONFIG::MPI_task_rank!=0 )
+    {
+        csoca::Logger::SetLevel(csoca::LogLevel::Error);
+    }
 #endif
 
 #if defined(USE_FFTW_THREADS)
   #if defined(USE_MPI)
     if (CONFIG::MPI_threads_ok)
-        CONFIG::FFTW_threads_ok = fftw_init_threads();
+        CONFIG::FFTW_threads_ok = FFTW_API(init_threads)();
   #else
-    CONFIG::FFTW_threads_ok = fftw_init_threads();
+    CONFIG::FFTW_threads_ok = FFTW_API(init_threads)();
   #endif 
 #endif
 
 #if defined(USE_MPI)
-    fftw_mpi_init();
+    FFTW_API(mpi_init)();
+#endif
+    
+#if defined(USE_FFTW_THREADS)
+    if (CONFIG::FFTW_threads_ok)
+        FFTW_API(plan_with_nthreads)(std::thread::hardware_concurrency());
+#endif
+
+#if defined(USE_MPI)
     csoca::ilog << "MPI is enabled                : " << "yes (" << CONFIG::MPI_task_size << " tasks)" << std::endl;
 #else
     csoca::ilog << "MPI is enabled                : " << "no" << std::endl;
 #endif
-
     csoca::ilog << "MPI supports multi-threading  : " << (CONFIG::MPI_threads_ok? "yes" : "no") << std::endl;
-    csoca::ilog << "FFTW supports multi-threading : " << (CONFIG::FFTW_threads_ok? "yes" : "no") << std::endl;
     csoca::ilog << "Available HW threads / task   : " << std::thread::hardware_concurrency() << std::endl;
-
+    csoca::ilog << "FFTW supports multi-threading : " << (CONFIG::FFTW_threads_ok? "yes" : "no") << std::endl;
+#if defined(FFTW_MODE_PATIENT)
+	csoca::ilog << "FFTW mode                     : FFTW_PATIENT" << std::endl;
+#elif defined(FFTW_MODE_MEASURE)
+    csoca::ilog << "FFTW mode                     : FFTW_MEASURE" << std::endl;
+#else
+	csoca::ilog << "FFTW mode                     : FFTW_ESTIMATE" << std::endl;
+#endif
     //------------------------------------------------------------------------------
     // Parse command line options
     //------------------------------------------------------------------------------
@@ -190,6 +209,7 @@ int main( int argc, char** argv )
     Conv.convolve_Hessians( phi, {1,2}, phi, {1,2}, phi2, sub_op );
     phi2.apply_InverseLaplacian();
     phi2 /= phifac;
+    phi2.zero_DC_mode();
     csoca::ilog << "   took " << get_wtime()-wtime << "s" << std::endl;
 
     //======================================================================
@@ -217,7 +237,7 @@ int main( int argc, char** argv )
     Conv.convolve_Hessians( phi, {0,2}, phi2, {0,2}, phi3b, sub2_op );
     Conv.convolve_Hessians( phi, {1,2}, phi2, {1,2}, phi3b, sub2_op );
     phi3b.apply_InverseLaplacian();
-    phi3b *= 0.5/phifac; // factor 1/2 from definition of phi(3a)!
+    phi3b *= 0.5/phifac; // factor 1/2 from definition of phi(3b)!
     csoca::ilog << "   took " << get_wtime()-wtime << "s" << std::endl;
     
 
@@ -225,11 +245,11 @@ int main( int argc, char** argv )
     // we store the densities here if we compute them
     const bool compute_densities = true;
     if( compute_densities ){
-        Grid_FFT<real_t> delta   = Grid_FFT<real_t>({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
-        Grid_FFT<real_t> delta2  = Grid_FFT<real_t>({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
-        Grid_FFT<real_t> delta3a = Grid_FFT<real_t>({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
-        Grid_FFT<real_t> delta3b = Grid_FFT<real_t>({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
-        Grid_FFT<real_t> delta3  = Grid_FFT<real_t>({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
+        Grid_FFT<real_t> delta({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
+        Grid_FFT<real_t> delta2({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
+        Grid_FFT<real_t> delta3a({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
+        Grid_FFT<real_t> delta3b({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
+        Grid_FFT<real_t> delta3({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
         delta.FourierTransformForward(false);
         delta2.FourierTransformForward(false);
         delta3a.FourierTransformForward(false);
@@ -301,12 +321,12 @@ int main( int argc, char** argv )
         delta3.Write_to_HDF5(fname_hdf5, "delta3");
     }else{
         // we store displacements and velocities here if we compute them
-        Grid_FFT<real_t> Psix = Grid_FFT<real_t>({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
-        Grid_FFT<real_t> Psiy = Grid_FFT<real_t>({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
-        Grid_FFT<real_t> Psiz = Grid_FFT<real_t>({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
-        Grid_FFT<real_t> Vx   = Grid_FFT<real_t>({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
-        Grid_FFT<real_t> Vy   = Grid_FFT<real_t>({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
-        Grid_FFT<real_t> Vz   = Grid_FFT<real_t>({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
+        Grid_FFT<real_t> Psix({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
+        Grid_FFT<real_t> Psiy({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
+        Grid_FFT<real_t> Psiz({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
+        Grid_FFT<real_t> Vx({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
+        Grid_FFT<real_t> Vy({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
+        Grid_FFT<real_t> Vz({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
         Psix.FourierTransformForward(false);
         Psiy.FourierTransformForward(false);
         Psiz.FourierTransformForward(false);

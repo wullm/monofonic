@@ -49,28 +49,12 @@ public:
     Grid_FFT(const std::array<size_t, 3> &N, const std::array<real_t, 3> &L, space_t initialspace = rspace_id)
         : n_(N), length_(L), space_(initialspace), data_(nullptr), cdata_(nullptr) 
     {
-        for (int i = 0; i < 3; ++i)
-        {
-            kfac_[i] = 2.0 * M_PI / length_[i];
-            dx_[i] = length_[i] / n_[i];
-        }
         //invalidated = true;
         this->Setup();
     }
 
-    Grid_FFT(const Grid_FFT<data_t> &g)
-        : n_(g.n_), length_(g.length_), kfac_(g.kfac_), dx_(g.dx_), 
-          space_(g.space_), data_(nullptr), cdata_(nullptr)
-    {
-        //invalidated = true;
-        this->Setup();
-
-        std::copy( &g.data_[0], &g.data_[g.ntot_-1], &data_[0] );
-        // for (size_t i = 0; i < ntot_; ++i)
-        // {
-        //     data_[i] = g.data_[i];
-        // }
-    }
+    // avoid implicit copying of data
+    Grid_FFT(const Grid_FFT<data_t> &g) = delete;
 
     ~Grid_FFT()
     {
@@ -141,11 +125,7 @@ public:
     {
         vec3<ft> rr;
 
-#if defined(USE_MPI)
         rr[0] = real_t(i + local_0_start_) * dx_[0];
-#else
-        rr[0] = real_t(i) * dx_[0];
-#endif
         rr[1] = real_t(j) * dx_[1];
         rr[2] = real_t(k) * dx_[2];
 
@@ -180,7 +160,7 @@ public:
         return kk;
     }
 
-    Grid_FFT<data_t> operator*=( data_t x ){
+    Grid_FFT<data_t>& operator*=( data_t x ){
         if( space_ == kspace_id){
             this->apply_function_k( [&]( ccomplex_t& f ){ return f*x; } );
         }else{
@@ -189,7 +169,7 @@ public:
         return *this;
     }
 
-    Grid_FFT<data_t> operator/=( data_t x ){
+    Grid_FFT<data_t>& operator/=( data_t x ){
         if( space_ == kspace_id){
             this->apply_function_k( [&]( ccomplex_t& f ){ return f/x; } );
         }else{
@@ -198,7 +178,7 @@ public:
         return *this;
     }
 
-    Grid_FFT<data_t> apply_Laplacian( void ){
+    Grid_FFT<data_t>& apply_Laplacian( void ){
         this->FourierTransformForward();
         this->apply_function_k_dep([&](auto x, auto k) {
             real_t kmod2 = k.norm_squared();
@@ -208,7 +188,7 @@ public:
         return *this;
     }
 
-    Grid_FFT<data_t> apply_InverseLaplacian( void ){
+    Grid_FFT<data_t>& apply_InverseLaplacian( void ){
         this->FourierTransformForward();
         this->apply_function_k_dep([&](auto x, auto k) {
             real_t kmod2 = k.norm_squared();
