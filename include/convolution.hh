@@ -71,7 +71,7 @@ public:
     }
 
     template< typename opp >
-    void convolve_SumHessians( Grid_FFT<data_t> & inl, const std::array<int,2>& d2l, Grid_FFT<data_t> & inr, const std::array<int,2>& d2r1, 
+    void convolve_SumOfHessians( Grid_FFT<data_t> & inl, const std::array<int,2>& d2l, Grid_FFT<data_t> & inr, const std::array<int,2>& d2r1, 
                                const std::array<int,2>& d2r2, Grid_FFT<data_t> & res, opp op ){
         // transform to FS in case fields are not
         inl.FourierTransformForward();
@@ -85,6 +85,24 @@ public:
             [&inr,&d2r1,&d2r2]( size_t i, size_t j, size_t k ) -> ccomplex_t{
                 auto kk = inr.template get_k<real_t>(i,j,k);
                 return (-kk[d2r1[0]] * kk[d2r1[1]] -kk[d2r2[0]] * kk[d2r2[1]]) * inr.kelem(i,j,k);
+            }, res, op );
+    }
+
+    template< typename opp >
+    void convolve_DifferenceOfHessians( Grid_FFT<data_t> & inl, const std::array<int,2>& d2l, Grid_FFT<data_t> & inr, const std::array<int,2>& d2r1, 
+                               const std::array<int,2>& d2r2, Grid_FFT<data_t> & res, opp op ){
+        // transform to FS in case fields are not
+        inl.FourierTransformForward();
+        inr.FourierTransformForward();
+        // perform convolution of Hessians
+        static_cast<derived_t&>(*this).convolve2(
+            [&inl,&d2l]( size_t i, size_t j, size_t k ) -> ccomplex_t{
+                auto kk = inl.template get_k<real_t>(i,j,k);
+                return -kk[d2l[0]] * kk[d2l[1]] * inl.kelem(i,j,k);
+            },
+            [&inr,&d2r1,&d2r2]( size_t i, size_t j, size_t k ) -> ccomplex_t{
+                auto kk = inr.template get_k<real_t>(i,j,k);
+                return (-kk[d2r1[0]] * kk[d2r1[1]] + kk[d2r2[0]] * kk[d2r2[1]]) * inr.kelem(i,j,k);
             }, res, op );
     }
 };
