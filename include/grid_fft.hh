@@ -3,7 +3,6 @@
 #include <cmath>
 #include <array>
 #include <vector>
-#include <execution>
 
 #include <vec3.hh>
 #include <general.hh>
