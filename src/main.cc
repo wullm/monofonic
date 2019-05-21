@@ -254,23 +254,6 @@ int main( int argc, char** argv )
         Conv.convolve_DifferenceOfHessians( phi,  {idimp,idimpp}, phi2, {idimp,idimp}, {idimpp,idimpp}, *A3[idim], sub_op );
         A3[idim]->apply_InverseLaplacian();
     }
-    // Conv.convolve_Hessians( phi, {0,1}, phi2, {0,2}, *A3[0], assign_op );
-    // Conv.convolve_Hessians( phi, {0,2}, phi2, {0,1}, *A3[0], sub_op );
-    // Conv.convolve_DifferenceOfHessians( phi2, {1,2}, phi,  {1,1}, {2,2}, *A3[0], add_op );
-    // Conv.convolve_DifferenceOfHessians( phi,  {1,2}, phi2, {1,1}, {2,2}, *A3[0], sub_op );
-    // A3[0]->apply_InverseLaplacian();
-
-    // Conv.convolve_Hessians( phi, {1,2}, phi2, {1,0}, *A3[1], assign_op );
-    // Conv.convolve_Hessians( phi, {1,0}, phi2, {1,2}, *A3[1], sub_op );
-    // Conv.convolve_DifferenceOfHessians( phi2, {2,0}, phi,  {2,2}, {0,0}, *A3[1], add_op );
-    // Conv.convolve_DifferenceOfHessians( phi,  {2,0}, phi2, {2,2}, {0,0}, *A3[1], sub_op );
-    // A3[1]->apply_InverseLaplacian();
-    
-    // Conv.convolve_Hessians( phi, {2,0}, phi2, {2,1}, *A3[2], assign_op );
-    // Conv.convolve_Hessians( phi, {2,1}, phi2, {2,0}, *A3[2], sub_op );
-    // Conv.convolve_DifferenceOfHessians( phi2, {0,1}, phi,  {0,0}, {1,1}, *A3[2], add_op );
-    // Conv.convolve_DifferenceOfHessians( phi,  {0,1}, phi2, {0,0}, {1,1}, *A3[2], sub_op );
-    // A3[2]->apply_InverseLaplacian();
     csoca::ilog << "   took " << get_wtime()-wtime << "s" << std::endl;
 
     ///... scale all potentials with respective growth factors
@@ -364,32 +347,6 @@ int main( int argc, char** argv )
 
     }else{
         // we store displacements and velocities here if we compute them
-        
-
-
-        // #pragma omp parallel for
-        // for (size_t i = 0; i < phi.size(0); ++i) {
-        //     for (size_t j = 0; j < phi.size(1); ++j) {
-        //         for (size_t k = 0; k < phi.size(2); ++k) {
-        //             auto kk = phi.get_k<real_t>(i,j,k);
-        //             size_t idx = phi.get_idx(i,j,k);
-                    
-        //             auto phitot = phi.kelem(idx) + phi2.kelem(idx) + phi3a.kelem(idx) + phi3b.kelem(idx);
-        //             auto phitot_v = vfac1 * phi.kelem(idx) + vfac2 * phi2.kelem(idx) + vfac3 * (phi3a.kelem(idx) + phi3b.kelem(idx));
-
-        //             // divide by Lbox, because displacement is in box units for output plugin
-        //             int idimp = (idim+1)%3, idimpp = (idim+1)%3;
-        //             Psix.kelem(idx) = ccomplex_t(0.0,1.0) * (kk[0] * phitot + kk[1] * A3z.kelem(idx) - kk[2] * A3y.kelem(idx) ) / boxlen;
-        //             Psiy.kelem(idx) = ccomplex_t(0.0,1.0) * (kk[1] * phitot + kk[2] * A3x.kelem(idx) - kk[0] * A3z.kelem(idx) ) / boxlen;
-        //             Psiz.kelem(idx) = ccomplex_t(0.0,1.0) * (kk[2] * phitot + kk[0] * A3y.kelem(idx) - kk[1] * A3x.kelem(idx) ) / boxlen;
-
-        //             Vx.kelem(idx)   = ccomplex_t(0.0,1.0) * (kk[0] * phitot_v + vfac3 * (kk[1] * A3z.kelem(idx) - kk[2] * A3y.kelem(idx)) ) / boxlen;
-        //             Vy.kelem(idx)   = ccomplex_t(0.0,1.0) * (kk[1] * phitot_v + vfac3 * (kk[2] * A3x.kelem(idx) - kk[0] * A3z.kelem(idx)) ) / boxlen;
-        //             Vz.kelem(idx)   = ccomplex_t(0.0,1.0) * (kk[2] * phitot_v + vfac3 * (kk[0] * A3y.kelem(idx) - kk[1] * A3x.kelem(idx)) ) / boxlen;
-        //         }
-        //     }
-        // }
-
         Grid_FFT<real_t> tmp({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
         
         // write out positions
