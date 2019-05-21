@@ -148,9 +148,10 @@ int main( int argc, char** argv )
 
     // compute growth factors of the respective orders
     const double g1  = -Dplus0;
-    const double g2  = -3.0/7.0*Dplus0*Dplus0;
-    const double g3a = -1.0/3.0*Dplus0*Dplus0*Dplus0;
-    const double g3b = 10.0/21.*Dplus0*Dplus0*Dplus0;
+    const double g2  = (LPTorder>1)? -3.0/7.0*Dplus0*Dplus0 : 0.0;
+    const double g3a = (LPTorder>2)? -1.0/3.0*Dplus0*Dplus0*Dplus0 : 0.0;
+    const double g3b = (LPTorder>2)? 10.0/21.*Dplus0*Dplus0*Dplus0 : 0.0;
+    const double g3c = (LPTorder>2)? -1.0/7.0*Dplus0*Dplus0*Dplus0 : 0.0;
 
     const double vfac1 =  vfac;
     const double vfac2 =  2*vfac1;
@@ -162,6 +163,11 @@ int main( int argc, char** argv )
     Grid_FFT<real_t> phi2({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
     Grid_FFT<real_t> phi3a({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
     Grid_FFT<real_t> phi3b({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
+    Grid_FFT<real_t> A3x({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
+    Grid_FFT<real_t> A3y({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
+    Grid_FFT<real_t> A3z({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
+    
+    std::array< Grid_FFT<real_t>*,3 > A3({&A3x,&A3y,&A3z});
 
     OrszagConvolver<real_t> Conv({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
     // NaiveConvolver<real_t> Conv({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
@@ -201,18 +207,18 @@ int main( int argc, char** argv )
     
     wtime = get_wtime();    
     csoca::ilog << "Computing phi(2) term..." << std::flush;
-    Conv.convolve_SumHessians( phi, {0,0}, phi, {1,1}, {2,2}, phi2, assign_op );
+    Conv.convolve_SumOfHessians( phi, {0,0}, phi, {1,1}, {2,2}, phi2, assign_op );
     Conv.convolve_Hessians( phi, {1,1}, phi, {2,2}, phi2, add_op );
     Conv.convolve_Hessians( phi, {0,1}, phi, {0,1}, phi2, sub_op );
     Conv.convolve_Hessians( phi, {0,2}, phi, {0,2}, phi2, sub_op );
     Conv.convolve_Hessians( phi, {1,2}, phi, {1,2}, phi2, sub_op );
     phi2.apply_InverseLaplacian();
-    phi2.zero_DC_mode();
     csoca::ilog << "   took " << get_wtime()-wtime << "s" << std::endl;
 
     //======================================================================
     //... compute 3LPT displacement potential
     
+    //... 3a term ...
     wtime = get_wtime();    
     csoca::ilog << "Computing phi(3a) term..." << std::flush;
     Conv.convolve_Hessians( phi, {0,0}, phi, {1,1}, phi, {2,2}, phi3a, assign_op );
@@ -223,21 +229,59 @@ int main( int argc, char** argv )
     phi3a.apply_InverseLaplacian();
     csoca::ilog << "   took " << get_wtime()-wtime << "s" << std::endl;
     
-    //...
-
+    //... 3b term ...
     wtime = get_wtime();    
     csoca::ilog << "Computing phi(3b) term..." << std::flush;
-    Conv.convolve_SumHessians( phi, {0,0}, phi2, {1,1}, {2,2}, phi3b, assign_op );
-    Conv.convolve_SumHessians( phi, {1,1}, phi2, {2,2}, {0,0}, phi3b, add_op );
-    Conv.convolve_SumHessians( phi, {2,2}, phi2, {0,0}, {1,1}, phi3b, add_op );
+    Conv.convolve_SumOfHessians( phi, {0,0}, phi2, {1,1}, {2,2}, phi3b, assign_op );
+    Conv.convolve_SumOfHessians( phi, {1,1}, phi2, {2,2}, {0,0}, phi3b, add_op );
+    Conv.convolve_SumOfHessians( phi, {2,2}, phi2, {0,0}, {1,1}, phi3b, add_op );
     Conv.convolve_Hessians( phi, {0,1}, phi2, {0,1}, phi3b, sub2_op );
     Conv.convolve_Hessians( phi, {0,2}, phi2, {0,2}, phi3b, sub2_op );
     Conv.convolve_Hessians( phi, {1,2}, phi2, {1,2}, phi3b, sub2_op );
     phi3b.apply_InverseLaplacian();
     phi3b *= 0.5; // factor 1/2 from definition of phi(3b)!
     csoca::ilog << "   took " << get_wtime()-wtime << "s" << std::endl;
-    
 
+    //... transversal term ...
+    wtime = get_wtime();    
+    csoca::ilog << "Computing zeta(3) term..." << std::flush;
+    for( int idim=0; idim<3; ++idim ){
+        // cyclic rotations of indices
+        int idimp = (idim+1)%3, idimpp = (idim+2)%3;
+        Conv.convolve_Hessians( phi, {idim,idimp},  phi2, {idim,idimpp}, *A3[idim], assign_op );
+        Conv.convolve_Hessians( phi, {idim,idimpp}, phi2, {idim,idimp},  *A3[idim], sub_op );
+        Conv.convolve_DifferenceOfHessians( phi2, {idimp,idimpp}, phi,  {idimp,idimp}, {idimpp,idimpp}, *A3[idim], add_op );
+        Conv.convolve_DifferenceOfHessians( phi,  {idimp,idimpp}, phi2, {idimp,idimp}, {idimpp,idimpp}, *A3[idim], sub_op );
+        A3[idim]->apply_InverseLaplacian();
+    }
+    // Conv.convolve_Hessians( phi, {0,1}, phi2, {0,2}, *A3[0], assign_op );
+    // Conv.convolve_Hessians( phi, {0,2}, phi2, {0,1}, *A3[0], sub_op );
+    // Conv.convolve_DifferenceOfHessians( phi2, {1,2}, phi,  {1,1}, {2,2}, *A3[0], add_op );
+    // Conv.convolve_DifferenceOfHessians( phi,  {1,2}, phi2, {1,1}, {2,2}, *A3[0], sub_op );
+    // A3[0]->apply_InverseLaplacian();
+
+    // Conv.convolve_Hessians( phi, {1,2}, phi2, {1,0}, *A3[1], assign_op );
+    // Conv.convolve_Hessians( phi, {1,0}, phi2, {1,2}, *A3[1], sub_op );
+    // Conv.convolve_DifferenceOfHessians( phi2, {2,0}, phi,  {2,2}, {0,0}, *A3[1], add_op );
+    // Conv.convolve_DifferenceOfHessians( phi,  {2,0}, phi2, {2,2}, {0,0}, *A3[1], sub_op );
+    // A3[1]->apply_InverseLaplacian();
+    
+    // Conv.convolve_Hessians( phi, {2,0}, phi2, {2,1}, *A3[2], assign_op );
+    // Conv.convolve_Hessians( phi, {2,1}, phi2, {2,0}, *A3[2], sub_op );
+    // Conv.convolve_DifferenceOfHessians( phi2, {0,1}, phi,  {0,0}, {1,1}, *A3[2], add_op );
+    // Conv.convolve_DifferenceOfHessians( phi,  {0,1}, phi2, {0,0}, {1,1}, *A3[2], sub_op );
+    // A3[2]->apply_InverseLaplacian();
+    csoca::ilog << "   took " << get_wtime()-wtime << "s" << std::endl;
+
+    ///... scale all potentials with respective growth factors
+    phi *= g1;
+    phi2 *= g2;
+    phi3a *= g3a; 
+    phi3b *= g3b;
+    (*A3[0]) *= g3c;
+    (*A3[1]) *= g3c;
+    (*A3[2]) *= g3c;
+    
     ///////////////////////////////////////////////////////////////////////
     // we store the densities here if we compute them
     const bool compute_densities = false;
@@ -264,19 +308,12 @@ int main( int argc, char** argv )
                     size_t idx = phi.get_idx(i,j,k);
                     auto laplace = -kk.norm_squared();
 
-                    // scale potentials with respective order growth factors
-                    phi.kelem(idx)   *= g1;
-                    phi2.kelem(idx)  *= g2;
-                    phi3a.kelem(idx) *= g3a;
-                    phi3b.kelem(idx) *= g3b;
-
                     // compute densities associated to respective potentials as well
                     delta.kelem(idx) = laplace * phi.kelem(idx);
                     delta2.kelem(idx) = laplace * phi2.kelem(idx);
                     delta3a.kelem(idx) = laplace * phi3a.kelem(idx);
                     delta3b.kelem(idx) = laplace * phi3b.kelem(idx);
                     delta3.kelem(idx) = delta3a.kelem(idx) + delta3b.kelem(idx);
-                
                 }
             }
         }
@@ -298,6 +335,10 @@ int main( int argc, char** argv )
         delta3b.FourierTransformBackward();
         delta3.FourierTransformBackward();
 
+        A3[0]->FourierTransformBackward();
+        A3[1]->FourierTransformBackward();
+        A3[2]->FourierTransformBackward();
+
 #if defined(USE_MPI)
         if( CONFIG::MPI_task_rank == 0 )
             unlink(fname_hdf5.c_str());
@@ -316,76 +357,93 @@ int main( int argc, char** argv )
         delta3a.Write_to_HDF5(fname_hdf5, "delta3a");
         delta3b.Write_to_HDF5(fname_hdf5, "delta3b");
         delta3.Write_to_HDF5(fname_hdf5, "delta3");
+
+        A3[0]->Write_to_HDF5(fname_hdf5, "A3x");
+        A3[1]->Write_to_HDF5(fname_hdf5, "A3y");
+        A3[2]->Write_to_HDF5(fname_hdf5, "A3z");
+
     }else{
         // we store displacements and velocities here if we compute them
-        Grid_FFT<real_t> Psix({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
-        Grid_FFT<real_t> Psiy({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
-        Grid_FFT<real_t> Psiz({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
-        Grid_FFT<real_t> Vx({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
-        Grid_FFT<real_t> Vy({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
-        Grid_FFT<real_t> Vz({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
-        Psix.FourierTransformForward(false);
-        Psiy.FourierTransformForward(false);
-        Psiz.FourierTransformForward(false);
-        Vx.FourierTransformForward(false);
-        Vy.FourierTransformForward(false);
-        Vz.FourierTransformForward(false);
+        
 
-        #pragma omp parallel for
-        for (size_t i = 0; i < phi.size(0); ++i)
-        {
-            for (size_t j = 0; j < phi.size(1); ++j)
-            {
-                for (size_t k = 0; k < phi.size(2); ++k)
-                {
-                    auto kk = phi.get_k<real_t>(i,j,k);
-                    size_t idx = phi.get_idx(i,j,k);
 
-                    // scale potentials with respective order growth factors
-                    phi.kelem(idx)   *= g1;
-                    phi2.kelem(idx)  *= g2;
-                    phi3a.kelem(idx) *= g3a;
-                    phi3b.kelem(idx) *= g3b;
+        // #pragma omp parallel for
+        // for (size_t i = 0; i < phi.size(0); ++i) {
+        //     for (size_t j = 0; j < phi.size(1); ++j) {
+        //         for (size_t k = 0; k < phi.size(2); ++k) {
+        //             auto kk = phi.get_k<real_t>(i,j,k);
+        //             size_t idx = phi.get_idx(i,j,k);
                     
-                    auto phitot = phi.kelem(idx) + ((LPTorder>1)?phi2.kelem(idx):0.0) + ((LPTorder>2)? phi3a.kelem(idx) + phi3b.kelem(idx) : 0.0);
-                    auto phitot_v = vfac1 * phi.kelem(idx) + ((LPTorder>1)? vfac2 * phi2.kelem(idx) : 0.0) + ((LPTorder>2)? vfac3 * (phi3a.kelem(idx) + phi3b.kelem(idx)) : 0.0);
+        //             auto phitot = phi.kelem(idx) + phi2.kelem(idx) + phi3a.kelem(idx) + phi3b.kelem(idx);
+        //             auto phitot_v = vfac1 * phi.kelem(idx) + vfac2 * phi2.kelem(idx) + vfac3 * (phi3a.kelem(idx) + phi3b.kelem(idx));
 
-                    // divide by Lbox, because displacement is in box units for output plugin
-                    Psix.kelem(idx) = ccomplex_t(0.0,1.0) * kk[0]/ boxlen * ( phitot );
-                    Psiy.kelem(idx) = ccomplex_t(0.0,1.0) * kk[1]/ boxlen * ( phitot );
-                    Psiz.kelem(idx) = ccomplex_t(0.0,1.0) * kk[2]/ boxlen * ( phitot );
+        //             // divide by Lbox, because displacement is in box units for output plugin
+        //             int idimp = (idim+1)%3, idimpp = (idim+1)%3;
+        //             Psix.kelem(idx) = ccomplex_t(0.0,1.0) * (kk[0] * phitot + kk[1] * A3z.kelem(idx) - kk[2] * A3y.kelem(idx) ) / boxlen;
+        //             Psiy.kelem(idx) = ccomplex_t(0.0,1.0) * (kk[1] * phitot + kk[2] * A3x.kelem(idx) - kk[0] * A3z.kelem(idx) ) / boxlen;
+        //             Psiz.kelem(idx) = ccomplex_t(0.0,1.0) * (kk[2] * phitot + kk[0] * A3y.kelem(idx) - kk[1] * A3x.kelem(idx) ) / boxlen;
 
-                    Vx.kelem(idx)   = ccomplex_t(0.0,1.0) * kk[0]/ boxlen * ( phitot_v );
-                    Vy.kelem(idx)   = ccomplex_t(0.0,1.0) * kk[1]/ boxlen * ( phitot_v );
-                    Vz.kelem(idx)   = ccomplex_t(0.0,1.0) * kk[2]/ boxlen * ( phitot_v );
+        //             Vx.kelem(idx)   = ccomplex_t(0.0,1.0) * (kk[0] * phitot_v + vfac3 * (kk[1] * A3z.kelem(idx) - kk[2] * A3y.kelem(idx)) ) / boxlen;
+        //             Vy.kelem(idx)   = ccomplex_t(0.0,1.0) * (kk[1] * phitot_v + vfac3 * (kk[2] * A3x.kelem(idx) - kk[0] * A3z.kelem(idx)) ) / boxlen;
+        //             Vz.kelem(idx)   = ccomplex_t(0.0,1.0) * (kk[2] * phitot_v + vfac3 * (kk[0] * A3y.kelem(idx) - kk[1] * A3x.kelem(idx)) ) / boxlen;
+        //         }
+        //     }
+        // }
+
+        Grid_FFT<real_t> tmp({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
+        
+        // write out positions
+        for( int idim=0; idim<3; ++idim ){
+            // cyclic rotations of indices
+            int idimp = (idim+1)%3, idimpp = (idim+2)%3;
+
+            tmp.FourierTransformForward(false);
+
+            #pragma omp parallel for
+            for (size_t i = 0; i < phi.size(0); ++i) {
+                for (size_t j = 0; j < phi.size(1); ++j) {
+                    for (size_t k = 0; k < phi.size(2); ++k) {
+                        auto kk = phi.get_k<real_t>(i,j,k);
+                        size_t idx = phi.get_idx(i,j,k);
+                        
+                        auto phitot = phi.kelem(idx) + phi2.kelem(idx) + phi3a.kelem(idx) + phi3b.kelem(idx);
+                        
+                        // divide by Lbox, because displacement is in box units for output plugin
+                        tmp.kelem(idx) = ccomplex_t(0.0,1.0) * (kk[idim] * phitot + kk[idimp] * A3[idimpp]->kelem(idx) - kk[idimpp] * A3[idimp]->kelem(idx) ) / boxlen;
+                    }
                 }
             }
+            tmp.FourierTransformBackward();
+            the_output_plugin->write_dm_position(idim, tmp );
         }
 
-        Psix.FourierTransformBackward();
-        Psiy.FourierTransformBackward();
-        Psiz.FourierTransformBackward();
-        Vx.FourierTransformBackward();
-        Vy.FourierTransformBackward();
-        Vz.FourierTransformBackward();
+        // write out velocities
+        for( int idim=0; idim<3; ++idim ){
+            // cyclic rotations of indices
+            int idimp = (idim+1)%3, idimpp = (idim+2)%3;
 
-        // Psix.Write_to_HDF5(fname_hdf5, "Psix");
-        // Psiy.Write_to_HDF5(fname_hdf5, "Psiy");
-        // Psiz.Write_to_HDF5(fname_hdf5, "Psiz");
-        // Vx.Write_to_HDF5(fname_hdf5, "Vx");
-        // Vy.Write_to_HDF5(fname_hdf5, "Vy");
-        // Vz.Write_to_HDF5(fname_hdf5, "Vz");
+            tmp.FourierTransformForward(false);
 
-        the_output_plugin->write_dm_mass(Psix);
-        the_output_plugin->write_dm_density(Psix);
+            #pragma omp parallel for
+            for (size_t i = 0; i < phi.size(0); ++i) {
+                for (size_t j = 0; j < phi.size(1); ++j) {
+                    for (size_t k = 0; k < phi.size(2); ++k) {
+                        auto kk = phi.get_k<real_t>(i,j,k);
+                        size_t idx = phi.get_idx(i,j,k);
+                        
+                        auto phitot_v = vfac1 * phi.kelem(idx) + vfac2 * phi2.kelem(idx) + vfac3 * (phi3a.kelem(idx) + phi3b.kelem(idx));
 
-        the_output_plugin->write_dm_position(0, Psix );
-        the_output_plugin->write_dm_position(1, Psiy );
-        the_output_plugin->write_dm_position(2, Psiz );
-        
-        the_output_plugin->write_dm_velocity(0, Vx );
-        the_output_plugin->write_dm_velocity(1, Vy );
-        the_output_plugin->write_dm_velocity(2, Vz );
+                        // divide by Lbox, because displacement is in box units for output plugin
+                        tmp.kelem(idx) = ccomplex_t(0.0,1.0) * (kk[idim] * phitot_v + vfac3 * (kk[idimp] * A3[idimpp]->kelem(idx) - kk[idimpp] * A3[idimp]->kelem(idx)) ) / boxlen;
+                    }
+                }
+            }
+            tmp.FourierTransformBackward();
+            the_output_plugin->write_dm_velocity(idim, tmp );
+        }
+
+        the_output_plugin->write_dm_mass(tmp);
+        the_output_plugin->write_dm_density(tmp);
         
         the_output_plugin->finalize();
 		delete the_output_plugin;
@@ -393,7 +451,7 @@ int main( int argc, char** argv )
 
 
     ///////////////////////////////////////////////////////////////////////
-    
+
 
 #if defined(USE_MPI)
     MPI_Barrier(MPI_COMM_WORLD);
