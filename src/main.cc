@@ -147,7 +147,7 @@ int main( int argc, char** argv )
     }
 
     // compute growth factors of the respective orders
-    const double g1  = -Dplus0;
+    const double g1  = Dplus0;
     const double g2  = (LPTorder>1)? -3.0/7.0*Dplus0*Dplus0 : 0.0;
     const double g3a = (LPTorder>2)? -1.0/3.0*Dplus0*Dplus0*Dplus0 : 0.0;
     const double g3b = (LPTorder>2)? 10.0/21.*Dplus0*Dplus0*Dplus0 : 0.0;
@@ -248,10 +248,10 @@ int main( int argc, char** argv )
     for( int idim=0; idim<3; ++idim ){
         // cyclic rotations of indices
         int idimp = (idim+1)%3, idimpp = (idim+2)%3;
-        Conv.convolve_Hessians( phi, {idim,idimp},  phi2, {idim,idimpp}, *A3[idim], assign_op );
-        Conv.convolve_Hessians( phi, {idim,idimpp}, phi2, {idim,idimp},  *A3[idim], sub_op );
-        Conv.convolve_DifferenceOfHessians( phi2, {idimp,idimpp}, phi,  {idimp,idimp}, {idimpp,idimpp}, *A3[idim], add_op );
-        Conv.convolve_DifferenceOfHessians( phi,  {idimp,idimpp}, phi2, {idimp,idimp}, {idimpp,idimpp}, *A3[idim], sub_op );
+        Conv.convolve_Hessians( phi2, {idim,idimp},  phi, {idim,idimpp}, *A3[idim], assign_op );
+        Conv.convolve_Hessians( phi2, {idim,idimpp}, phi, {idim,idimp},  *A3[idim], sub_op );
+        Conv.convolve_DifferenceOfHessians( phi, {idimp,idimpp}, phi2,{idimp,idimp}, {idimpp,idimpp}, *A3[idim], add_op );
+        Conv.convolve_DifferenceOfHessians( phi2,{idimp,idimpp}, phi, {idimp,idimp}, {idimpp,idimpp}, *A3[idim], sub_op );
         A3[idim]->apply_InverseLaplacian();
     }
     csoca::ilog << "   took " << get_wtime()-wtime << "s" << std::endl;
