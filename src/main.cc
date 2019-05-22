@@ -4,6 +4,10 @@
 #include <fstream>
 #include <thread>
 
+#if defined(_OPENMP)
+#include <omp.h>
+#endif
+
 #include <unistd.h> // for unlink
 
 #include <general.hh>
@@ -23,84 +27,18 @@ int  MPI_task_size = 1;
 bool MPI_ok = false;
 bool MPI_threads_ok = false;
 bool FFTW_threads_ok = false;
+int  num_threads = 1;
 }
 
 RNG_plugin *the_random_number_generator;
 TransferFunction_plugin *the_transfer_function;
 output_plugin *the_output_plugin;
 
-int main( int argc, char** argv )
+int Run( ConfigFile& the_config )
 {
-    csoca::Logger::SetLevel(csoca::LogLevel::Info);
-    // csoca::Logger::SetLevel(csoca::LogLevel::Debug);
-
-    // initialise MPI and multi-threading
-#if defined(USE_MPI)
-    MPI_Init_thread(&argc, &argv, MPI_THREAD_FUNNELED, &CONFIG::MPI_thread_support);
-    CONFIG::MPI_threads_ok = CONFIG::MPI_thread_support >= MPI_THREAD_FUNNELED;
-    MPI_Comm_rank(MPI_COMM_WORLD, &CONFIG::MPI_task_rank);
-    MPI_Comm_size(MPI_COMM_WORLD, &CONFIG::MPI_task_size);
-    CONFIG::MPI_ok = true;
-
-    // set up lower logging levels for other tasks
-    if( CONFIG::MPI_task_rank!=0 )
-    {
-        csoca::Logger::SetLevel(csoca::LogLevel::Error);
-    }
-#endif
-
-#if defined(USE_FFTW_THREADS)
-  #if defined(USE_MPI)
-    if (CONFIG::MPI_threads_ok)
-        CONFIG::FFTW_threads_ok = FFTW_API(init_threads)();
-  #else
-    CONFIG::FFTW_threads_ok = FFTW_API(init_threads)();
-  #endif 
-#endif
-
-#if defined(USE_MPI)
-    FFTW_API(mpi_init)();
-#endif
-    
-#if defined(USE_FFTW_THREADS)
-    if (CONFIG::FFTW_threads_ok)
-        FFTW_API(plan_with_nthreads)(std::thread::hardware_concurrency());
-#endif
-
-#if defined(USE_MPI)
-    csoca::ilog << "MPI is enabled                : " << "yes (" << CONFIG::MPI_task_size << " tasks)" << std::endl;
-#else
-    csoca::ilog << "MPI is enabled                : " << "no" << std::endl;
-#endif
-    csoca::ilog << "MPI supports multi-threading  : " << (CONFIG::MPI_threads_ok? "yes" : "no") << std::endl;
-    csoca::ilog << "Available HW threads / task   : " << std::thread::hardware_concurrency() << std::endl;
-    csoca::ilog << "FFTW supports multi-threading : " << (CONFIG::FFTW_threads_ok? "yes" : "no") << std::endl;
-#if defined(FFTW_MODE_PATIENT)
-	csoca::ilog << "FFTW mode                     : FFTW_PATIENT" << std::endl;
-#elif defined(FFTW_MODE_MEASURE)
-    csoca::ilog << "FFTW mode                     : FFTW_MEASURE" << std::endl;
-#else
-	csoca::ilog << "FFTW mode                     : FFTW_ESTIMATE" << std::endl;
-#endif
-    //------------------------------------------------------------------------------
-    // Parse command line options
-    //------------------------------------------------------------------------------
-
-    if (argc != 2)
-    {
-        // print_region_generator_plugins();
-        print_TransferFunction_plugins();
-        print_RNG_plugins();
-        print_output_plugins();
-
-        csoca::elog << "In order to run, you need to specify a parameter file!" << std::endl;
-        exit(0);
-    }
-
-    
     //--------------------------------------------------------------------
-    // Initialise parameters
-    ConfigFile the_config(argv[1]);
+    // Read run parameters
+    //--------------------------------------------------------------------
 
     const size_t ngrid = the_config.GetValue<size_t>("setup", "GridRes");
     const real_t boxlen = the_config.GetValue<double>("setup", "BoxLength");
@@ -115,6 +53,10 @@ int main( int argc, char** argv )
     const std::string fname_hdf5 = the_config.GetValueSafe<std::string>("output", "fname_hdf5", "output.hdf5");
     const std::string fname_analysis = the_config.GetValueSafe<std::string>("output", "fbase_analysis", "output");
     //////////////////////////////////////////////////////////////////////////////////////////////
+
+    //--------------------------------------------------------------------
+    // Initialise plug-ins
+    //--------------------------------------------------------------------
 
     std::unique_ptr<CosmologyCalculator>  the_cosmo_calc;
     
@@ -131,6 +73,11 @@ int main( int argc, char** argv )
         #endif
         return 1;
     }
+
+    //--------------------------------------------------------------------
+    // Write out a correctly scaled power spectrum as a test
+    //--------------------------------------------------------------------
+
     const real_t Dplus0 = the_cosmo_calc->CalcGrowthFactor(astart) / the_cosmo_calc->CalcGrowthFactor(1.0);
     const real_t vfac   = the_cosmo_calc->CalcVFact(astart);
 
@@ -146,7 +93,10 @@ int main( int argc, char** argv )
         }
     }
 
-    // compute growth factors of the respective orders
+    //--------------------------------------------------------------------
+    // Compute LPT time coefficients
+    //--------------------------------------------------------------------
+
     const double g1  = Dplus0;
     const double g2  = (LPTorder>1)? -3.0/7.0*Dplus0*Dplus0 : 0.0;
     const double g3a = (LPTorder>2)? -1.0/3.0*Dplus0*Dplus0*Dplus0 : 0.0;
@@ -159,6 +109,7 @@ int main( int argc, char** argv )
 
     //--------------------------------------------------------------------
     // Create arrays
+    //--------------------------------------------------------------------
     Grid_FFT<real_t> phi({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
     Grid_FFT<real_t> phi2({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
     Grid_FFT<real_t> phi3a({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
@@ -166,9 +117,12 @@ int main( int argc, char** argv )
     Grid_FFT<real_t> A3x({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
     Grid_FFT<real_t> A3y({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
     Grid_FFT<real_t> A3z({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
-    
+    //... array [.] access to components of A3:
     std::array< Grid_FFT<real_t>*,3 > A3({&A3x,&A3y,&A3z});
 
+    //--------------------------------------------------------------------
+    // Create convolution class instance for non-linear terms
+    //--------------------------------------------------------------------
     OrszagConvolver<real_t> Conv({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
     // NaiveConvolver<real_t> Conv({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
 
@@ -181,11 +135,14 @@ int main( int argc, char** argv )
     auto sub2_op = []( ccomplex_t res, ccomplex_t val ) -> ccomplex_t{ return val-2.0*res; };
     //--------------------------------------------------------------------
     
-    //phi.FillRandomReal(6519);
+    //--------------------------------------------------------------------
+    // Fill the grid with a Gaussian white noise field
+    //--------------------------------------------------------------------
     the_random_number_generator->Fill_Grid( phi );
 
     //======================================================================
     //... compute 1LPT displacement potential ....
+    //======================================================================
     // phi = - delta / k^2
     double wtime = get_wtime();    
     csoca::ilog << "Computing phi(1) term..." << std::flush;
@@ -204,57 +161,61 @@ int main( int argc, char** argv )
     
     //======================================================================
     //... compute 2LPT displacement potential ....
-    
-    wtime = get_wtime();    
-    csoca::ilog << "Computing phi(2) term..." << std::flush;
-    Conv.convolve_SumOfHessians( phi, {0,0}, phi, {1,1}, {2,2}, phi2, assign_op );
-    Conv.convolve_Hessians( phi, {1,1}, phi, {2,2}, phi2, add_op );
-    Conv.convolve_Hessians( phi, {0,1}, phi, {0,1}, phi2, sub_op );
-    Conv.convolve_Hessians( phi, {0,2}, phi, {0,2}, phi2, sub_op );
-    Conv.convolve_Hessians( phi, {1,2}, phi, {1,2}, phi2, sub_op );
-    phi2.apply_InverseLaplacian();
-    csoca::ilog << "   took " << get_wtime()-wtime << "s" << std::endl;
+    //======================================================================
+    if( LPTorder > 1 ){
+        wtime = get_wtime();    
+        csoca::ilog << "Computing phi(2) term..." << std::flush;
+        Conv.convolve_SumOfHessians( phi, {0,0}, phi, {1,1}, {2,2}, phi2, assign_op );
+        Conv.convolve_Hessians( phi, {1,1}, phi, {2,2}, phi2, add_op );
+        Conv.convolve_Hessians( phi, {0,1}, phi, {0,1}, phi2, sub_op );
+        Conv.convolve_Hessians( phi, {0,2}, phi, {0,2}, phi2, sub_op );
+        Conv.convolve_Hessians( phi, {1,2}, phi, {1,2}, phi2, sub_op );
+        phi2.apply_InverseLaplacian();
+        csoca::ilog << "   took " << get_wtime()-wtime << "s" << std::endl;
+    }
 
     //======================================================================
     //... compute 3LPT displacement potential
-    
-    //... 3a term ...
-    wtime = get_wtime();    
-    csoca::ilog << "Computing phi(3a) term..." << std::flush;
-    Conv.convolve_Hessians( phi, {0,0}, phi, {1,1}, phi, {2,2}, phi3a, assign_op );
-    Conv.convolve_Hessians( phi, {0,1}, phi, {0,2}, phi, {1,2}, phi3a, add2_op );
-    Conv.convolve_Hessians( phi, {1,2}, phi, {1,2}, phi, {0,0}, phi3a, sub_op );
-    Conv.convolve_Hessians( phi, {0,2}, phi, {0,2}, phi, {1,1}, phi3a, sub_op );
-    Conv.convolve_Hessians( phi, {0,1}, phi, {0,1}, phi, {2,2}, phi3a, sub_op );
-    phi3a.apply_InverseLaplacian();
-    csoca::ilog << "   took " << get_wtime()-wtime << "s" << std::endl;
-    
-    //... 3b term ...
-    wtime = get_wtime();    
-    csoca::ilog << "Computing phi(3b) term..." << std::flush;
-    Conv.convolve_SumOfHessians( phi, {0,0}, phi2, {1,1}, {2,2}, phi3b, assign_op );
-    Conv.convolve_SumOfHessians( phi, {1,1}, phi2, {2,2}, {0,0}, phi3b, add_op );
-    Conv.convolve_SumOfHessians( phi, {2,2}, phi2, {0,0}, {1,1}, phi3b, add_op );
-    Conv.convolve_Hessians( phi, {0,1}, phi2, {0,1}, phi3b, sub2_op );
-    Conv.convolve_Hessians( phi, {0,2}, phi2, {0,2}, phi3b, sub2_op );
-    Conv.convolve_Hessians( phi, {1,2}, phi2, {1,2}, phi3b, sub2_op );
-    phi3b.apply_InverseLaplacian();
-    phi3b *= 0.5; // factor 1/2 from definition of phi(3b)!
-    csoca::ilog << "   took " << get_wtime()-wtime << "s" << std::endl;
+    //======================================================================
+    if( LPTorder > 2 ){
+        //... 3a term ...
+        wtime = get_wtime();    
+        csoca::ilog << "Computing phi(3a) term..." << std::flush;
+        Conv.convolve_Hessians( phi, {0,0}, phi, {1,1}, phi, {2,2}, phi3a, assign_op );
+        Conv.convolve_Hessians( phi, {0,1}, phi, {0,2}, phi, {1,2}, phi3a, add2_op );
+        Conv.convolve_Hessians( phi, {1,2}, phi, {1,2}, phi, {0,0}, phi3a, sub_op );
+        Conv.convolve_Hessians( phi, {0,2}, phi, {0,2}, phi, {1,1}, phi3a, sub_op );
+        Conv.convolve_Hessians( phi, {0,1}, phi, {0,1}, phi, {2,2}, phi3a, sub_op );
+        phi3a.apply_InverseLaplacian();
+        csoca::ilog << "   took " << get_wtime()-wtime << "s" << std::endl;
+        
+        //... 3b term ...
+        wtime = get_wtime();    
+        csoca::ilog << "Computing phi(3b) term..." << std::flush;
+        Conv.convolve_SumOfHessians( phi, {0,0}, phi2, {1,1}, {2,2}, phi3b, assign_op );
+        Conv.convolve_SumOfHessians( phi, {1,1}, phi2, {2,2}, {0,0}, phi3b, add_op );
+        Conv.convolve_SumOfHessians( phi, {2,2}, phi2, {0,0}, {1,1}, phi3b, add_op );
+        Conv.convolve_Hessians( phi, {0,1}, phi2, {0,1}, phi3b, sub2_op );
+        Conv.convolve_Hessians( phi, {0,2}, phi2, {0,2}, phi3b, sub2_op );
+        Conv.convolve_Hessians( phi, {1,2}, phi2, {1,2}, phi3b, sub2_op );
+        phi3b.apply_InverseLaplacian();
+        phi3b *= 0.5; // factor 1/2 from definition of phi(3b)!
+        csoca::ilog << "   took " << get_wtime()-wtime << "s" << std::endl;
 
-    //... transversal term ...
-    wtime = get_wtime();    
-    csoca::ilog << "Computing zeta(3) term..." << std::flush;
-    for( int idim=0; idim<3; ++idim ){
-        // cyclic rotations of indices
-        int idimp = (idim+1)%3, idimpp = (idim+2)%3;
-        Conv.convolve_Hessians( phi2, {idim,idimp},  phi, {idim,idimpp}, *A3[idim], assign_op );
-        Conv.convolve_Hessians( phi2, {idim,idimpp}, phi, {idim,idimp},  *A3[idim], sub_op );
-        Conv.convolve_DifferenceOfHessians( phi, {idimp,idimpp}, phi2,{idimp,idimp}, {idimpp,idimpp}, *A3[idim], add_op );
-        Conv.convolve_DifferenceOfHessians( phi2,{idimp,idimpp}, phi, {idimp,idimp}, {idimpp,idimpp}, *A3[idim], sub_op );
-        A3[idim]->apply_InverseLaplacian();
+        //... transversal term ...
+        wtime = get_wtime();    
+        csoca::ilog << "Computing A(3) term..." << std::flush;
+        for( int idim=0; idim<3; ++idim ){
+            // cyclic rotations of indices
+            int idimp = (idim+1)%3, idimpp = (idim+2)%3;
+            Conv.convolve_Hessians( phi2, {idim,idimp},  phi, {idim,idimpp}, *A3[idim], assign_op );
+            Conv.convolve_Hessians( phi2, {idim,idimpp}, phi, {idim,idimp},  *A3[idim], sub_op );
+            Conv.convolve_DifferenceOfHessians( phi, {idimp,idimpp}, phi2,{idimp,idimp}, {idimpp,idimpp}, *A3[idim], add_op );
+            Conv.convolve_DifferenceOfHessians( phi2,{idimp,idimpp}, phi, {idimp,idimp}, {idimpp,idimpp}, *A3[idim], sub_op );
+            A3[idim]->apply_InverseLaplacian();
+        }
+        csoca::ilog << "   took " << get_wtime()-wtime << "s" << std::endl;
     }
-    csoca::ilog << "   took " << get_wtime()-wtime << "s" << std::endl;
 
     ///... scale all potentials with respective growth factors
     phi *= g1;
@@ -267,6 +228,7 @@ int main( int argc, char** argv )
     
     ///////////////////////////////////////////////////////////////////////
     // we store the densities here if we compute them
+    //======================================================================
     const bool compute_densities = false;
     if( compute_densities ){
         Grid_FFT<real_t> delta({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
@@ -346,7 +308,9 @@ int main( int argc, char** argv )
         A3[2]->Write_to_HDF5(fname_hdf5, "A3z");
 
     }else{
+        //======================================================================
         // we store displacements and velocities here if we compute them
+        //======================================================================
         Grid_FFT<real_t> tmp({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
         
         // write out positions
@@ -405,10 +369,106 @@ int main( int argc, char** argv )
         the_output_plugin->finalize();
 		delete the_output_plugin;
     }
+    return 0;
+}
 
+int main( int argc, char** argv )
+{
+    csoca::Logger::SetLevel(csoca::LogLevel::Info);
+    // csoca::Logger::SetLevel(csoca::LogLevel::Debug);
 
+    //------------------------------------------------------------------------------
+    // initialise MPI 
+    //------------------------------------------------------------------------------
+#if defined(USE_MPI)
+    MPI_Init_thread(&argc, &argv, MPI_THREAD_FUNNELED, &CONFIG::MPI_thread_support);
+    CONFIG::MPI_threads_ok = CONFIG::MPI_thread_support >= MPI_THREAD_FUNNELED;
+    MPI_Comm_rank(MPI_COMM_WORLD, &CONFIG::MPI_task_rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &CONFIG::MPI_task_size);
+    CONFIG::MPI_ok = true;
+
+    // set up lower logging levels for other tasks
+    if( CONFIG::MPI_task_rank!=0 )
+    {
+        csoca::Logger::SetLevel(csoca::LogLevel::Error);
+    }
+#endif
+
+    //------------------------------------------------------------------------------
+    // Parse command line options
+    //------------------------------------------------------------------------------
+
+    if (argc != 2)
+    {
+        // print_region_generator_plugins();
+        print_TransferFunction_plugins();
+        print_RNG_plugins();
+        print_output_plugins();
+
+        csoca::elog << "In order to run, you need to specify a parameter file!" << std::endl;
+        exit(0);
+    }
+
+    // open the configuration file 
+    ConfigFile the_config(argv[1]);
+
+    //------------------------------------------------------------------------------
+    // Set up FFTW
+    //------------------------------------------------------------------------------
+
+#if defined(USE_FFTW_THREADS)
+  #if defined(USE_MPI)
+    if (CONFIG::MPI_threads_ok)
+        CONFIG::FFTW_threads_ok = FFTW_API(init_threads)();
+  #else
+    CONFIG::FFTW_threads_ok = FFTW_API(init_threads)();
+  #endif 
+#endif
+
+#if defined(USE_MPI)
+    FFTW_API(mpi_init)();
+#endif
+
+    CONFIG::num_threads = the_config.GetValueSafe<unsigned>("execution", "NumThreads",std::thread::hardware_concurrency());
+    
+#if defined(USE_FFTW_THREADS)
+    if (CONFIG::FFTW_threads_ok)
+        FFTW_API(plan_with_nthreads)(CONFIG::num_threads);
+#endif
+
+    //------------------------------------------------------------------------------
+    // Set up OpenMP
+    //------------------------------------------------------------------------------
+
+#if defined(_OPENMP)
+    omp_set_num_threads(CONFIG::num_threads);
+#endif
+
+    //------------------------------------------------------------------------------
+    // Write code configuration to screen
+    //------------------------------------------------------------------------------
+#if defined(USE_MPI)
+    csoca::ilog << "MPI is enabled                : " << "yes (" << CONFIG::MPI_task_size << " tasks)" << std::endl;
+#else
+    csoca::ilog << "MPI is enabled                : " << "no" << std::endl;
+#endif
+    csoca::ilog << "MPI supports multi-threading  : " << (CONFIG::MPI_threads_ok? "yes" : "no") << std::endl;
+    csoca::ilog << "Available HW threads / task   : " << std::thread::hardware_concurrency() << " (" << CONFIG::num_threads << " used)" << std::endl;
+    csoca::ilog << "FFTW supports multi-threading : " << (CONFIG::FFTW_threads_ok? "yes" : "no") << std::endl;
+#if defined(FFTW_MODE_PATIENT)
+	csoca::ilog << "FFTW mode                     : FFTW_PATIENT" << std::endl;
+#elif defined(FFTW_MODE_MEASURE)
+    csoca::ilog << "FFTW mode                     : FFTW_MEASURE" << std::endl;
+#else
+	csoca::ilog << "FFTW mode                     : FFTW_ESTIMATE" << std::endl;
+#endif
+    
+    
     ///////////////////////////////////////////////////////////////////////
-
+    // do the job...
+    ///////////////////////////////////////////////////////////////////////
+    Run( the_config );
+    ///////////////////////////////////////////////////////////////////////
 
 #if defined(USE_MPI)
     MPI_Barrier(MPI_COMM_WORLD);

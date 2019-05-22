@@ -36,7 +36,7 @@ TransferFunction_plugin *select_TransferFunction_plugin(ConfigFile &cf)
     }
     else
     {
-        csoca::ilog << "Selecting transfer function plug-in \'" << tfname << "\'..." << std::endl;
+        csoca::ilog << "Transfer function plugin      : " << tfname << std::endl;
     }
 
     TransferFunction_plugin *the_TransferFunction_plugin = the_TransferFunction_plugin_creator->create(cf);

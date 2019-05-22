@@ -37,7 +37,7 @@ RNG_plugin *select_RNG_plugin(ConfigFile &cf)
     }
     else
     {
-        csoca::ilog.Print("Selecting random number generator plug-in  : %s", rngname.c_str());
+        csoca::ilog.Print("Random number generator plugin: %s", rngname.c_str());
     }
 
     RNG_plugin *the_RNG_plugin = the_RNG_plugin_creator->Create(cf);

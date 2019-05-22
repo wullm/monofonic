@@ -47,8 +47,9 @@ output_plugin *select_output_plugin( ConfigFile& cf )
 		print_output_plugins();
 		throw std::runtime_error("Unknown output plug-in");
 		
-	}else
-		csoca::ilog << "Selecting output plug-in \'" << formatname << "\'..." << std::endl;
+	}else{
+		csoca::ilog << "Output plugin                 : " << formatname << std::endl;
+	}
 	
 	output_plugin *the_output_plugin 
 	= the_output_plugin_creator->create( cf );
