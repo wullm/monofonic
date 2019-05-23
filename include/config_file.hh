@@ -343,7 +343,7 @@ inline bool ConfigFile::GetValueSafe<bool>(std::string const &strSection,
                                            bool defaultValue) const {
   std::string r1;
   try {
-    r1 = GetValue<std::string>(strSection, strEntry);
+    r1 = GetValueBasic<std::string>(strSection, strEntry);
     if (r1 == "true" || r1 == "yes" || r1 == "on" || r1 == "1")
       return true;
     if (r1 == "false" || r1 == "no" || r1 == "off" || r1 == "0")
