@@ -128,11 +128,12 @@ int Run( ConfigFile& the_config )
 
     //--------------------------------------------------------------------
     // Some operators to add or subtract terms 
-    auto assign_op = []( ccomplex_t res, ccomplex_t val ) -> ccomplex_t{ return res; };
-    auto add_op = []( ccomplex_t res, ccomplex_t val ) -> ccomplex_t{ return val+res; };
-    auto add2_op = []( ccomplex_t res, ccomplex_t val ) -> ccomplex_t{ return val+2.0*res; };
-    auto sub_op = []( ccomplex_t res, ccomplex_t val ) -> ccomplex_t{ return val-res; };
-    auto sub2_op = []( ccomplex_t res, ccomplex_t val ) -> ccomplex_t{ return val-2.0*res; };
+    auto assign_to = [](auto &g){return [&](auto i, auto v){ g[i] = v; };};
+    auto add_to = [](auto &g){return [&](auto i, auto v){ g[i] += v; };};
+    auto add_twice_to = [](auto &g){return [&](auto i, auto v){ g[i] += 2*v; };};
+    auto subtract_from = [](auto &g){return [&](auto i, auto v){ g[i] -= v; };};
+    auto subtract_twice_from = [](auto &g){return [&](auto i, auto v){ g[i] -= 2*v; };};
+
     //--------------------------------------------------------------------
     
     //--------------------------------------------------------------------
@@ -165,11 +166,12 @@ int Run( ConfigFile& the_config )
     if( LPTorder > 1 ){
         wtime = get_wtime();    
         csoca::ilog << "Computing phi(2) term..." << std::flush;
-        Conv.convolve_SumOfHessians( phi, {0,0}, phi, {1,1}, {2,2}, phi2, assign_op );
-        Conv.convolve_Hessians( phi, {1,1}, phi, {2,2}, phi2, add_op );
-        Conv.convolve_Hessians( phi, {0,1}, phi, {0,1}, phi2, sub_op );
-        Conv.convolve_Hessians( phi, {0,2}, phi, {0,2}, phi2, sub_op );
-        Conv.convolve_Hessians( phi, {1,2}, phi, {1,2}, phi2, sub_op );
+        phi2.FourierTransformForward(false);
+        Conv.convolve_SumOfHessians( phi, {0,0}, phi, {1,1}, {2,2}, assign_to( phi2 ) );
+        Conv.convolve_Hessians( phi, {1,1}, phi, {2,2}, add_to(phi2) );
+        Conv.convolve_Hessians( phi, {0,1}, phi, {0,1}, subtract_from(phi2) );
+        Conv.convolve_Hessians( phi, {0,2}, phi, {0,2}, subtract_from(phi2) );
+        Conv.convolve_Hessians( phi, {1,2}, phi, {1,2}, subtract_from(phi2) );
         phi2.apply_InverseLaplacian();
         csoca::ilog << "   took " << get_wtime()-wtime << "s" << std::endl;
     }
@@ -181,23 +183,25 @@ int Run( ConfigFile& the_config )
         //... 3a term ...
         wtime = get_wtime();    
         csoca::ilog << "Computing phi(3a) term..." << std::flush;
-        Conv.convolve_Hessians( phi, {0,0}, phi, {1,1}, phi, {2,2}, phi3a, assign_op );
-        Conv.convolve_Hessians( phi, {0,1}, phi, {0,2}, phi, {1,2}, phi3a, add2_op );
-        Conv.convolve_Hessians( phi, {1,2}, phi, {1,2}, phi, {0,0}, phi3a, sub_op );
-        Conv.convolve_Hessians( phi, {0,2}, phi, {0,2}, phi, {1,1}, phi3a, sub_op );
-        Conv.convolve_Hessians( phi, {0,1}, phi, {0,1}, phi, {2,2}, phi3a, sub_op );
+        phi3a.FourierTransformForward(false);
+        Conv.convolve_Hessians( phi, {0,0}, phi, {1,1}, phi, {2,2}, assign_to(phi3a) );
+        Conv.convolve_Hessians( phi, {0,1}, phi, {0,2}, phi, {1,2}, add_twice_to(phi3a) );
+        Conv.convolve_Hessians( phi, {1,2}, phi, {1,2}, phi, {0,0}, subtract_from(phi3a) );
+        Conv.convolve_Hessians( phi, {0,2}, phi, {0,2}, phi, {1,1}, subtract_from(phi3a) );
+        Conv.convolve_Hessians( phi, {0,1}, phi, {0,1}, phi, {2,2}, subtract_from(phi3a) );
         phi3a.apply_InverseLaplacian();
         csoca::ilog << "   took " << get_wtime()-wtime << "s" << std::endl;
         
         //... 3b term ...
         wtime = get_wtime();    
         csoca::ilog << "Computing phi(3b) term..." << std::flush;
-        Conv.convolve_SumOfHessians( phi, {0,0}, phi2, {1,1}, {2,2}, phi3b, assign_op );
-        Conv.convolve_SumOfHessians( phi, {1,1}, phi2, {2,2}, {0,0}, phi3b, add_op );
-        Conv.convolve_SumOfHessians( phi, {2,2}, phi2, {0,0}, {1,1}, phi3b, add_op );
-        Conv.convolve_Hessians( phi, {0,1}, phi2, {0,1}, phi3b, sub2_op );
-        Conv.convolve_Hessians( phi, {0,2}, phi2, {0,2}, phi3b, sub2_op );
-        Conv.convolve_Hessians( phi, {1,2}, phi2, {1,2}, phi3b, sub2_op );
+        phi3b.FourierTransformForward(false);
+        Conv.convolve_SumOfHessians( phi, {0,0}, phi2, {1,1}, {2,2}, assign_to(phi3b) );
+        Conv.convolve_SumOfHessians( phi, {1,1}, phi2, {2,2}, {0,0}, add_to(phi3b) );
+        Conv.convolve_SumOfHessians( phi, {2,2}, phi2, {0,0}, {1,1}, add_to(phi3b) );
+        Conv.convolve_Hessians( phi, {0,1}, phi2, {0,1}, subtract_twice_from(phi3b) );
+        Conv.convolve_Hessians( phi, {0,2}, phi2, {0,2}, subtract_twice_from(phi3b) );
+        Conv.convolve_Hessians( phi, {1,2}, phi2, {1,2}, subtract_twice_from(phi3b) );
         phi3b.apply_InverseLaplacian();
         phi3b *= 0.5; // factor 1/2 from definition of phi(3b)!
         csoca::ilog << "   took " << get_wtime()-wtime << "s" << std::endl;
@@ -208,10 +212,11 @@ int Run( ConfigFile& the_config )
         for( int idim=0; idim<3; ++idim ){
             // cyclic rotations of indices
             int idimp = (idim+1)%3, idimpp = (idim+2)%3;
-            Conv.convolve_Hessians( phi2, {idim,idimp},  phi, {idim,idimpp}, *A3[idim], assign_op );
-            Conv.convolve_Hessians( phi2, {idim,idimpp}, phi, {idim,idimp},  *A3[idim], sub_op );
-            Conv.convolve_DifferenceOfHessians( phi, {idimp,idimpp}, phi2,{idimp,idimp}, {idimpp,idimpp}, *A3[idim], add_op );
-            Conv.convolve_DifferenceOfHessians( phi2,{idimp,idimpp}, phi, {idimp,idimp}, {idimpp,idimpp}, *A3[idim], sub_op );
+            A3[idim]->FourierTransformForward(false);
+            Conv.convolve_Hessians( phi2, {idim,idimp},  phi, {idim,idimpp}, assign_to(*A3[idim]) );
+            Conv.convolve_Hessians( phi2, {idim,idimpp}, phi, {idim,idimp},  subtract_from(*A3[idim]) );
+            Conv.convolve_DifferenceOfHessians( phi, {idimp,idimpp}, phi2,{idimp,idimp}, {idimpp,idimpp}, add_to(*A3[idim]) );
+            Conv.convolve_DifferenceOfHessians( phi2,{idimp,idimpp}, phi, {idimp,idimp}, {idimpp,idimpp}, subtract_from(*A3[idim]) );
             A3[idim]->apply_InverseLaplacian();
         }
         csoca::ilog << "   took " << get_wtime()-wtime << "s" << std::endl;
@@ -474,6 +479,8 @@ int main( int argc, char** argv )
     MPI_Barrier(MPI_COMM_WORLD);
     MPI_Finalize();
 #endif
+
+    csoca::ilog << "Done." << std::endl;
 
     return 0;
 }

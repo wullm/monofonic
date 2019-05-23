@@ -19,16 +19,18 @@ public:
 
     // implements convolution of two Fourier-space fields
     template< typename kfunc1, typename kfunc2, typename opp >
-    void convolve2( kfunc1 kf1, kfunc2 kf2, Grid_FFT<data_t> & res, opp op ) {}
+    void convolve2( kfunc1 kf1, kfunc2 kf2, opp op ) {}
 
     // implements convolution of three Fourier-space fields
     template< typename kfunc1, typename kfunc2, typename kfunc3, typename opp >
-    void convolve3( kfunc1 kf1, kfunc2 kf2, kfunc3 kf3, Grid_FFT<data_t> & res, opp op ) {}
+    void convolve3( kfunc1 kf1, kfunc2 kf2, kfunc3 kf3, opp op ) {}
 
 public:
 
     template< typename opp >
-    void convolve_Hessians( Grid_FFT<data_t> & inl, const std::array<int,2>& d2l, Grid_FFT<data_t> & inr, const std::array<int,2>& d2r, Grid_FFT<data_t> & res, opp op ){
+    void convolve_Hessians( Grid_FFT<data_t> & inl, const std::array<int,2>& d2l, 
+                            Grid_FFT<data_t> & inr, const std::array<int,2>& d2r, 
+                            opp output_op ){
         // transform to FS in case fields are not
         inl.FourierTransformForward();
         inr.FourierTransformForward();
@@ -41,14 +43,14 @@ public:
             [&]( size_t i, size_t j, size_t k ){
                 auto kk = inr.template get_k<real_t>(i,j,k);
                 return -kk[d2r[0]] * kk[d2r[1]] * inr.kelem(i,j,k);
-            }, res, op );
+            }, output_op );
     }
 
     template< typename opp >
     void convolve_Hessians( Grid_FFT<data_t> & inl, const std::array<int,2>& d2l, 
                             Grid_FFT<data_t> & inm, const std::array<int,2>& d2m,
                             Grid_FFT<data_t> & inr, const std::array<int,2>& d2r, 
-                            Grid_FFT<data_t> & res, opp op )
+                            opp output_op )
     {
         // transform to FS in case fields are not
         inl.FourierTransformForward();
@@ -67,12 +69,14 @@ public:
             [&inr,&d2r]( size_t i, size_t j, size_t k ) -> ccomplex_t{
                 auto kk = inr.template get_k<real_t>(i,j,k);
                 return -kk[d2r[0]] * kk[d2r[1]] * inr.kelem(i,j,k);
-            }, res, op );
+            }, output_op );
     }
 
     template< typename opp >
-    void convolve_SumOfHessians( Grid_FFT<data_t> & inl, const std::array<int,2>& d2l, Grid_FFT<data_t> & inr, const std::array<int,2>& d2r1, 
-                               const std::array<int,2>& d2r2, Grid_FFT<data_t> & res, opp op ){
+    void convolve_SumOfHessians( Grid_FFT<data_t> & inl, const std::array<int,2>& d2l, 
+                                 Grid_FFT<data_t> & inr, const std::array<int,2>& d2r1, const std::array<int,2>& d2r2, 
+                                 opp output_op )
+    {
         // transform to FS in case fields are not
         inl.FourierTransformForward();
         inr.FourierTransformForward();
@@ -85,12 +89,14 @@ public:
             [&inr,&d2r1,&d2r2]( size_t i, size_t j, size_t k ) -> ccomplex_t{
                 auto kk = inr.template get_k<real_t>(i,j,k);
                 return (-kk[d2r1[0]] * kk[d2r1[1]] -kk[d2r2[0]] * kk[d2r2[1]]) * inr.kelem(i,j,k);
-            }, res, op );
+            }, output_op );
     }
 
     template< typename opp >
-    void convolve_DifferenceOfHessians( Grid_FFT<data_t> & inl, const std::array<int,2>& d2l, Grid_FFT<data_t> & inr, const std::array<int,2>& d2r1, 
-                               const std::array<int,2>& d2r2, Grid_FFT<data_t> & res, opp op ){
+    void convolve_DifferenceOfHessians( Grid_FFT<data_t> & inl, const std::array<int,2>& d2l, 
+                                        Grid_FFT<data_t> & inr, const std::array<int,2>& d2r1, const std::array<int,2>& d2r2, 
+                                        opp output_op )
+    {
         // transform to FS in case fields are not
         inl.FourierTransformForward();
         inr.FourierTransformForward();
@@ -103,7 +109,7 @@ public:
             [&inr,&d2r1,&d2r2]( size_t i, size_t j, size_t k ) -> ccomplex_t{
                 auto kk = inr.template get_k<real_t>(i,j,k);
                 return (-kk[d2r1[0]] * kk[d2r1[1]] + kk[d2r2[0]] * kk[d2r2[1]]) * inr.kelem(i,j,k);
-            }, res, op );
+            }, output_op );
     }
 };
 
@@ -132,7 +138,7 @@ public:
     }
 
     template< typename kfunc1, typename kfunc2, typename opp >
-    void convolve2( kfunc1 kf1, kfunc2 kf2, Grid_FFT<data_t> & res, opp op )
+    void convolve2( kfunc1 kf1, kfunc2 kf2, opp output_op )
     {
         //... prepare data 1
         fbuf1_->FourierTransformForward(false);
@@ -152,12 +158,14 @@ public:
         }
         fbuf2_->FourierTransformForward();
         //... copy data back
-        res.FourierTransformForward();
-        copy_out( *fbuf2_, op, res );
+        #pragma omp parallel for
+        for (size_t i = 0; i < fbuf2_->ntot_; ++i ){
+            output_op(i,(*fbuf2_)[i]);
+        }
     }
 
     template< typename kfunc1, typename kfunc2, typename kfunc3, typename opp >
-    void convolve3( kfunc1 kf1, kfunc2 kf2, kfunc3 kf3, Grid_FFT<data_t> & res, opp op )
+    void convolve3( kfunc1 kf1, kfunc2 kf2, kfunc3 kf3, opp output_op )
     {
         //... prepare data 1
         fbuf1_->FourierTransformForward(false);
@@ -190,9 +198,12 @@ public:
 
         fbuf2_->FourierTransformForward();
         //... copy data back
-        res.FourierTransformForward();
-        copy_out( *fbuf2_, op, res );
+        #pragma omp parallel for
+        for (size_t i = 0; i < fbuf2_->ntot_; ++i ){
+            output_op(i,(*fbuf2_)[i]);
+        }
     }
+
 
 private:
     template< typename kfunc >
@@ -203,19 +214,6 @@ private:
             for (size_t j = 0; j < g.size(1); ++j){
                 for (size_t k = 0; k < g.size(2); ++k){
                     g.kelem(i, j, k) = kf(i, j, k);
-                }
-            }
-        }
-    }
-
-    template< typename opp >
-    void copy_out( Grid_FFT<data_t>& f, opp op, Grid_FFT<data_t>& res )
-    {
-        #pragma omp parallel for
-        for (size_t i = 0; i < f.size(0); ++i){
-            for (size_t j = 0; j < f.size(1); ++j){
-                for (size_t k = 0; k < f.size(2); ++k){
-                    res.kelem(i, j, k) = op(f.kelem(i, j, k), res.kelem(i, j, k));
                 }
             }
         }
@@ -297,7 +295,7 @@ public:
     }
 
     template< typename kfunc1, typename kfunc2, typename opp >
-    void convolve2( kfunc1 kf1, kfunc2 kf2, Grid_FFT<data_t> & res, opp op )
+    void convolve2( kfunc1 kf1, kfunc2 kf2, opp output_op )
     {
         //... prepare data 1
         f1p_->FourierTransformForward(false);
@@ -317,17 +315,18 @@ public:
         }
         f2p_->FourierTransformForward();
         //... copy data back
-        res.FourierTransformForward();
-        unpad(*f2p_, res, op);
+        unpad(*f2p_, output_op);
     }
 
     template< typename kfunc1, typename kfunc2, typename kfunc3, typename opp >
-    void convolve3( kfunc1 kf1, kfunc2 kf2, kfunc3 kf3, Grid_FFT<data_t> & res, opp op )
+    void convolve3( kfunc1 kf1, kfunc2 kf2, kfunc3 kf3, opp output_op )
     {
+        auto assign_to = [](auto &g){return [&](auto i, auto v){ g[i] = v; };};
+    
         #warning double check if fbuf_ can be used here, or fbuf2, in case remove fbuf2
         fbuf_->FourierTransformForward(false);
         // convolve kf1 and kf2, store result in fbuf_
-        convolve2( kf1, kf2, *fbuf_, []( ccomplex_t r, ccomplex_t )->ccomplex_t{ return r; } );
+        convolve2( kf1, kf2, assign_to(*fbuf_) );
         //... prepare data 1
         f1p_->FourierTransformForward(false);
         // pad result from fbuf_ to f1p_, fbuf_ is now unused
@@ -347,21 +346,20 @@ public:
         }
         f2p_->FourierTransformForward();
         //... copy data back
-        res.FourierTransformForward();
-        unpad(*f2p_, res, op);
+        unpad(*f2p_, output_op);
     }
 
-    template< typename opp >
-    void test_pad_unpad( Grid_FFT<data_t> & in, Grid_FFT<data_t> & res, opp op )
-    {
-        //... prepare data 1
-        f1p_->FourierTransformForward(false);
-        this->pad_insert( [&in]( size_t i, size_t j, size_t k ){return in.kelem(i,j,k);}, *f1p_ );
-        f1p_->FourierTransformBackward();
-        f1p_->FourierTransformForward();
-        res.FourierTransformForward();
-        unpad(*f1p_, res, op);
-    }
+    // template< typename opp >
+    // void test_pad_unpad( Grid_FFT<data_t> & in, Grid_FFT<data_t> & res, opp op )
+    // {
+    //     //... prepare data 1
+    //     f1p_->FourierTransformForward(false);
+    //     this->pad_insert( [&in]( size_t i, size_t j, size_t k ){return in.kelem(i,j,k);}, *f1p_ );
+    //     f1p_->FourierTransformBackward();
+    //     f1p_->FourierTransformForward();
+    //     res.FourierTransformForward();
+    //     unpad(*f1p_, res, op);
+    // }
 
 private:
     template <typename kdep_functor>
@@ -544,31 +542,38 @@ private:
 
 
     template <typename operator_t>
-    void unpad(const Grid_FFT<data_t> &fp, Grid_FFT<data_t> &f, operator_t op )
+    void unpad(const Grid_FFT<data_t> &fp, operator_t output_op )
     {
-        const double rfac = std::sqrt(fp.n_[0] * fp.n_[1] * fp.n_[2]) / std::sqrt(f.n_[0] * f.n_[1] * f.n_[2]);
+        const double rfac = std::sqrt(fp.n_[0] * fp.n_[1] * fp.n_[2]) / std::sqrt(fbuf_->n_[0] * fbuf_->n_[1] * fbuf_->n_[2]);
 
         // make sure we're in Fourier space...
         assert( fp.space_ == kspace_id );
-        f.FourierTransformForward();
+        
 
     #if !defined(USE_MPI) ////////////////////////////////////////////////////////////////////////////////////
-        size_t nhalf[3] = {f.n_[0] / 2, f.n_[1] / 2, f.n_[2] / 2};
+        fbuf_->FourierTransformForward(false);
+        size_t nhalf[3] = {fbuf_->n_[0] / 2, fbuf_->n_[1] / 2, fbuf_->n_[2] / 2};
         
         #pragma omp parallel for
-        for (size_t i = 0; i < f.size(0); ++i)
+        for (size_t i = 0; i < fbuf_->size(0); ++i)
         {
             size_t ip = (i > nhalf[0]) ? i + nhalf[0] : i;
-            for (size_t j = 0; j < f.size(1); ++j)
+            for (size_t j = 0; j < fbuf_->size(1); ++j)
             {
                 size_t jp = (j > nhalf[1]) ? j + nhalf[1] : j;
-                for (size_t k = 0; k < f.size(2); ++k)
+                for (size_t k = 0; k < fbuf_->size(2); ++k)
                 {
                     size_t kp = (k > nhalf[2]) ? k + nhalf[2] : k;
                     // if( i==nhalf[0]||j==nhalf[1]||k==nhalf[2]) continue;
-                    f.kelem(i, j, k) = op(fp.kelem(ip, jp, kp) / rfac, f.kelem(i, j, k));
+                    fbuf_->kelem(i, j, k) = fp.kelem(ip, jp, kp) / rfac;
                 }
             }
+        }
+
+        //... copy data back
+        #pragma omp parallel for
+        for (size_t i = 0; i < fbuf_->ntot_; ++i ){
+            output_op(i,(*fbuf_)[i]);
         }
 
     #else /// then USE_MPI is defined //////////////////////////////////////////////////////////////
@@ -581,9 +586,9 @@ private:
 
         MPI_Barrier(MPI_COMM_WORLD);
 
-        size_t nf[3] = {f.size(0), f.size(1), f.size(2)};
+        size_t nf[3] = {fbuf_->size(0), fbuf_->size(1), fbuf_->size(2)};
         size_t nfp[4] = {fp.size(0), fp.size(1), fp.size(2), fp.size(3)};
-        size_t fny[3] = {f.n_[1] / 2, f.n_[0] / 2, f.n_[2] / 2};
+        size_t fny[3] = {fbuf_->n_[1] / 2, fbuf_->n_[0] / 2, fbuf_->n_[2] / 2};
 
         size_t slicesz = fp.size(1) * fp.size(3);
 
@@ -738,17 +743,11 @@ private:
                 }
             }
         }
-
+        
+        //... copy data back
         #pragma omp parallel for
-        for (size_t i = 0; i < fbuf_->size(0); ++i)
-        {
-            for (size_t j = 0; j < fbuf_->size(1); ++j)
-            {
-                for (size_t k = 0; k < fbuf_->size(2); ++k)
-                {
-                    f.kelem(i, j, k) = op(fbuf_->kelem(i, j, k), f.kelem(i, j, k));
-                }
-            }
+        for (size_t i = 0; i < fbuf_->ntot_; ++i ){
+            output_op(i,(*fbuf_)[i]);
         }
 
         for (size_t i = 0; i < req.size(); ++i)

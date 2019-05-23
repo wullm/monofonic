@@ -85,6 +85,10 @@ public:
             data_[i] = 0.0;
     }
 
+    data_t& operator[]( size_t i ){
+        return data_[i];
+    }
+
     data_t &relem(size_t i, size_t j, size_t k)
     {
         size_t idx = (i * sizes_[1] + j) * sizes_[3] + k;
