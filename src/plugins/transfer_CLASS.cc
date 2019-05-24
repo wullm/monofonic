@@ -30,7 +30,7 @@ private:
     void ClassEngine_get_data( void ){
         std::vector<double> d_ncdm, t_ncdm, phi, psi;
 
-        csoca::ilog << "Computing transfer function via ClassEngine..." << std::flush;
+        csoca::ilog << "Computing TF via ClassEngine..." << std::endl << " ztarget = " << ztarget_ << ", zstart = " << zstart_ << " ..." << std::flush;
         double wtime = get_wtime();
         
         ClassParams pars;
