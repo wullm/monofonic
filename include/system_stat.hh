@@ -81,7 +81,7 @@ namespace SystemStat {
                 }
                 fclose(fd);
             }
-            this->avail = (*MemTotal - *Committed_AS);
+            this->avail = this->total - this->used;
 
         #endif
             return 0;
