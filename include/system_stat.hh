@@ -64,11 +64,11 @@ namespace SystemStat {
                     if(fgets(buf, 500, fd) != buf) break;
                     if(bcmp(buf, "MemTotal", 8) == 0)
                     {
-                        this->total = atoll(buf + 10);
+                        this->total = atoll(buf + 10) * 1024; // in Mb
                     }
                     if(strncmp(buf, "Committed_AS", 12) == 0)
                     {
-                        this->used = atoll(buf + 14);
+                        this->used = atoll(buf + 14) * 1024; // in Mb
                     }
                     // if(strncmp(buf, "SwapTotal", 9) == 0)
                     // {
