@@ -349,10 +349,7 @@ protected:
 public:
   transfer_eisenstein_cdmbino_plugin(ConfigFile &cf)
       : TransferFunction_plugin(cf)
-  { }
-
-  void initialise( void )
-  {
+  { 
     double Tcmb = pcf_->GetValueSafe("cosmology", "Tcmb", 2.726);
 
     omegam_ = pcf_->GetValue<double>("cosmology", "Omega_m");
