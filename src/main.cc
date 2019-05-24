@@ -132,10 +132,11 @@ int main( int argc, char** argv )
     unsigned maxupmem = usedpmem, minupmem = usedpmem;
     
 #if defined(USE_MPI)
-    MPI_Allreduce(&minpmem,&minpmem,1,MPI_UNSIGNED,MPI_MIN,MPI_COMM_WORLD);
-    MPI_Allreduce(&maxpmem,&maxpmem,1,MPI_UNSIGNED,MPI_MAX,MPI_COMM_WORLD);
-    MPI_Allreduce(&minupmem,&minupmem,1,MPI_UNSIGNED,MPI_MIN,MPI_COMM_WORLD);
-    MPI_Allreduce(&maxupmem,&maxupmem,1,MPI_UNSIGNED,MPI_MAX,MPI_COMM_WORLD);
+    unsigned temp = 0;
+    MPI_Allreduce(&minpmem,&temp,1,MPI_UNSIGNED,MPI_MIN,MPI_COMM_WORLD);  minpmem = temp;
+    MPI_Allreduce(&maxpmem,&temp,1,MPI_UNSIGNED,MPI_MAX,MPI_COMM_WORLD);  maxpmem = temp;
+    MPI_Allreduce(&minupmem,&temp,1,MPI_UNSIGNED,MPI_MIN,MPI_COMM_WORLD); minupmem = temp;
+    MPI_Allreduce(&maxupmem,&temp,1,MPI_UNSIGNED,MPI_MAX,MPI_COMM_WORLD); maxupmem = temp;
 #endif
     csoca::ilog << std::setw(40) << std::left << "Total system memory (phys)" << " : " << mem.get_TotalMem()/1024/1024 << " Mb" << std::endl;
     csoca::ilog << std::setw(40) << std::left << "Used system memory (phys)" << " : " << "Max: " << maxupmem << " Mb, Min: " << minupmem << " Mb" << std::endl;
