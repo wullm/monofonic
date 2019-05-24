@@ -23,7 +23,7 @@ void print_RNG_plugins()
     }
 }
 
-RNG_plugin *select_RNG_plugin(ConfigFile &cf)
+std::unique_ptr<RNG_plugin> select_RNG_plugin(ConfigFile &cf)
 {
     std::string rngname = cf.GetValueSafe<std::string>("random", "generator", "MUSIC");
 
@@ -37,10 +37,8 @@ RNG_plugin *select_RNG_plugin(ConfigFile &cf)
     }
     else
     {
-        csoca::ilog.Print("Random number generator plugin: %s", rngname.c_str());
+        csoca::ilog << std::setw(40) << std::left << "Random number generator plugin" << " : " << rngname << std::endl;
     }
 
-    RNG_plugin *the_RNG_plugin = the_RNG_plugin_creator->Create(cf);
-
-    return the_RNG_plugin;
+    return std::move(the_RNG_plugin_creator->Create(cf));
 }

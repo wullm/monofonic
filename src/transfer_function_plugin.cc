@@ -13,7 +13,7 @@ void print_TransferFunction_plugins()
     std::map<std::string, TransferFunction_plugin_creator *> &m = get_TransferFunction_plugin_map();
     std::map<std::string, TransferFunction_plugin_creator *>::iterator it;
     it = m.begin();
-    csoca::ilog << "- Available transfer function plug-ins:" << std::endl;
+    csoca::ilog << "Available transfer function plug-ins:" << std::endl;
     while (it != m.end())
     {
         if ((*it).second)
@@ -22,7 +22,7 @@ void print_TransferFunction_plugins()
     }
 }
 
-TransferFunction_plugin *select_TransferFunction_plugin(ConfigFile &cf)
+std::unique_ptr<TransferFunction_plugin> select_TransferFunction_plugin(ConfigFile &cf)
 {
     std::string tfname = cf.GetValue<std::string>("cosmology", "transfer");
 
@@ -36,10 +36,8 @@ TransferFunction_plugin *select_TransferFunction_plugin(ConfigFile &cf)
     }
     else
     {
-        csoca::ilog << "Transfer function plugin      : " << tfname << std::endl;
+        csoca::ilog << std::setw(40) << std::left << "Transfer function plugin" << " : " << tfname << std::endl;
     }
 
-    TransferFunction_plugin *the_TransferFunction_plugin = the_TransferFunction_plugin_creator->create(cf);
-
-    return the_TransferFunction_plugin;
+    return std::move(the_TransferFunction_plugin_creator->create(cf));
 }

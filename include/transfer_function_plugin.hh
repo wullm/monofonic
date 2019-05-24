@@ -29,20 +29,13 @@ class TransferFunction_plugin
     //! constructor
     TransferFunction_plugin(ConfigFile &cf)
         : pcf_(&cf), tf_distinct_(false), tf_withvel_(false), tf_withtotal0_(false), tf_velunits_(false)
-    {
-        // real_t zstart;
-        // zstart = pcf_->getValue<real_t>("setup", "zstart");
-        // cosmo_.astart = 1.0 / (1.0 + zstart);
-        // cosmo_.Omega_b = pcf_->getValue<real_t>("cosmology", "Omega_b");
-        // cosmo_.Omega_m = pcf_->getValue<real_t>("cosmology", "Omega_m");
-        // cosmo_.Omega_DE = pcf_->getValue<real_t>("cosmology", "Omega_L");
-        // cosmo_.H0 = pcf_->getValue<real_t>("cosmology", "H0");
-        // cosmo_.sigma8 = pcf_->getValue<real_t>("cosmology", "sigma_8");
-        // cosmo_.nspect = pcf_->getValue<real_t>("cosmology", "nspec");
-    }
+    { }
 
     //! destructor
     virtual ~TransferFunction_plugin(){};
+
+    //! initialise, i.e. prepare data for later usage 
+    virtual void intialise( void ) {}
 
     //! compute value of transfer function at waven umber
     virtual double compute(double k, tf_type type) const = 0;
@@ -82,7 +75,7 @@ class TransferFunction_plugin
 struct TransferFunction_plugin_creator
 {
     //! create an instance of a transfer function plug-in
-    virtual TransferFunction_plugin *create(ConfigFile &cf) const = 0;
+    virtual std::unique_ptr<TransferFunction_plugin> create(ConfigFile &cf) const = 0;
 
     //! destroy an instance of a plug-in
     virtual ~TransferFunction_plugin_creator() {}
@@ -103,12 +96,12 @@ struct TransferFunction_plugin_creator_concrete : public TransferFunction_plugin
     }
 
     //! create an instance of the plug-in
-    TransferFunction_plugin *create(ConfigFile &cf) const
+    std::unique_ptr<TransferFunction_plugin> create(ConfigFile &cf) const
     {
-        return new Derived(cf);
+        return std::make_unique<Derived>(cf);
     }
 };
 
 // typedef TransferFunction_plugin TransferFunction;
 
-TransferFunction_plugin *select_TransferFunction_plugin(ConfigFile &cf);
+std::unique_ptr<TransferFunction_plugin> select_TransferFunction_plugin(ConfigFile &cf);

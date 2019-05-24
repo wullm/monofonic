@@ -11,8 +11,7 @@
 #include "output_plugin.hh"
 
 
-std::map< std::string, output_plugin_creator *>& 
-get_output_plugin_map()
+std::map< std::string, output_plugin_creator *>& get_output_plugin_map()
 {
 	static std::map< std::string, output_plugin_creator* > output_plugin_map;
 	return output_plugin_map;
@@ -27,14 +26,13 @@ void print_output_plugins()
 	csoca::ilog << "Available output plug-ins:\n";
 	while( it!=m.end() )
 	{
-		if( (*it).second )
-			csoca::ilog << "\t\'" << (*it).first << "\'\n";
+		if( it->second )
+			csoca::ilog << "\t\'" << it->first << "\'\n";
 		++it;
 	}
-		
 }
 
-output_plugin *select_output_plugin( ConfigFile& cf )
+std::unique_ptr<output_plugin> select_output_plugin( ConfigFile& cf )
 {
 	std::string formatname = cf.GetValue<std::string>( "output", "format" );
 	
@@ -48,13 +46,10 @@ output_plugin *select_output_plugin( ConfigFile& cf )
 		throw std::runtime_error("Unknown output plug-in");
 		
 	}else{
-		csoca::ilog << "Output plugin                 : " << formatname << std::endl;
+		csoca::ilog << std::setw(40) << std::left << "Output plugin" << " : " << formatname << std::endl;
 	}
 	
-	output_plugin *the_output_plugin 
-	= the_output_plugin_creator->create( cf );
-	
-	return the_output_plugin;
+	return std::move(the_output_plugin_creator->create( cf ));
 }
 
 

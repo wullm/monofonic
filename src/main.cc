@@ -30,9 +30,9 @@ bool FFTW_threads_ok = false;
 int  num_threads = 1;
 }
 
-RNG_plugin *the_random_number_generator;
-TransferFunction_plugin *the_transfer_function;
-output_plugin *the_output_plugin;
+std::unique_ptr<RNG_plugin> the_random_number_generator;
+std::unique_ptr<output_plugin> the_output_plugin;
+std::unique_ptr<CosmologyCalculator>  the_cosmo_calc;
 
 int Run( ConfigFile& the_config )
 {
@@ -52,50 +52,34 @@ int Run( ConfigFile& the_config )
     //...
     const std::string fname_hdf5 = the_config.GetValueSafe<std::string>("output", "fname_hdf5", "output.hdf5");
     const std::string fname_analysis = the_config.GetValueSafe<std::string>("output", "fbase_analysis", "output");
+
+    csoca::ilog << "-----------------------------------------------------------------------------" << std::endl;
+
     //////////////////////////////////////////////////////////////////////////////////////////////
-
-    //--------------------------------------------------------------------
-    // Initialise plug-ins
-    //--------------------------------------------------------------------
-
-    std::unique_ptr<CosmologyCalculator>  the_cosmo_calc;
     
-    try
-    {
-        the_random_number_generator = select_RNG_plugin(the_config);
-        the_transfer_function       = select_TransferFunction_plugin(the_config);
-        the_output_plugin           = select_output_plugin(the_config);
-        the_cosmo_calc = std::make_unique<CosmologyCalculator>(the_config, the_transfer_function);
-    }catch(...){
-        csoca::elog << "Problem during initialisation. See error(s) above. Exiting..." << std::endl;
-        #if defined(USE_MPI) 
-        MPI_Finalize();
-        #endif
-        return 1;
-    }
 
     //--------------------------------------------------------------------
     // Write out a correctly scaled power spectrum as a test
     //--------------------------------------------------------------------
 
-    const real_t Dplus0 = the_cosmo_calc->CalcGrowthFactor(astart) / the_cosmo_calc->CalcGrowthFactor(1.0);
-    const real_t vfac   = the_cosmo_calc->CalcVFact(astart);
-
-    if( CONFIG::MPI_task_rank==0 )
-    {
-        // write power spectrum to a file
-        std::ofstream ofs("input_powerspec.txt");
-        for( double k=the_transfer_function->get_kmin(); k<the_transfer_function->get_kmax(); k*=1.1 ){
-            ofs << std::setw(16) << k
-                << std::setw(16) << std::pow(the_cosmo_calc->GetAmplitude(k, total) * Dplus0, 2.0)
-                << std::setw(16) << std::pow(the_cosmo_calc->GetAmplitude(k, total), 2.0)
-                << std::endl;
-        }
-    }
+    
+    // if( CONFIG::MPI_task_rank==0 )
+    // {
+    //     // write power spectrum to a file
+    //     std::ofstream ofs("input_powerspec.txt");
+    //     for( double k=the_transfer_function->get_kmin(); k<the_transfer_function->get_kmax(); k*=1.1 ){
+    //         ofs << std::setw(16) << k
+    //             << std::setw(16) << std::pow(the_cosmo_calc->GetAmplitude(k, total) * Dplus0, 2.0)
+    //             << std::setw(16) << std::pow(the_cosmo_calc->GetAmplitude(k, total), 2.0)
+    //             << std::endl;
+    //     }
+    // }
 
     //--------------------------------------------------------------------
     // Compute LPT time coefficients
     //--------------------------------------------------------------------
+    const real_t Dplus0 = the_cosmo_calc->CalcGrowthFactor(astart) / the_cosmo_calc->CalcGrowthFactor(1.0);
+    const real_t vfac   = the_cosmo_calc->CalcVFact(astart);
 
     const double g1  = Dplus0;
     const double g2  = (LPTorder>1)? -3.0/7.0*Dplus0*Dplus0 : 0.0;
@@ -146,7 +130,7 @@ int Run( ConfigFile& the_config )
     //======================================================================
     // phi = - delta / k^2
     double wtime = get_wtime();    
-    csoca::ilog << "Computing phi(1) term..." << std::flush;
+    csoca::ilog << std::setw(40) << std::setfill('.') << std::left << "Computing phi(1) term" << std::flush;
     phi.FourierTransformForward();
     
     phi.apply_function_k_dep([&](auto x, auto k) -> ccomplex_t {
@@ -158,14 +142,14 @@ int Run( ConfigFile& the_config )
     });
     
     phi.zero_DC_mode();
-    csoca::ilog << "   took " << get_wtime()-wtime << "s" << std::endl;
+    csoca::ilog << std::setw(20) << std::setfill(' ') << std::right << "took " << get_wtime()-wtime << "s" << std::endl;
     
     //======================================================================
     //... compute 2LPT displacement potential ....
     //======================================================================
     if( LPTorder > 1 ){
         wtime = get_wtime();    
-        csoca::ilog << "Computing phi(2) term..." << std::flush;
+        csoca::ilog << std::setw(40) << std::setfill('.') << std::left << "Computing phi(2) term" << std::flush;
         phi2.FourierTransformForward(false);
         Conv.convolve_SumOfHessians( phi, {0,0}, phi, {1,1}, {2,2}, assign_to( phi2 ) );
         Conv.convolve_Hessians( phi, {1,1}, phi, {2,2}, add_to(phi2) );
@@ -173,7 +157,7 @@ int Run( ConfigFile& the_config )
         Conv.convolve_Hessians( phi, {0,2}, phi, {0,2}, subtract_from(phi2) );
         Conv.convolve_Hessians( phi, {1,2}, phi, {1,2}, subtract_from(phi2) );
         phi2.apply_InverseLaplacian();
-        csoca::ilog << "   took " << get_wtime()-wtime << "s" << std::endl;
+        csoca::ilog << std::setw(20) << std::setfill(' ') << std::right << "took " << get_wtime()-wtime << "s" << std::endl;
     }
 
     //======================================================================
@@ -182,7 +166,7 @@ int Run( ConfigFile& the_config )
     if( LPTorder > 2 ){
         //... 3a term ...
         wtime = get_wtime();    
-        csoca::ilog << "Computing phi(3a) term..." << std::flush;
+        csoca::ilog << std::setw(40) << std::setfill('.') << std::left << "Computing phi(3a) term" << std::flush;
         phi3a.FourierTransformForward(false);
         Conv.convolve_Hessians( phi, {0,0}, phi, {1,1}, phi, {2,2}, assign_to(phi3a) );
         Conv.convolve_Hessians( phi, {0,1}, phi, {0,2}, phi, {1,2}, add_twice_to(phi3a) );
@@ -190,11 +174,11 @@ int Run( ConfigFile& the_config )
         Conv.convolve_Hessians( phi, {0,2}, phi, {0,2}, phi, {1,1}, subtract_from(phi3a) );
         Conv.convolve_Hessians( phi, {0,1}, phi, {0,1}, phi, {2,2}, subtract_from(phi3a) );
         phi3a.apply_InverseLaplacian();
-        csoca::ilog << "   took " << get_wtime()-wtime << "s" << std::endl;
+        csoca::ilog << std::setw(20) << std::setfill(' ') << std::right << "took " << get_wtime()-wtime << "s" << std::endl;
         
         //... 3b term ...
         wtime = get_wtime();    
-        csoca::ilog << "Computing phi(3b) term..." << std::flush;
+        csoca::ilog << std::setw(40) << std::setfill('.') << std::left << "Computing phi(3b) term" << std::flush;
         phi3b.FourierTransformForward(false);
         Conv.convolve_SumOfHessians( phi, {0,0}, phi2, {1,1}, {2,2}, assign_to(phi3b) );
         Conv.convolve_SumOfHessians( phi, {1,1}, phi2, {2,2}, {0,0}, add_to(phi3b) );
@@ -204,11 +188,11 @@ int Run( ConfigFile& the_config )
         Conv.convolve_Hessians( phi, {1,2}, phi2, {1,2}, subtract_twice_from(phi3b) );
         phi3b.apply_InverseLaplacian();
         phi3b *= 0.5; // factor 1/2 from definition of phi(3b)!
-        csoca::ilog << "   took " << get_wtime()-wtime << "s" << std::endl;
-
+        csoca::ilog << std::setw(20) << std::setfill(' ') << std::right << "took " << get_wtime()-wtime << "s" << std::endl;
+        
         //... transversal term ...
         wtime = get_wtime();    
-        csoca::ilog << "Computing A(3) term..." << std::flush;
+        csoca::ilog << std::setw(40) << std::setfill('.') << std::left << "Computing A(3) term" << std::flush;
         for( int idim=0; idim<3; ++idim ){
             // cyclic rotations of indices
             int idimp = (idim+1)%3, idimpp = (idim+2)%3;
@@ -219,7 +203,7 @@ int Run( ConfigFile& the_config )
             Conv.convolve_DifferenceOfHessians( phi2,{idimp,idimpp}, phi, {idimp,idimp}, {idimpp,idimpp}, subtract_from(*A3[idim]) );
             A3[idim]->apply_InverseLaplacian();
         }
-        csoca::ilog << "   took " << get_wtime()-wtime << "s" << std::endl;
+        csoca::ilog << std::setw(20) << std::setfill(' ') << std::right << "took " << get_wtime()-wtime << "s" << std::endl;
     }
 
     ///... scale all potentials with respective growth factors
@@ -230,6 +214,9 @@ int Run( ConfigFile& the_config )
     (*A3[0]) *= g3c;
     (*A3[1]) *= g3c;
     (*A3[2]) *= g3c;
+
+    csoca::ilog << "-----------------------------------------------------------------------------" << std::endl;
+
     
     ///////////////////////////////////////////////////////////////////////
     // we store the densities here if we compute them
@@ -372,10 +359,12 @@ int Run( ConfigFile& the_config )
         the_output_plugin->write_dm_density(tmp);
         
         the_output_plugin->finalize();
-		delete the_output_plugin;
+		//delete the_output_plugin;
     }
     return 0;
 }
+
+#include "system_stat.hh"
 
 int main( int argc, char** argv )
 {
@@ -385,6 +374,7 @@ int main( int argc, char** argv )
     //------------------------------------------------------------------------------
     // initialise MPI 
     //------------------------------------------------------------------------------
+    
 #if defined(USE_MPI)
     MPI_Init_thread(&argc, &argv, MPI_THREAD_FUNNELED, &CONFIG::MPI_thread_support);
     CONFIG::MPI_threads_ok = CONFIG::MPI_thread_support >= MPI_THREAD_FUNNELED;
@@ -398,6 +388,11 @@ int main( int argc, char** argv )
         csoca::Logger::SetLevel(csoca::LogLevel::Error);
     }
 #endif
+
+    csoca::ilog << "-----------------------------------------------------------------------------" << std::endl
+                << ">> FastLPT v0.1 >>" << std::endl
+                << "-----------------------------------------------------------------------------" << std::endl;
+    
 
     //------------------------------------------------------------------------------
     // Parse command line options
@@ -453,22 +448,55 @@ int main( int argc, char** argv )
     // Write code configuration to screen
     //------------------------------------------------------------------------------
 #if defined(USE_MPI)
-    csoca::ilog << "MPI is enabled                : " << "yes (" << CONFIG::MPI_task_size << " tasks)" << std::endl;
+    csoca::ilog << std::setw(40) << std::left << "MPI is enabled" << " : " << "yes (" << CONFIG::MPI_task_size << " tasks)" << std::endl;
 #else
-    csoca::ilog << "MPI is enabled                : " << "no" << std::endl;
+    csoca::ilog << std::setw(40) << std::left << "MPI is enabled" << " : " << "no" << std::endl;
 #endif
-    csoca::ilog << "MPI supports multi-threading  : " << (CONFIG::MPI_threads_ok? "yes" : "no") << std::endl;
-    csoca::ilog << "Available HW threads / task   : " << std::thread::hardware_concurrency() << " (" << CONFIG::num_threads << " used)" << std::endl;
-    csoca::ilog << "FFTW supports multi-threading : " << (CONFIG::FFTW_threads_ok? "yes" : "no") << std::endl;
+    csoca::ilog << std::setw(40) << std::left << "MPI supports multi-threading" << " : " << (CONFIG::MPI_threads_ok? "yes" : "no") << std::endl;
+    csoca::ilog << std::setw(40) << std::left << "Available HW threads / task" << " : " << std::thread::hardware_concurrency() << " (" << CONFIG::num_threads << " used)" << std::endl;
+    csoca::ilog << std::setw(40) << std::left << "FFTW supports multi-threading" << " : " << (CONFIG::FFTW_threads_ok? "yes" : "no") << std::endl;
+    csoca::ilog << std::setw(40) << std::left << "FFTW mode" << " : ";
 #if defined(FFTW_MODE_PATIENT)
-	csoca::ilog << "FFTW mode                     : FFTW_PATIENT" << std::endl;
+	csoca::ilog << "FFTW_PATIENT" << std::endl;
 #elif defined(FFTW_MODE_MEASURE)
-    csoca::ilog << "FFTW mode                     : FFTW_MEASURE" << std::endl;
+    csoca::ilog << "FFTW_MEASURE" << std::endl;
 #else
-	csoca::ilog << "FFTW mode                     : FFTW_ESTIMATE" << std::endl;
+	csoca::ilog << "FFTW_ESTIMATE" << std::endl;
 #endif
+
+    SystemStat::Memory mem;
+
+    unsigned availpmem = mem.get_AvailMem()/1024/1024;
+    unsigned usedpmem = mem.get_UsedMem()/1024/1024;
+    unsigned maxpmem = availpmem, minpmem = availpmem;
+    unsigned maxupmem = usedpmem, minupmem = usedpmem;
     
+#if defined(USE_MPI)
+    MPI_Allreduce(&minpmem,&minpmem,1,MPI_UNSIGNED,MPI_MIN,MPI_COMM_WORLD);
+    MPI_Allreduce(&maxpmem,&maxpmem,1,MPI_UNSIGNED,MPI_MAX,MPI_COMM_WORLD);
+    MPI_Allreduce(&minupmem,&minupmem,1,MPI_UNSIGNED,MPI_MIN,MPI_COMM_WORLD);
+    MPI_Allreduce(&maxupmem,&maxupmem,1,MPI_UNSIGNED,MPI_MAX,MPI_COMM_WORLD);
+#endif
+    csoca::ilog << std::setw(40) << std::left << "Total system memory (phys)" << " : " << mem.get_TotalMem()/1024/1024 << " Mb" << std::endl;
+    csoca::ilog << std::setw(40) << std::left << "Used system memory (phys)" << " : " << "Max: " << maxupmem << " Mb, Min: " << minupmem << " Mb" << std::endl;
+    csoca::ilog << std::setw(40) << std::left << "Available system memory (phys)" << " : " <<  "Max: " << maxpmem << " Mb, Min: " << minpmem << " Mb" << std::endl;
     
+    //--------------------------------------------------------------------
+    // Initialise plug-ins
+    //--------------------------------------------------------------------
+    try
+    {
+        the_random_number_generator = std::move(select_RNG_plugin(the_config));
+        the_output_plugin           = std::move(select_output_plugin(the_config));
+        the_cosmo_calc              = std::make_unique<CosmologyCalculator>(the_config);
+    }catch(...){
+        csoca::elog << "Problem during initialisation. See error(s) above. Exiting..." << std::endl;
+        #if defined(USE_MPI) 
+        MPI_Finalize();
+        #endif
+        return 1;
+    }
+
     ///////////////////////////////////////////////////////////////////////
     // do the job...
     ///////////////////////////////////////////////////////////////////////

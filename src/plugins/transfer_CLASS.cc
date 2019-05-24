@@ -67,13 +67,13 @@ private:
 public:
   explicit transfer_CLASS_plugin( ConfigFile &cf)
   : TransferFunction_plugin(cf)
-  {
-    h_       = cf.GetValue<double>("cosmology","H0") / 100.0; 
-    Omega_m_ = cf.GetValue<double>("cosmology","Omega_m"); 
-    Omega_b_ = cf.GetValue<double>("cosmology","Omega_b");
-    N_ur_    = cf.GetValueSafe<double>("cosmology","N_ur", 3.046);
-    ztarget_ = cf.GetValueSafe<double>("cosmology","ztarget",0.0);
-    zstart_  = cf.GetValue<double>("setup","zstart");
+  { 
+    h_       = pcf_->GetValue<double>("cosmology","H0") / 100.0; 
+    Omega_m_ = pcf_->GetValue<double>("cosmology","Omega_m"); 
+    Omega_b_ = pcf_->GetValue<double>("cosmology","Omega_b");
+    N_ur_    = pcf_->GetValueSafe<double>("cosmology","N_ur", 3.046);
+    ztarget_ = pcf_->GetValueSafe<double>("cosmology","ztarget",0.0);
+    zstart_  = pcf_->GetValue<double>("setup","zstart");
     kmax_    = 1000.0;
 
     this->ClassEngine_get_data();
@@ -100,8 +100,9 @@ public:
     gsl_spline_init(gsl_sp_tb_,   &tab_lnk_[0], &tab_tb_[0],   tab_lnk_.size());
 
     kmin_ = std::exp(tab_lnk_[0]);
-    tf_distinct_ = true; // [150612SH: different density between CDM v.s. Baryon]
-    tf_withvel_  = true; // [150612SH: using velocity transfer function]
+  
+    tf_distinct_ = true; 
+    tf_withvel_  = true; 
   }
     
   ~transfer_CLASS_plugin(){

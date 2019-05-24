@@ -24,7 +24,7 @@ class RNG_plugin
 
 struct RNG_plugin_creator
 {
-    virtual RNG_plugin *Create(ConfigFile &cf) const = 0;
+    virtual std::unique_ptr<RNG_plugin> Create(ConfigFile &cf) const = 0;
     virtual ~RNG_plugin_creator() {}
 };
 
@@ -42,14 +42,14 @@ struct RNG_plugin_creator_concrete : public RNG_plugin_creator
     }
 
     //! create an instance of the plugin
-    RNG_plugin *Create(ConfigFile &cf) const
+    std::unique_ptr<RNG_plugin> Create(ConfigFile &cf) const
     {
-        return new Derived(cf);
+        return std::make_unique<Derived>(cf);
     }
 };
 
 typedef RNG_plugin RNG_instance;
-RNG_plugin *select_RNG_plugin( ConfigFile &cf);
+std::unique_ptr<RNG_plugin> select_RNG_plugin( ConfigFile &cf);
 
 // /*!
 //  * @brief encapsulates all things for multi-scale white noise generation

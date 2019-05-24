@@ -132,7 +132,7 @@ public:
 struct output_plugin_creator
 {
 	//! create an instance of a plug-in
-	virtual output_plugin * create( ConfigFile& cf ) const = 0;
+	virtual std::unique_ptr<output_plugin> create( ConfigFile& cf ) const = 0;
 	
 	//! destroy an instance of a plug-in
 	virtual ~output_plugin_creator() { }
@@ -157,13 +157,13 @@ struct output_plugin_creator_concrete : public output_plugin_creator
 	}
 	
 	//! create an instance of the plug-in
-	output_plugin * create( ConfigFile& cf ) const
+	std::unique_ptr<output_plugin> create( ConfigFile& cf ) const
 	{
-		return new Derived( cf );
+		return std::make_unique<Derived>(cf);// Derived( cf );
 	}
 };
 
 //! failsafe version to select the output plug-in
-output_plugin *select_output_plugin( ConfigFile& cf );
+std::unique_ptr<output_plugin> select_output_plugin( ConfigFile& cf );
 
 #endif // __OUTPUT_HH

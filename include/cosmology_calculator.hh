@@ -49,7 +49,9 @@ public:
     CosmologyParameters cosmo_param_;
 
     //! pointer to an instance of a transfer function plugin
-    TransferFunction_plugin *ptransfer_fun_;
+    //TransferFunction_plugin *ptransfer_fun_;
+    std::unique_ptr<TransferFunction_plugin> transfer_function_;
+
 
     //! constructor for a cosmology calculator object
     /*!
@@ -57,19 +59,16 @@ public:
 	 * @param pTransferFunction pointer to an instance of a transfer function object
 	 */
 
-    CosmologyCalculator(const CosmologyParameters &cp, TransferFunction_plugin *ptransfer_fun)
-    {
-        cosmo_param_ = cp;
-        ptransfer_fun_ = ptransfer_fun;
+    explicit CosmologyCalculator(ConfigFile &cf)
+    : cosmo_param_(cf)
+    {   
+        csoca::ilog << "-----------------------------------------------------------------------------" << std::endl;
+        transfer_function_ = std::move(select_TransferFunction_plugin(cf));
+        transfer_function_->intialise();
         cosmo_param_.pnorm = this->ComputePNorm();
         cosmo_param_.sqrtpnorm = std::sqrt(cosmo_param_.pnorm);
-    }
-
-    CosmologyCalculator(ConfigFile &cf, TransferFunction_plugin *ptransfer_fun)
-        : cosmo_param_(cf), ptransfer_fun_(ptransfer_fun)
-    {
-        cosmo_param_.pnorm = this->ComputePNorm();
-        cosmo_param_.sqrtpnorm = std::sqrt(cosmo_param_.pnorm);
+        csoca::ilog << std::setw(40) << std::left << "TF supports distinct CDM+baryons" << " : " << (transfer_function_->tf_is_distinct()? "yes" : "no") << std::endl;
+        csoca::ilog << std::setw(40) << std::left << "TF maximum wave number" << " : " << transfer_function_->get_kmax() << " h/Mpc" << std::endl;
     }
 
     const CosmologyParameters &GetParams(void) const
@@ -154,15 +153,12 @@ public:
         if (k <= 0.0)
             return 0.0f;
 
-        std::array<void *, 2> *Params = (std::array<void *, 2> *)pParams;
-        TransferFunction_plugin *ptf = (TransferFunction_plugin *)(*Params)[0];
-        CosmologyParameters *pcosmo = (CosmologyParameters *)(*Params)[1];
-
+        CosmologyCalculator *pcc = reinterpret_cast<CosmologyCalculator*>(pParams);
+        
         double x = k * 8.0;
         double w = 3.0 * (sin(x) - x * cos(x)) / (x * x * x);
-        static double nspect = (double)pcosmo->nspect;
-
-        double tf = ptf->compute(k, total);
+        static double nspect = (double)pcc->cosmo_param_.nspect;
+        double tf = pcc->transfer_function_->compute(k, total);
 
         //... no growth factor since we compute at z=0 and normalize so that D+(z=0)=1
         return k * k * w * w * pow((double)k, (double)nspect) * tf * tf;
@@ -176,15 +172,12 @@ public:
         if (k <= 0.0)
             return 0.0f;
 
-        std::array<void *, 2> *Params = (std::array<void *, 2> *)pParams;
-        TransferFunction_plugin *ptf = (TransferFunction_plugin *)(*Params)[0];
-        CosmologyParameters *pcosmo = (CosmologyParameters *)(*Params)[1];
-
+        CosmologyCalculator *pcc = reinterpret_cast<CosmologyCalculator*>(pParams);
+       
         double x = k * 8.0;
         double w = 3.0 * (sin(x) - x * cos(x)) / (x * x * x);
-        static double nspect = (double)pcosmo->nspect;
-
-        double tf = ptf->compute(k, total0);
+        static double nspect = (double)pcc->cosmo_param_.nspect;
+        double tf = pcc->transfer_function_->compute(k, total0);
 
         //... no growth factor since we compute at z=0 and normalize so that D+(z=0)=1
         return k * k * w * w * pow((double)k, (double)nspect) * tf * tf;
@@ -198,7 +191,7 @@ public:
     inline real_t TransferSq(real_t k) const
     {
         //.. parameter supplied transfer function
-        real_t tf1 = ptransfer_fun_->compute(k, total);
+        real_t tf1 = transfer_function_->compute(k, total);
         return tf1 * tf1;
     }
 
@@ -209,7 +202,7 @@ public:
 	 */
     inline real_t GetAmplitude(real_t k, tf_type type) const
     {
-        return std::pow(k, 0.5 * cosmo_param_.nspect) * ptransfer_fun_->compute(k, type) * cosmo_param_.sqrtpnorm;
+        return std::pow(k, 0.5 * cosmo_param_.nspect) * transfer_function_->compute(k, type) * cosmo_param_.sqrtpnorm;
     }
 
     //! Computes the normalization for the power spectrum
@@ -220,16 +213,13 @@ public:
     real_t ComputePNorm(void)
     {
         real_t sigma0, kmin, kmax;
-        kmax = ptransfer_fun_->get_kmax(); //cosmo_param_.H0/8.0;
-        kmin = ptransfer_fun_->get_kmin(); //0.0;
+        kmax = transfer_function_->get_kmax();
+        kmin = transfer_function_->get_kmin();
 
-        std::array<void *, 2> Params = {(void *)ptransfer_fun_,
-                                        (void *)&cosmo_param_};
-
-        if (!ptransfer_fun_->tf_has_total0())
-            sigma0 = 4.0 * M_PI * integrate(&dSigma8, (double)kmin, (double)kmax, (void *)&Params); //ptransfer_fun_);
+        if (!transfer_function_->tf_has_total0())
+            sigma0 = 4.0 * M_PI * integrate(&dSigma8, (double)kmin, (double)kmax, this );
         else
-            sigma0 = 4.0 * M_PI * integrate(&dSigma8_0, (double)kmin, (double)kmax, (void *)&Params); //ptransfer_fun_);
+            sigma0 = 4.0 * M_PI * integrate(&dSigma8_0, (double)kmin, (double)kmax, this );
 
         return cosmo_param_.sigma8 * cosmo_param_.sigma8 / sigma0;
     }
