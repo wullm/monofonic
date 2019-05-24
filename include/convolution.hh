@@ -471,6 +471,7 @@ private:
 
                 // std::cout << "task " << CONFIG::MPI_task_rank << " : receive #" << iglobal << " from task "
                 // << recvfrom << ", size = " << slicesz << ", " << crecvbuf_ << ", " << datatype << std::endl;
+                status.MPI_ERROR = MPI_SUCCESS;
 
                 MPI_Recv(&recvbuf_[0], (int)slicesz, datatype, recvfrom, (int)iglobal,
                         MPI_COMM_WORLD, &status);
