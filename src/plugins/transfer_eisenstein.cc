@@ -210,18 +210,15 @@ public:
   transfer_eisenstein_plugin(ConfigFile &cf)
       : TransferFunction_plugin(cf)
   {
-    tf_distinct_ = false;
-    tf_withvel_ = false;
-  }
-
-  void initialise()
-  {
     double Tcmb = pcf_->GetValueSafe<double>("cosmology", "Tcmb", 2.726);
     double H0 = pcf_->GetValue<double>("cosmology", "H0");
     double Omega_m = pcf_->GetValue<double>("cosmology", "Omega_m");
     double Omega_b = pcf_->GetValue<double>("cosmology", "Omega_b");
 
     etf_.set_parameters(H0, Omega_m, Omega_b, Tcmb);
+    
+    tf_distinct_ = false;
+    tf_withvel_ = false;
   }
 
   //! Computes the transfer function for k in Mpc/h by calling TFfit_onek
@@ -262,10 +259,6 @@ protected:
 public:
   transfer_eisenstein_wdm_plugin(ConfigFile &cf)
       : TransferFunction_plugin(cf)
-  {
-  }
-
-  void initialise()
   {
     double Tcmb = pcf_->GetValueSafe("cosmology", "Tcmb", 2.726);
     omegam_ = pcf_->GetValue<double>("cosmology", "Omega_m");
