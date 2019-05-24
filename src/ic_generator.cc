@@ -35,7 +35,7 @@ int Run( ConfigFile& the_config )
     const real_t astart = 1.0/(1.0+zstart);
     const real_t volfac(std::pow(boxlen / ngrid / 2.0 / M_PI, 1.5));
 
-    const bool bDoFixing = the_config.GetValueSafe<size_t>("setup", "DoFixing",false);
+    const bool bDoFixing = the_config.GetValueSafe<bool>("setup", "DoFixing",false);
     
     the_cosmo_calc->WritePowerspectrum(astart, "input_powerspec.txt" );
 

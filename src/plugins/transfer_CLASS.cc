@@ -74,7 +74,9 @@ public:
     N_ur_    = pcf_->GetValueSafe<double>("cosmology","N_ur", 3.046);
     ztarget_ = pcf_->GetValueSafe<double>("cosmology","ztarget",0.0);
     zstart_  = pcf_->GetValue<double>("setup","zstart");
-    kmax_    = 1000.0;
+    double lbox = pcf_->GetValue<double>("setup","BoxLength");
+    int nres = pcf_->GetValue<double>("setup","GridRes");
+    kmax_    = 2.0*M_PI/lbox * nres/2 * sqrt(3) * 2.0; // 120% of spatial diagonal
 
     this->ClassEngine_get_data();
     
