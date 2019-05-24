@@ -21,7 +21,7 @@ class CosmologyCalculator
 private:
     static constexpr double REL_PRECISION = 1e-5;
 
-    real_t integrate(double (*func)(double x, void *params), double a, double b, void *params)
+    real_t integrate(double (*func)(double x, void *params), double a, double b, void *params) const
     {
         gsl_function F;
         F.function = func;
@@ -71,6 +71,35 @@ public:
         csoca::ilog << std::setw(40) << std::left << "TF maximum wave number" << " : " << transfer_function_->get_kmax() << " h/Mpc" << std::endl;
     }
 
+    //! Write out a correctly scaled power spectrum at time a
+    void WritePowerspectrum( real_t a, std::string fname ) const
+    {
+        const real_t Dplus0 = this->CalcGrowthFactor(a) / this->CalcGrowthFactor(1.0);
+
+        if( CONFIG::MPI_task_rank==0 )
+        {
+            // write power spectrum to a file
+            std::ofstream ofs(fname.c_str());
+            std::stringstream ss; ss << " (a=" << a <<")";
+            ofs << "# " << std::setw(18) << "k [h/Mpc]"
+                        << std::setw(20) << ("P_tot(k)"+ss.str()) 
+                        << std::setw(20) << ("P_cdm(k)"+ss.str())
+                        << std::setw(20) << ("P_bar(k)"+ss.str())
+                        << std::setw(20) << ("P_tot(K) (a=1)")
+                        << std::endl;
+            for( double k=transfer_function_->get_kmin(); k<transfer_function_->get_kmax(); k*=1.1 ){
+                ofs << std::setw(20) << std::setprecision(10) << k
+                    << std::setw(20) << std::setprecision(10) << std::pow(this->GetAmplitude(k, total) * Dplus0, 2.0)
+                    << std::setw(20) << std::setprecision(10) << std::pow(this->GetAmplitude(k, cdm) * Dplus0, 2.0)
+                    << std::setw(20) << std::setprecision(10) << std::pow(this->GetAmplitude(k, baryon) * Dplus0, 2.0)
+                    << std::setw(20) << std::setprecision(10) << std::pow(this->GetAmplitude(k, total), 2.0)
+                    << std::endl;
+            }
+        }
+
+        csoca::ilog << "Wrote power spectrum at a=" << a << " to file \'" << fname << "\'" << std::endl;
+    }
+
     const CosmologyParameters &GetParams(void) const
     {
         return cosmo_param_;
@@ -101,7 +130,7 @@ public:
         return Ha;
     }
 
-    inline static double Hprime_of_a(double a, void *Params)
+    inline static double Hprime_of_a(double a, void *Params) 
     {
         CosmologyParameters *cosm = (CosmologyParameters *)Params;
         double a2 = a * a;
@@ -111,7 +140,7 @@ public:
     }
 
     //! Integrand used by function CalcGrowthFactor to determine the linear growth factor D+
-    inline static double GrowthIntegrand(double a, void *Params)
+    inline static double GrowthIntegrand(double a, void *Params) 
     {
         double Ha = a * H_of_a(a, Params);
         return 2.5 / (Ha * Ha * Ha);
@@ -123,7 +152,7 @@ public:
     *   D+(a) = 5/2 H(a) * |  [a'^3 * H(a')^3]^(-1) da'
     *                      /0
     */
-    real_t CalcGrowthFactor(real_t a)
+    real_t CalcGrowthFactor(real_t a) const
     {
         real_t integral = integrate(&GrowthIntegrand, 0.0, a, (void *)&cosmo_param_);
         return H_of_a(a, (void *)&cosmo_param_) * integral;
@@ -135,7 +164,7 @@ public:
     *  vfac = a^2 * H(a) * dlogD+ / d log a = a^2 * H'(a) + 5/2 * [ a * D+(a) * H(a) ]^(-1)
     *
     */
-    real_t CalcVFact(real_t a)
+    real_t CalcVFact(real_t a) const
     {
         real_t Dp = CalcGrowthFactor(a);
         real_t H = H_of_a(a, (void *)&cosmo_param_);

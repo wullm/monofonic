@@ -36,32 +36,10 @@ int Run( ConfigFile& the_config )
     const real_t volfac(std::pow(boxlen / ngrid / 2.0 / M_PI, 1.5));
 
     const bool bDoFixing = false;
-
-    //...
-    const std::string fname_hdf5 = the_config.GetValueSafe<std::string>("output", "fname_hdf5", "output.hdf5");
-    const std::string fname_analysis = the_config.GetValueSafe<std::string>("output", "fbase_analysis", "output");
+    
+    the_cosmo_calc->WritePowerspectrum(astart, "input_powerspec.txt" );
 
     csoca::ilog << "-----------------------------------------------------------------------------" << std::endl;
-
-    //////////////////////////////////////////////////////////////////////////////////////////////
-    
-
-    //--------------------------------------------------------------------
-    // Write out a correctly scaled power spectrum as a test
-    //--------------------------------------------------------------------
-
-    
-    // if( CONFIG::MPI_task_rank==0 )
-    // {
-    //     // write power spectrum to a file
-    //     std::ofstream ofs("input_powerspec.txt");
-    //     for( double k=the_transfer_function->get_kmin(); k<the_transfer_function->get_kmax(); k*=1.1 ){
-    //         ofs << std::setw(16) << k
-    //             << std::setw(16) << std::pow(the_cosmo_calc->GetAmplitude(k, total) * Dplus0, 2.0)
-    //             << std::setw(16) << std::pow(the_cosmo_calc->GetAmplitude(k, total), 2.0)
-    //             << std::endl;
-    //     }
-    // }
 
     //--------------------------------------------------------------------
     // Compute LPT time coefficients
@@ -211,6 +189,9 @@ int Run( ConfigFile& the_config )
     //======================================================================
     const bool compute_densities = false;
     if( compute_densities ){
+        const std::string fname_hdf5 = the_config.GetValueSafe<std::string>("output", "fname_hdf5", "output.hdf5");
+        const std::string fname_analysis = the_config.GetValueSafe<std::string>("output", "fbase_analysis", "output");
+
         Grid_FFT<real_t> delta({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
         Grid_FFT<real_t> delta2({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
         Grid_FFT<real_t> delta3a({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
