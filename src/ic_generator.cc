@@ -101,12 +101,11 @@ int Run( ConfigFile& the_config )
     
     phi.apply_function_k_dep([&](auto x, auto k) -> ccomplex_t {
         real_t kmod = k.norm();
-        if( bDoFixing ) x = x / std::abs(x); //std::exp(ccomplex_t(0, iphase * PhaseRotation));
-        else x = x;
+        if( bDoFixing ) x = (std::abs(x)!=0.0)? x / std::abs(x) : x; //std::exp(ccomplex_t(0, iphase * PhaseRotation));
         ccomplex_t delta = x * the_cosmo_calc->GetAmplitude(kmod, total);
         return -delta / (kmod * kmod) / volfac;
     });
-    
+
     phi.zero_DC_mode();
     csoca::ilog << std::setw(20) << std::setfill(' ') << std::right << "took " << get_wtime()-wtime << "s" << std::endl;
     
