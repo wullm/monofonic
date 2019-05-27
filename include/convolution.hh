@@ -28,6 +28,25 @@ public:
 public:
 
     template< typename opp >
+    void convolve_Gradient_and_Hessian( Grid_FFT<data_t> & inl, const std::array<int,1>& d1l, 
+                            Grid_FFT<data_t> & inr, const std::array<int,2>& d2r, 
+                            opp output_op ){
+        // transform to FS in case fields are not
+        inl.FourierTransformForward();
+        inr.FourierTransformForward();
+        // perform convolution of Hessians
+        static_cast<derived_t&>(*this).convolve2(
+            [&]( size_t i, size_t j, size_t k ) -> ccomplex_t{
+                auto kk = inl.template get_k<real_t>(i,j,k);
+                return ccomplex_t(0.0,kk[d1l[0]]) * inl.kelem(i,j,k);
+            },
+            [&]( size_t i, size_t j, size_t k ){
+                auto kk = inr.template get_k<real_t>(i,j,k);
+                return -kk[d2r[0]] * kk[d2r[1]] * inr.kelem(i,j,k);
+            }, output_op );
+    }
+
+    template< typename opp >
     void convolve_Hessians( Grid_FFT<data_t> & inl, const std::array<int,2>& d2l, 
                             Grid_FFT<data_t> & inr, const std::array<int,2>& d2r, 
                             opp output_op ){
