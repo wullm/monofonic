@@ -34,10 +34,8 @@ private:
         double wtime = get_wtime();
         
         ClassParams pars;
-
-        double target_redshift = 0.0;
-
-        pars.add("z_pk",target_redshift);
+        pars.add("extra metric transfer functions", "yes");
+        pars.add("z_pk",ztarget_);
         pars.add("P_k_max_h/Mpc", kmax_);
         pars.add("h",h_);
         pars.add("Omega_b",Omega_b_);
@@ -49,16 +47,19 @@ private:
         // pars.add("Omega_fld",0.0);
         // pars.add("Omega_scf",0.0);
         pars.add("A_s",2.42e-9);
-        pars.add("n_s",.96);
+        pars.add("n_s",.96); // tnis doesn't matter for TF
         pars.add("output","dTk,vTk");
-        pars.add("YHe",0.25);
+        pars.add("YHe",0.248);
+
+        pars.add("k_per_decade_for_pk",50);
+        pars.add("k_per_decade_for_bao",50);
+        pars.add("compute damping scale","yes");
+        pars.add("z_reio",-1.0); // make sure reionisation is not included
 
         std::unique_ptr<ClassEngine> CE = std::make_unique<ClassEngine>(pars, false);
 
-        CE->getTk(target_redshift, tab_lnk_, tab_dc_, tab_db_, d_ncdm, tab_dtot_,
+        CE->getTk(ztarget_, tab_lnk_, tab_dc_, tab_db_, d_ncdm, tab_dtot_,
                 tab_tc_, tab_tb_, t_ncdm, tab_ttot_, phi, psi );
-        tab_tc_ = tab_ttot_;
-        #warning need to fix CDM velocities
 
         wtime = get_wtime() - wtime;
         csoca::ilog << "   took " << wtime << " s / " << tab_lnk_.size() << " modes."  << std::endl;
