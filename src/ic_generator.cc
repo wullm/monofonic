@@ -53,11 +53,11 @@ int Run( ConfigFile& the_config )
     const real_t Dplus0 = the_cosmo_calc->CalcGrowthFactor(astart) / the_cosmo_calc->CalcGrowthFactor(1.0);
     const real_t vfac   = the_cosmo_calc->CalcVFact(astart);
 
-    const double g1  = Dplus0;
+    const double g1  = -Dplus0;
     const double g2  = (LPTorder>1)? -3.0/7.0*Dplus0*Dplus0 : 0.0;
     const double g3a = (LPTorder>2)? -1.0/3.0*Dplus0*Dplus0*Dplus0 : 0.0;
     const double g3b = (LPTorder>2)? 10.0/21.*Dplus0*Dplus0*Dplus0 : 0.0;
-    const double g3c = (LPTorder>2)? -1.0/7.0*Dplus0*Dplus0*Dplus0 : (bSymplecticPT)? g1*g2 : 0.0;
+    const double g3c = (LPTorder>2)? -1.0/7.0*Dplus0*Dplus0*Dplus0 : 0.0;
 
     const double vfac1 =  vfac;
     const double vfac2 =  2*vfac1;
@@ -92,17 +92,20 @@ int Run( ConfigFile& the_config )
 
     //--------------------------------------------------------------------
     
-    //--------------------------------------------------------------------
-    // Fill the grid with a Gaussian white noise field
-    //--------------------------------------------------------------------
-    the_random_number_generator->Fill_Grid( phi );
-
+    
     //======================================================================
     //... compute 1LPT displacement potential ....
     //======================================================================
     // phi = - delta / k^2
     double wtime = get_wtime();    
     csoca::ilog << std::setw(40) << std::setfill('.') << std::left << "Computing phi(1) term" << std::flush;
+
+    #if 0 //  random ICs
+    //--------------------------------------------------------------------
+    // Fill the grid with a Gaussian white noise field
+    //--------------------------------------------------------------------
+    the_random_number_generator->Fill_Grid( phi );
+
     phi.FourierTransformForward();
     
     phi.apply_function_k_dep([&](auto x, auto k) -> ccomplex_t {
@@ -113,6 +116,25 @@ int Run( ConfigFile& the_config )
     });
 
     phi.zero_DC_mode();
+    #else // ICs with a given phi(1) potential function
+    constexpr real_t twopi{2.0*M_PI};
+    constexpr real_t epsilon_q1d{0.25};
+    
+    phi.FourierTransformBackward(false);
+
+    phi.apply_function_r_dep([&](auto v, auto r) -> real_t {
+        real_t q2 = r[0]/boxlen * twopi;
+        real_t q1 = r[1]/boxlen * twopi;
+
+        // std::cerr << q1  << " " << q2 << std::endl;
+        
+        return (std::cos(q1) + epsilon_q1d * std::cos(q2))/twopi/twopi; ////( std::cos(q1) + epsilon_q1d * std::cos(q2) );// / volfac;
+        //return -delta / (kmod * kmod) / volfac;
+    });
+    phi.FourierTransformForward();
+
+
+    #endif
     csoca::ilog << std::setw(20) << std::setfill(' ') << std::right << "took " << get_wtime()-wtime << "s" << std::endl;
     
     //======================================================================
