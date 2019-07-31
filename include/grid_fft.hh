@@ -149,6 +149,18 @@ public:
 
         return rr;
     }
+    
+    template <typename ft>
+    vec3<ft> get_unit_r_staggered(const size_t i, const size_t j, const size_t k) const
+    {
+        vec3<ft> rr;
+
+        rr[0] = (real_t(i + local_0_start_)+0.5) / real_t(n_[0]);
+        rr[1] = (real_t(j)+0.5) / real_t(n_[1]);
+        rr[2] = (real_t(k)+0.5) / real_t(n_[2]);
+
+        return rr;
+    }
 
     void cell_pos( int ilevel, size_t i, size_t j, size_t k, double* x ) const {
         x[0] = double(i+local_0_start_)/size(0);
@@ -158,6 +170,14 @@ public:
 
     size_t count_leaf_cells( int, int ) const {
         return n_[0]*n_[1]*n_[2];
+    }
+
+    real_t get_dx( int idim ) const{
+        return dx_[idim];
+    }
+
+    const std::array<real_t, 3>& get_dx( void ) const{
+        return dx_;
     }
 
     template <typename ft>

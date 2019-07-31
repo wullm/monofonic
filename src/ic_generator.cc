@@ -32,6 +32,7 @@ int Run( ConfigFile& the_config )
     const real_t boxlen = the_config.GetValue<double>("setup", "BoxLength");
     const real_t zstart = the_config.GetValue<double>("setup", "zstart");
     int LPTorder = the_config.GetValueSafe<double>("setup","LPTorder",100);
+    const bool initial_bcc_lattice = the_config.GetValueSafe<bool>("setup","BCClattice",false);
     const bool bSymplecticPT = the_config.GetValueSafe<bool>("setup","SymplecticPT",false);
     const real_t astart = 1.0/(1.0+zstart);
     const real_t volfac(std::pow(boxlen / ngrid / 2.0 / M_PI, 1.5));
@@ -89,7 +90,6 @@ int Run( ConfigFile& the_config )
     auto add_twice_to = [](auto &g){return [&](auto i, auto v){ g[i] += 2*v; };};
     auto subtract_from = [](auto &g){return [&](auto i, auto v){ g[i] -= v; };};
     auto subtract_twice_from = [](auto &g){return [&](auto i, auto v){ g[i] -= 2*v; };};
-
     //--------------------------------------------------------------------
     
     
@@ -321,15 +321,24 @@ int Run( ConfigFile& the_config )
         // we store displacements and velocities here if we compute them
         //======================================================================
         Grid_FFT<real_t> tmp({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
+        size_t num_p_in_load = phi.local_size();
         particle_container particles;
 
-        particles.allocate( phi.local_size() );
-        auto ipcount0 = particles.get_local_offset();
+        if( initial_bcc_lattice )
+            particles.allocate( 2*num_p_in_load );
+        else
+            particles.allocate( num_p_in_load );
+        
+        auto ipcount0 = (initial_bcc_lattice? 2:1) * particles.get_local_offset();
         for( size_t i=0,ipcount=0; i<tmp.size(0); ++i ){
             for( size_t j=0; j<tmp.size(1); ++j){
                 for( size_t k=0; k<tmp.size(2); ++k){
                     particles.set_id( ipcount, ipcount+ipcount0 );
                     ++ipcount;
+                    if( initial_bcc_lattice ){
+                        particles.set_id( ipcount, ipcount+ipcount0 );
+                        ++ipcount;    
+                    }
                 }
             }
         }
@@ -360,6 +369,24 @@ int Run( ConfigFile& the_config )
                     for( size_t k=0; k<tmp.size(2); ++k){
                         auto pos = tmp.get_unit_r<float>(i,j,k);
                         particles.set_pos( ipcount++, idim, (pos[idim] + tmp.relem(i,j,k))*gof.position_unit() );
+                    }
+                }
+            }
+
+            if( initial_bcc_lattice ){
+                tmp.FourierTransformForward();
+                tmp.apply_function_k_dep([&](auto x, auto k) -> ccomplex_t {
+                    real_t shift = k[0]*tmp.get_dx()[0] + k[1]*tmp.get_dx()[1] + k[2]*tmp.get_dx()[2];
+                    return x * std::exp(ccomplex_t(0.0,0.5*shift));
+                });
+                tmp.FourierTransformBackward();
+                auto ipcount0 = num_p_in_load;
+                for( size_t i=0,ipcount=ipcount0; i<tmp.size(0); ++i ){
+                    for( size_t j=0; j<tmp.size(1); ++j){
+                        for( size_t k=0; k<tmp.size(2); ++k){
+                            auto pos = tmp.get_unit_r_staggered<float>(i,j,k);
+                            particles.set_pos( ipcount++, idim, (pos[idim] + tmp.relem(i,j,k))*gof.position_unit() );
+                        }
                     }
                 }
             }
@@ -398,20 +425,31 @@ int Run( ConfigFile& the_config )
                     }
                 }
             }
+
+            if( initial_bcc_lattice ){
+                tmp.FourierTransformForward();
+                tmp.apply_function_k_dep([&](auto x, auto k) -> ccomplex_t {
+                    real_t shift = k[0]*tmp.get_dx()[0] + k[1]*tmp.get_dx()[1] + k[2]*tmp.get_dx()[2];
+                    return x * std::exp(ccomplex_t(0.0,0.5*shift));
+                });
+                tmp.FourierTransformBackward();
+                auto ipcount0 = num_p_in_load;
+                for( size_t i=0,ipcount=ipcount0; i<tmp.size(0); ++i ){
+                    for( size_t j=0; j<tmp.size(1); ++j){
+                        for( size_t k=0; k<tmp.size(2); ++k){
+                            particles.set_vel( ipcount++, idim, tmp.relem(i,j,k) * gof.velocity_unit() );
+                        }
+                    }
+                }
+            }
         }
 
         gof.write_particle_data( particles );
-        // particles.dump();
-
-        // the_output_plugin->write_dm_mass(tmp);
-        // the_output_plugin->write_dm_density(tmp);
-        
-        // the_output_plugin->finalize();
-		//delete the_output_plugin;
     }
+
     return 0;
 }
 
 
-}
+} // end namespace ic_generator
 
