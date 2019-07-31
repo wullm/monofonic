@@ -10,13 +10,13 @@
 namespace ic_generator{
 
 std::unique_ptr<RNG_plugin> the_random_number_generator;
-std::unique_ptr<output_plugin> the_output_plugin;
+// std::unique_ptr<output_plugin> the_output_plugin;
 std::unique_ptr<CosmologyCalculator>  the_cosmo_calc;
 
 int Initialise( ConfigFile& the_config )
 {
     the_random_number_generator = std::move(select_RNG_plugin(the_config));
-    the_output_plugin           = std::move(select_output_plugin(the_config));
+    // the_output_plugin           = std::move(select_output_plugin(the_config));
     the_cosmo_calc              = std::make_unique<CosmologyCalculator>(the_config);
 
     return 0;
@@ -54,10 +54,10 @@ int Run( ConfigFile& the_config )
     const real_t vfac   = the_cosmo_calc->CalcVFact(astart);
 
     const double g1  = -Dplus0;
-    const double g2  = (LPTorder>1)? -3.0/7.0*Dplus0*Dplus0 : 0.0;
-    const double g3a = (LPTorder>2)? -1.0/3.0*Dplus0*Dplus0*Dplus0 : 0.0;
-    const double g3b = (LPTorder>2)? 10.0/21.*Dplus0*Dplus0*Dplus0 : 0.0;
-    const double g3c = (LPTorder>2)? -1.0/7.0*Dplus0*Dplus0*Dplus0 : 0.0;
+    const double g2  = 1.0*((LPTorder>1)? -3.0/7.0*Dplus0*Dplus0 : 0.0);
+    const double g3a = 1.0*((LPTorder>2)? -1.0/3.0*Dplus0*Dplus0*Dplus0 : 0.0);
+    const double g3b = 1.0*((LPTorder>2)? 10.0/21.*Dplus0*Dplus0*Dplus0 : 0.0);
+    const double g3c = 1.0*((LPTorder>2)? -1.0/7.0*Dplus0*Dplus0*Dplus0 : 0.0);
 
     const double vfac1 =  vfac;
     const double vfac2 =  2*vfac1;
@@ -100,7 +100,7 @@ int Run( ConfigFile& the_config )
     double wtime = get_wtime();    
     csoca::ilog << std::setw(40) << std::setfill('.') << std::left << "Computing phi(1) term" << std::flush;
 
-    #if 0 //  random ICs
+    #if 1 //  random ICs
     //--------------------------------------------------------------------
     // Fill the grid with a Gaussian white noise field
     //--------------------------------------------------------------------
@@ -119,17 +119,22 @@ int Run( ConfigFile& the_config )
     #else // ICs with a given phi(1) potential function
     constexpr real_t twopi{2.0*M_PI};
     constexpr real_t epsilon_q1d{0.25};
+
+    constexpr real_t epsy{0.25};
+    constexpr real_t epsz{0.25};
     
     phi.FourierTransformBackward(false);
 
     phi.apply_function_r_dep([&](auto v, auto r) -> real_t {
-        real_t q2 = r[0]/boxlen * twopi;
-        real_t q1 = r[1]/boxlen * twopi;
+        real_t q1 = r[0]-0.5*boxlen;//r[0]/boxlen * twopi - M_PI;
+        real_t q2 = r[1]-0.5*boxlen;//r[1]/boxlen * twopi - M_PI;
+        real_t q3 = r[2]-0.5*boxlen;//r[1]/boxlen * twopi - M_PI;
 
         // std::cerr << q1  << " " << q2 << std::endl;
         
-        return (std::cos(q1) + epsilon_q1d * std::cos(q2))/twopi/twopi; ////( std::cos(q1) + epsilon_q1d * std::cos(q2) );// / volfac;
-        //return -delta / (kmod * kmod) / volfac;
+        return -2.0*std::cos(q1+std::cos(q2));
+        // return (-std::cos(q1) + epsilon_q1d * std::sin(q2));
+        // return (-std::cos(q1) + epsy * std::sin(q2) + epsz * std::cos(q1) * std::sin(q3));
     });
     phi.FourierTransformForward();
 
@@ -224,7 +229,8 @@ int Run( ConfigFile& the_config )
     (*A3[2]) *= g3c;
 
     csoca::ilog << "-----------------------------------------------------------------------------" << std::endl;
-
+    
+    gadget2_output_interface gof( the_config );
     
     ///////////////////////////////////////////////////////////////////////
     // we store the densities here if we compute them
@@ -315,6 +321,17 @@ int Run( ConfigFile& the_config )
         // we store displacements and velocities here if we compute them
         //======================================================================
         Grid_FFT<real_t> tmp({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
+        particle_container particles;
+
+        particles.allocate( phi.local_size() );
+        auto ipcount0 = particles.get_local_offset();
+        for( size_t i=0,ipcount=ipcount0; i<tmp.size(0); ++i ){
+            for( size_t j=0; j<tmp.size(1); ++j){
+                for( size_t k=0; k<tmp.size(2); ++k){
+                    particles.set_id( ipcount++, i );
+                }
+            }
+        }
         
         // write out positions
         for( int idim=0; idim<3; ++idim ){
@@ -338,7 +355,17 @@ int Run( ConfigFile& the_config )
                 }
             }
             tmp.FourierTransformBackward();
-            the_output_plugin->write_dm_position(idim, tmp );
+
+            for( size_t i=0,ipcount=0; i<tmp.size(0); ++i ){
+                for( size_t j=0; j<tmp.size(1); ++j){
+                    for( size_t k=0; k<tmp.size(2); ++k){
+                        auto pos = tmp.get_unit_r<float>(i,j,k);
+                        particles.set_pos( ipcount++, idim, (pos[idim] + tmp.relem(i,j,k))*gof.position_unit() );
+                    }
+                }
+            }
+
+            // the_output_plugin->write_dm_position(idim, tmp );
         }
 
         // write out velocities
@@ -368,13 +395,27 @@ int Run( ConfigFile& the_config )
                 }
             }
             tmp.FourierTransformBackward();
-            the_output_plugin->write_dm_velocity(idim, tmp );
+
+            for( size_t i=0,ipcount=0; i<tmp.size(0); ++i ){
+                for( size_t j=0; j<tmp.size(1); ++j){
+                    for( size_t k=0; k<tmp.size(2); ++k){
+                        particles.set_vel( ipcount++, idim, tmp.relem(i,j,k) * gof.velocity_unit() );
+                    }
+                }
+            }
+
+            // the_output_plugin->write_dm_velocity(idim, tmp );
         }
 
-        the_output_plugin->write_dm_mass(tmp);
-        the_output_plugin->write_dm_density(tmp);
         
-        the_output_plugin->finalize();
+        // gof.prepare_output( particles );
+        gof.write_particle_data( particles );
+        // particles.dump();
+
+        // the_output_plugin->write_dm_mass(tmp);
+        // the_output_plugin->write_dm_density(tmp);
+        
+        // the_output_plugin->finalize();
 		//delete the_output_plugin;
     }
     return 0;

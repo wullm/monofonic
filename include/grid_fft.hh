@@ -73,6 +73,9 @@ public:
 
     size_t size(size_t i) const { return sizes_[i]; }
 
+    // size_t local_size( void ) const { return n_[0] * n_[1] * n_[2]; }
+    size_t local_size( void ) const { return local_0_size_ * n_[1] * n_[2]; }
+
     const bounding_box<size_t>& get_global_range( void ) const
     {
         return global_range_;
@@ -131,6 +134,18 @@ public:
         rr[0] = real_t(i + local_0_start_) * dx_[0];
         rr[1] = real_t(j) * dx_[1];
         rr[2] = real_t(k) * dx_[2];
+
+        return rr;
+    }
+
+    template <typename ft>
+    vec3<ft> get_unit_r(const size_t i, const size_t j, const size_t k) const
+    {
+        vec3<ft> rr;
+
+        rr[0] = real_t(i + local_0_start_) / real_t(n_[0]);
+        rr[1] = real_t(j) / real_t(n_[1]);
+        rr[2] = real_t(k) / real_t(n_[2]);
 
         return rr;
     }

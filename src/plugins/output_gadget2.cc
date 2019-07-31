@@ -16,11 +16,12 @@
 // #include "mg_interp.hh"
 // #include "mesh.hh"
 
-const int empty_fill_bytes = 56;
 
 template <typename T_store = float>
 class gadget2_output_plugin : public output_plugin
 {
+	// const int empty_fill_bytes = 56;
+
 public:
 	bool do_baryons_;
 	double omegab_;

@@ -88,7 +88,7 @@ public:
 
                         do {
                             ampl = gsl_rng_uniform(pRandomGenerator_);
-                        } while (ampl == 0);
+                        } while (ampl == 0||ampl == 1);
 
                         if (i == nres_ / 2 || j == nres_ / 2 || k == nres_ / 2) continue;
                         if (i == 0 && j == 0 && k == 0) continue;
