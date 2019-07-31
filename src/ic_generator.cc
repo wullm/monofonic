@@ -325,10 +325,11 @@ int Run( ConfigFile& the_config )
 
         particles.allocate( phi.local_size() );
         auto ipcount0 = particles.get_local_offset();
-        for( size_t i=0,ipcount=ipcount0; i<tmp.size(0); ++i ){
+        for( size_t i=0,ipcount=0; i<tmp.size(0); ++i ){
             for( size_t j=0; j<tmp.size(1); ++j){
                 for( size_t k=0; k<tmp.size(2); ++k){
-                    particles.set_id( ipcount++, i );
+                    particles.set_id( ipcount, ipcount+ipcount0 );
+                    ++ipcount;
                 }
             }
         }
@@ -348,7 +349,7 @@ int Run( ConfigFile& the_config )
                         size_t idx = phi.get_idx(i,j,k);
                         
                         auto phitot = phi.kelem(idx) + phi2.kelem(idx) + phi3a.kelem(idx) + phi3b.kelem(idx);
-                        
+
                         // divide by Lbox, because displacement is in box units for output plugin
                         tmp.kelem(idx) = ccomplex_t(0.0,1.0) * (kk[idim] * phitot + kk[idimp] * A3[idimpp]->kelem(idx) - kk[idimpp] * A3[idimp]->kelem(idx) ) / boxlen;
                     }

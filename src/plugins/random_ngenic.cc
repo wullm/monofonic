@@ -64,6 +64,7 @@ public:
 
     void Fill_Grid(Grid_FFT<real_t> &g) const
     {
+        g.zero();
         g.FourierTransformForward(false);
 
         // transform is transposed!
