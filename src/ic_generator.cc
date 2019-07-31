@@ -54,10 +54,10 @@ int Run( ConfigFile& the_config )
     const real_t vfac   = the_cosmo_calc->CalcVFact(astart);
 
     const double g1  = -Dplus0;
-    const double g2  = 1.0*((LPTorder>1)? -3.0/7.0*Dplus0*Dplus0 : 0.0);
-    const double g3a = 1.0*((LPTorder>2)? -1.0/3.0*Dplus0*Dplus0*Dplus0 : 0.0);
-    const double g3b = 1.0*((LPTorder>2)? 10.0/21.*Dplus0*Dplus0*Dplus0 : 0.0);
-    const double g3c = 1.0*((LPTorder>2)? -1.0/7.0*Dplus0*Dplus0*Dplus0 : 0.0);
+    const double g2  = ((LPTorder>1)? -3.0/7.0*Dplus0*Dplus0 : 0.0);
+    const double g3a = ((LPTorder>2)? -1.0/3.0*Dplus0*Dplus0*Dplus0 : 0.0);
+    const double g3b = ((LPTorder>2)? 10.0/21.*Dplus0*Dplus0*Dplus0 : 0.0);
+    const double g3c = ((LPTorder>2)? -1.0/7.0*Dplus0*Dplus0*Dplus0 : 0.0);
 
     const double vfac1 =  vfac;
     const double vfac2 =  2*vfac1;
@@ -110,7 +110,7 @@ int Run( ConfigFile& the_config )
     
     phi.apply_function_k_dep([&](auto x, auto k) -> ccomplex_t {
         real_t kmod = k.norm();
-        if( bDoFixing ) x = (std::abs(x)!=0.0)? x / std::abs(x) : x; //std::exp(ccomplex_t(0, iphase * PhaseRotation));
+        if( bDoFixing ) x = (std::abs(x)!=0.0)? x / std::abs(x) : x; 
         ccomplex_t delta = x * the_cosmo_calc->GetAmplitude(kmod, total);
         return -delta / (kmod * kmod) / volfac;
     });
@@ -347,9 +347,7 @@ int Run( ConfigFile& the_config )
                     for (size_t k = 0; k < phi.size(2); ++k) {
                         auto kk = phi.get_k<real_t>(i,j,k);
                         size_t idx = phi.get_idx(i,j,k);
-                        
                         auto phitot = phi.kelem(idx) + phi2.kelem(idx) + phi3a.kelem(idx) + phi3b.kelem(idx);
-
                         // divide by Lbox, because displacement is in box units for output plugin
                         tmp.kelem(idx) = ccomplex_t(0.0,1.0) * (kk[idim] * phitot + kk[idimp] * A3[idimpp]->kelem(idx) - kk[idimpp] * A3[idimp]->kelem(idx) ) / boxlen;
                     }
@@ -365,8 +363,6 @@ int Run( ConfigFile& the_config )
                     }
                 }
             }
-
-            // the_output_plugin->write_dm_position(idim, tmp );
         }
 
         // write out velocities
@@ -382,8 +378,6 @@ int Run( ConfigFile& the_config )
                     for (size_t k = 0; k < phi.size(2); ++k) {
                         auto kk = phi.get_k<real_t>(i,j,k);
                         size_t idx = phi.get_idx(i,j,k);
-                        
-                        
                         // divide by Lbox, because displacement is in box units for output plugin
                         if(!bSymplecticPT){
                             auto phitot_v = vfac1 * phi.kelem(idx) + vfac2 * phi2.kelem(idx) + vfac3 * (phi3a.kelem(idx) + phi3b.kelem(idx));
@@ -404,12 +398,8 @@ int Run( ConfigFile& the_config )
                     }
                 }
             }
-
-            // the_output_plugin->write_dm_velocity(idim, tmp );
         }
 
-        
-        // gof.prepare_output( particles );
         gof.write_particle_data( particles );
         // particles.dump();
 

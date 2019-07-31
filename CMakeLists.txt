@@ -82,6 +82,13 @@ if(FFTW_THREADS_FOUND)
   target_compile_options(${PRGNAME} PRIVATE "-DUSE_FFTW_THREADS")
 endif(FFTW_THREADS_FOUND)
 
+if(HDF5_FOUND)
+  # target_link_libraries(${PRGNAME} ${HDF5_C_LIBRARY_DIRS})
+  target_link_libraries(${PRGNAME} ${HDF5_LIBRARIES})
+  target_include_directories(${PRGNAME} PRIVATE ${HDF5_INCLUDE_DIRS})
+  target_compile_options(${PRGNAME} PRIVATE "-DUSE_HDF5")
+endif(HDF5_FOUND)
+
 target_link_libraries(${PRGNAME} ${FFTW_LIBRARIES})
 target_include_directories(${PRGNAME} PRIVATE ${FFTW_INCLUDE_DIR})
 
