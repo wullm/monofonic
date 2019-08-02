@@ -8,7 +8,7 @@
  
  */
 
-
+#if 0
 #ifdef USE_HDF5
 
 #include "output_plugin.hh"
@@ -192,3 +192,5 @@ namespace{
 
 #endif
 
+
+#endif

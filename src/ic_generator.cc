@@ -10,13 +10,13 @@
 namespace ic_generator{
 
 std::unique_ptr<RNG_plugin> the_random_number_generator;
-// std::unique_ptr<output_plugin> the_output_plugin;
+std::unique_ptr<output_plugin> the_output_plugin;
 std::unique_ptr<CosmologyCalculator>  the_cosmo_calc;
 
 int Initialise( ConfigFile& the_config )
 {
     the_random_number_generator = std::move(select_RNG_plugin(the_config));
-    // the_output_plugin           = std::move(select_output_plugin(the_config));
+    the_output_plugin           = std::move(select_output_plugin(the_config));
     the_cosmo_calc              = std::make_unique<CosmologyCalculator>(the_config);
 
     return 0;
@@ -230,7 +230,7 @@ int Run( ConfigFile& the_config )
 
     csoca::ilog << "-----------------------------------------------------------------------------" << std::endl;
     
-    gadget2_output_interface gof( the_config );
+    // gadget2_output_interface gof( the_config );
     
     ///////////////////////////////////////////////////////////////////////
     // we store the densities here if we compute them
@@ -368,7 +368,7 @@ int Run( ConfigFile& the_config )
                 for( size_t j=0; j<tmp.size(1); ++j){
                     for( size_t k=0; k<tmp.size(2); ++k){
                         auto pos = tmp.get_unit_r<float>(i,j,k);
-                        particles.set_pos( ipcount++, idim, (pos[idim] + tmp.relem(i,j,k))*gof.position_unit() );
+                        particles.set_pos( ipcount++, idim, (pos[idim] + tmp.relem(i,j,k))*the_output_plugin->position_unit() );
                     }
                 }
             }
@@ -385,7 +385,7 @@ int Run( ConfigFile& the_config )
                     for( size_t j=0; j<tmp.size(1); ++j){
                         for( size_t k=0; k<tmp.size(2); ++k){
                             auto pos = tmp.get_unit_r_staggered<float>(i,j,k);
-                            particles.set_pos( ipcount++, idim, (pos[idim] + tmp.relem(i,j,k))*gof.position_unit() );
+                            particles.set_pos( ipcount++, idim, (pos[idim] + tmp.relem(i,j,k))*the_output_plugin->position_unit() );
                         }
                     }
                 }
@@ -421,7 +421,7 @@ int Run( ConfigFile& the_config )
             for( size_t i=0,ipcount=0; i<tmp.size(0); ++i ){
                 for( size_t j=0; j<tmp.size(1); ++j){
                     for( size_t k=0; k<tmp.size(2); ++k){
-                        particles.set_vel( ipcount++, idim, tmp.relem(i,j,k) * gof.velocity_unit() );
+                        particles.set_vel( ipcount++, idim, tmp.relem(i,j,k) * the_output_plugin->velocity_unit() );
                     }
                 }
             }
@@ -437,14 +437,14 @@ int Run( ConfigFile& the_config )
                 for( size_t i=0,ipcount=ipcount0; i<tmp.size(0); ++i ){
                     for( size_t j=0; j<tmp.size(1); ++j){
                         for( size_t k=0; k<tmp.size(2); ++k){
-                            particles.set_vel( ipcount++, idim, tmp.relem(i,j,k) * gof.velocity_unit() );
+                            particles.set_vel( ipcount++, idim, tmp.relem(i,j,k) * the_output_plugin->velocity_unit() );
                         }
                     }
                 }
             }
         }
 
-        gof.write_particle_data( particles );
+        the_output_plugin->write_particle_data( particles );
     }
 
     return 0;
