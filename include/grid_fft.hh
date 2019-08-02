@@ -458,6 +458,15 @@ public:
 
     void Write_PDF(std::string ofname, int nbins = 1000, double scale = 1.0, double rhomin = 1e-3, double rhomax = 1e3);
 
+    void stagger_field( void ){
+        FourierTransformForward();
+        apply_function_k_dep([&](auto x, auto k) -> ccomplex_t {
+            real_t shift = k[0]*get_dx()[0] + k[1]*get_dx()[1] + k[2]*get_dx()[2];
+            return x * std::exp(ccomplex_t(0.0,0.5*shift));
+        });
+        FourierTransformBackward();
+    }
+
     void zero_DC_mode(void)
     {
         if( space_ == kspace_id ){
@@ -467,7 +476,7 @@ public:
             cdata_[0] = (data_t)0.0;
         }else{
             data_t sum = 0.0;
-// #pragma omp parallel for reduction(+:sum)
+            // #pragma omp parallel for reduction(+:sum)
             for (size_t i = 0; i < sizes_[0]; ++i)
             {
                 for (size_t j = 0; j < sizes_[1]; ++j)

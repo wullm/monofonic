@@ -382,12 +382,7 @@ int Run( ConfigFile& the_config )
                 }
 
                 if( initial_bcc_lattice ){
-                    tmp.FourierTransformForward();
-                    tmp.apply_function_k_dep([&](auto x, auto k) -> ccomplex_t {
-                        real_t shift = k[0]*tmp.get_dx()[0] + k[1]*tmp.get_dx()[1] + k[2]*tmp.get_dx()[2];
-                        return x * std::exp(ccomplex_t(0.0,0.5*shift));
-                    });
-                    tmp.FourierTransformBackward();
+                    tmp.stagger_field();
                     auto ipcount0 = num_p_in_load;
                     for( size_t i=0,ipcount=ipcount0; i<tmp.size(0); ++i ){
                         for( size_t j=0; j<tmp.size(1); ++j){
@@ -444,12 +439,7 @@ int Run( ConfigFile& the_config )
                 }
 
                 if( initial_bcc_lattice ){
-                    tmp.FourierTransformForward();
-                    tmp.apply_function_k_dep([&](auto x, auto k) -> ccomplex_t {
-                        real_t shift = k[0]*tmp.get_dx()[0] + k[1]*tmp.get_dx()[1] + k[2]*tmp.get_dx()[2];
-                        return x * std::exp(ccomplex_t(0.0,0.5*shift));
-                    });
-                    tmp.FourierTransformBackward();
+                    tmp.stagger_field();
                     auto ipcount0 = num_p_in_load;
                     for( size_t i=0,ipcount=ipcount0; i<tmp.size(0); ++i ){
                         for( size_t j=0; j<tmp.size(1); ++j){
