@@ -1,196 +1,95 @@
 /*
  
- output_generic.cc - This file is part of MUSIC -
- a code to generate multi-scale initial conditions 
- for cosmological simulations 
- 
- Copyright (C) 2010-13  Oliver Hahn
+ output_generic.cc - This file is part of MUSIC2 - GPL
+ Copyright (C) 2010-19  Oliver Hahn
  
  */
 
-#if 0
 #ifdef USE_HDF5
 
-#include "output_plugin.hh"
-#include "HDF_IO.hh"
+#include <unistd.h> // for unlink
 
+#include "HDF_IO.hh"
+#include <logger.hh>
+#include <output_plugin.hh>
 
 class generic_output_plugin : public output_plugin
 {
-protected:
-	
-	using output_plugin::cf_;
+private:
+	std::string get_field_name( const cosmo_species &s, const fluid_component &c );
 
-	const unsigned levelmax_{0};
-		
-	// template< typename Tt >
-	//void write2HDF5( std::string fname, std::string dname, const MeshvarBnd<Tt>& data )
-	void write2HDF5( std::string fname, std::string dname, const grid_hierarchy& gh, unsigned ilevel )
-	{
-		unsigned n0 = gh.get_grid(ilevel)->size(0);
-		unsigned n1 = gh.get_grid(ilevel)->size(1);
-		unsigned n2 = gh.get_grid(ilevel)->size(2);
-
-		std::vector<double> temp_data;
-		temp_data.reserve(size_t(n0)*size_t(n1)*size_t(n2));
-		
-		for (unsigned i = 0; i < n0; ++i){
-			for (unsigned j = 0; j < n1; ++j){
-				for (unsigned k = 0; k < n2; ++k){
-					temp_data.push_back((*gh.get_grid(ilevel)).relem(i, j, k));
-				}
-			}
-		}
-
-		unsigned nd[3] = {n0,n1,n2};//{ (unsigned)(n0+2*nb),(unsigned)(n1+2*nb),(unsigned)(n2+2*nb)	};
-		HDFWriteDataset3D( fname, dname, nd, temp_data);
-	}
-	
 public:
-	generic_output_plugin( ConfigFile& cf )//std::string fname, Cosmology cosm, Parameters param )
-	: output_plugin( cf )//fname, cosm, param )
+	//! constructor
+	explicit generic_output_plugin(ConfigFile &cf )
+	: output_plugin(cf, "Generic HDF5")
 	{
+		real_t astart  = 1.0/(1.0+cf_.GetValue<double>("setup", "zstart"));
+		real_t boxsize = cf_.GetValue<double>("setup", "BoxLength");
 
-		HDFCreateFile(fname_);
-		
-		HDFCreateGroup(fname_, "header");
+	#if defined(USE_MPI)
+        if( CONFIG::MPI_task_rank == 0 )
+            unlink(fname_.c_str());
+        MPI_Barrier( MPI_COMM_WORLD );
+	#else
+        unlink(fname_.c_str());
+	#endif
 
-		HDFWriteDataset(fname_,"/header/grid_off_x",offx_);
-		HDFWriteDataset(fname_,"/header/grid_off_y",offy_);
-		HDFWriteDataset(fname_,"/header/grid_off_z",offz_);
-		
-		HDFWriteDataset(fname_,"/header/grid_len_x",sizex_);
-		HDFWriteDataset(fname_,"/header/grid_len_y",sizey_);
-		HDFWriteDataset(fname_,"/header/grid_len_z",sizez_);
-		
-		// HDFWriteGroupAttribute(fname_, "header", "levelmin", levelmin_ );
-		// HDFWriteGroupAttribute(fname_, "header", "levelmax", levelmax_ );
+		HDFCreateFile( fname_ );
+		HDFCreateGroup( fname_, "Header" );
+		HDFWriteGroupAttribute<double>( fname_, "Header", "Boxsize", boxsize );
+		HDFWriteGroupAttribute<double>( fname_, "Header", "astart", astart );
 	}
-	
-	~generic_output_plugin()
-	{	}
-	
-	void write_dm_mass( const grid_hierarchy& gh )
-	{	}
-	
-	void write_dm_velocity( int coord, const grid_hierarchy& gh )
-	{
-		char sstr[128];
-		
-		for( unsigned ilevel=0; ilevel<=levelmax_; ++ilevel )
-		{
-			if( coord == 0 )
-				sprintf(sstr,"level_%03d_DM_vx",ilevel);
-			else if( coord == 1 )
-				sprintf(sstr,"level_%03d_DM_vy",ilevel);
-			else if( coord == 2 )
-				sprintf(sstr,"level_%03d_DM_vz",ilevel);
-			
-			write2HDF5( fname_, sstr, gh, ilevel );
-		}
-	}
-	
-	void write_dm_position( int coord, const grid_hierarchy& gh )
-	{
-		char sstr[128];
-		
-		for( unsigned ilevel=0; ilevel<=levelmax_; ++ilevel )
-		{
-			if( coord == 0 )
-				sprintf(sstr,"level_%03d_DM_dx",ilevel);
-			else if( coord == 1 )
-				sprintf(sstr,"level_%03d_DM_dy",ilevel);
-			else if( coord == 2 )
-				sprintf(sstr,"level_%03d_DM_dz",ilevel);
-			
-			write2HDF5( fname_, sstr, gh, ilevel );
-		}
-	}
-	
-	void write_dm_density( const grid_hierarchy& gh )
-	{
-		char sstr[128];
-		
-		for( unsigned ilevel=0; ilevel<=levelmax_; ++ilevel )
-		{
-			sprintf(sstr,"level_%03d_DM_rho",ilevel);
-			write2HDF5( fname_, sstr, gh, ilevel );
-		}
 
-		// double h = 1.0/(1<<levelmin_);
-		// double shift[3];
-		// shift[0] = -(double)cf_.GetValue<int>( "setup", "shift_x" )*h;
-		// shift[1] = -(double)cf_.GetValue<int>( "setup", "shift_y" )*h;
-		// shift[2] = -(double)cf_.GetValue<int>( "setup", "shift_z" )*h;
-			
-	}
-	
-	void write_dm_potential( const grid_hierarchy& gh )
-	{ 
-		char sstr[128];
-		
-		for( unsigned ilevel=0; ilevel<=levelmax_; ++ilevel )
-		{
-			sprintf(sstr,"level_%03d_DM_potential",ilevel);
-			write2HDF5( fname_, sstr, gh, ilevel );
-		}
-	}
-	
-	void write_gas_potential( const grid_hierarchy& gh )
-	{ 
-		char sstr[128];
-		
-		for( unsigned ilevel=0; ilevel<=levelmax_; ++ilevel )
-		{
-			sprintf(sstr,"level_%03d_BA_potential",ilevel);
-			write2HDF5( fname_, sstr, gh, ilevel );
-		}
-	}
-	
-	
-	
-	void write_gas_velocity( int coord, const grid_hierarchy& gh )
-	{	
-		char sstr[128];
-		
-		for( unsigned ilevel=0; ilevel<=levelmax_; ++ilevel )
-		{
-			if( coord == 0 )
-				sprintf(sstr,"level_%03d_BA_vx",ilevel);
-			else if( coord == 1 )
-				sprintf(sstr,"level_%03d_BA_vy",ilevel);
-			else if( coord == 2 )
-				sprintf(sstr,"level_%03d_BA_vz",ilevel);
-			
-			write2HDF5( fname_, sstr, gh, ilevel );
-		}
-	}
-	
-	void write_gas_position( int coord, const grid_hierarchy& gh )
-	{	}
-	
-	void write_gas_density( const grid_hierarchy& gh )
-	{	
-		char sstr[128];
-		
-		for( unsigned ilevel=0; ilevel<=levelmax_; ++ilevel )
-		{
-			sprintf(sstr,"level_%03d_BA_rho",ilevel);
-			write2HDF5( fname_, sstr, gh, ilevel );
-		}
-	}
-	
-	void finalize( void )
-	{	}
+    bool write_species_as_grid( const cosmo_species & ){ return true; }
+	real_t position_unit() const { return 1.0; }
+	real_t velocity_unit() const { return 1.0; }
+	void write_grid_data(const Grid_FFT<real_t> &g, const cosmo_species &s, const fluid_component &c );
 };
 
 
-
-namespace{
-	output_plugin_creator_concrete< generic_output_plugin > creator("generic");
+std::string generic_output_plugin::get_field_name( const cosmo_species &s, const fluid_component &c )
+{
+	std::string field_name;
+	switch( s ){
+		case cosmo_species::dm: 
+			field_name += "DM"; break;
+		case cosmo_species::baryon: 
+			field_name += "BA"; break;
+		case cosmo_species::neutrino: 
+			field_name += "NU"; break;
+		default: break;
+	}
+	field_name += "_";
+	switch( c ){
+		case fluid_component::density:
+			field_name += "delta"; break;
+		case fluid_component::vx:
+			field_name += "vx"; break;
+		case fluid_component::vy:
+			field_name += "vy"; break;
+		case fluid_component::vz:
+			field_name += "vz"; break;
+		case fluid_component::dx:
+			field_name += "dx"; break;
+		case fluid_component::dy:
+			field_name += "dy"; break;
+		case fluid_component::dz:
+			field_name += "dz"; break;
+		default: break;
+	}
+	return field_name;
 }
 
-#endif
+void generic_output_plugin::write_grid_data(const Grid_FFT<real_t> &g, const cosmo_species &s, const fluid_component &c ) 
+{
+	std::string field_name = this->get_field_name( s, c );
+	g.Write_to_HDF5(fname_, field_name);
+	csoca::ilog << interface_name_ << " : Wrote field \'" << field_name << "\' to file \'" << fname_ << "\'" << std::endl;
+}
 
+namespace
+{
+   output_plugin_creator_concrete<generic_output_plugin> creator1("generic"); 
+} // namespace
 
 #endif

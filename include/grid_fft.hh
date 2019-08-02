@@ -450,7 +450,7 @@ public:
 
     void FillRandomReal(unsigned long int seed = 123456ul);
 
-    void Write_to_HDF5(std::string fname, std::string datasetname);
+    void Write_to_HDF5(std::string fname, std::string datasetname) const;
 
     void Write_PowerSpectrum( std::string ofname );
 

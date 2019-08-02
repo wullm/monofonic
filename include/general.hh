@@ -21,6 +21,9 @@ using complex_t = fftw_complex;
 #define FFTW_PREFIX fftw
 #endif
 
+enum class fluid_component { density, vx, vy, vz, dx, dy, dz };
+enum class cosmo_species { dm, baryon, neutrino };
+
 using ccomplex_t = std::complex<real_t>;
 
 #define FFTW_GEN_NAME_PRIM(a, b) a##_##b

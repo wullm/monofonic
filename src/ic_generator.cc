@@ -324,20 +324,25 @@ int Run( ConfigFile& the_config )
         size_t num_p_in_load = phi.local_size();
         particle_container particles;
 
-        if( initial_bcc_lattice )
-            particles.allocate( 2*num_p_in_load );
-        else
-            particles.allocate( num_p_in_load );
-        
-        auto ipcount0 = (initial_bcc_lattice? 2:1) * particles.get_local_offset();
-        for( size_t i=0,ipcount=0; i<tmp.size(0); ++i ){
-            for( size_t j=0; j<tmp.size(1); ++j){
-                for( size_t k=0; k<tmp.size(2); ++k){
-                    particles.set_id( ipcount, ipcount+ipcount0 );
-                    ++ipcount;
-                    if( initial_bcc_lattice ){
+        // if output plugin wants particles, then we need to store them, along with their IDs
+        if( the_output_plugin->write_species_as_particles( cosmo_species::dm ) ){
+            // if particles occupy a bcc lattice, then there are 2 x N^3 of them...
+            if( initial_bcc_lattice )
+                particles.allocate( 2*num_p_in_load );
+            else
+                particles.allocate( num_p_in_load );
+            
+            // generate particle IDs
+            auto ipcount0 = (initial_bcc_lattice? 2:1) * particles.get_local_offset();
+            for( size_t i=0,ipcount=0; i<tmp.size(0); ++i ){
+                for( size_t j=0; j<tmp.size(1); ++j){
+                    for( size_t k=0; k<tmp.size(2); ++k){
                         particles.set_id( ipcount, ipcount+ipcount0 );
-                        ++ipcount;    
+                        ++ipcount;
+                        if( initial_bcc_lattice ){
+                            particles.set_id( ipcount, ipcount+ipcount0 );
+                            ++ipcount;    
+                        }
                     }
                 }
             }
@@ -346,10 +351,11 @@ int Run( ConfigFile& the_config )
         // write out positions
         for( int idim=0; idim<3; ++idim ){
             // cyclic rotations of indices
-            int idimp = (idim+1)%3, idimpp = (idim+2)%3;
+            const int idimp = (idim+1)%3, idimpp = (idim+2)%3;
 
             tmp.FourierTransformForward(false);
 
+            // combine the various LPT potentials into one and take gradient
             #pragma omp parallel for
             for (size_t i = 0; i < phi.size(0); ++i) {
                 for (size_t j = 0; j < phi.size(1); ++j) {
@@ -364,31 +370,40 @@ int Run( ConfigFile& the_config )
             }
             tmp.FourierTransformBackward();
 
-            for( size_t i=0,ipcount=0; i<tmp.size(0); ++i ){
-                for( size_t j=0; j<tmp.size(1); ++j){
-                    for( size_t k=0; k<tmp.size(2); ++k){
-                        auto pos = tmp.get_unit_r<float>(i,j,k);
-                        particles.set_pos( ipcount++, idim, (pos[idim] + tmp.relem(i,j,k))*the_output_plugin->position_unit() );
-                    }
-                }
-            }
-
-            if( initial_bcc_lattice ){
-                tmp.FourierTransformForward();
-                tmp.apply_function_k_dep([&](auto x, auto k) -> ccomplex_t {
-                    real_t shift = k[0]*tmp.get_dx()[0] + k[1]*tmp.get_dx()[1] + k[2]*tmp.get_dx()[2];
-                    return x * std::exp(ccomplex_t(0.0,0.5*shift));
-                });
-                tmp.FourierTransformBackward();
-                auto ipcount0 = num_p_in_load;
-                for( size_t i=0,ipcount=ipcount0; i<tmp.size(0); ++i ){
+            // if we write particle data, store particle data in particle structure
+            if( the_output_plugin->write_species_as_particles( cosmo_species::dm ) ){
+                for( size_t i=0,ipcount=0; i<tmp.size(0); ++i ){
                     for( size_t j=0; j<tmp.size(1); ++j){
                         for( size_t k=0; k<tmp.size(2); ++k){
-                            auto pos = tmp.get_unit_r_staggered<float>(i,j,k);
+                            auto pos = tmp.get_unit_r<float>(i,j,k);
                             particles.set_pos( ipcount++, idim, (pos[idim] + tmp.relem(i,j,k))*the_output_plugin->position_unit() );
                         }
                     }
                 }
+
+                if( initial_bcc_lattice ){
+                    tmp.FourierTransformForward();
+                    tmp.apply_function_k_dep([&](auto x, auto k) -> ccomplex_t {
+                        real_t shift = k[0]*tmp.get_dx()[0] + k[1]*tmp.get_dx()[1] + k[2]*tmp.get_dx()[2];
+                        return x * std::exp(ccomplex_t(0.0,0.5*shift));
+                    });
+                    tmp.FourierTransformBackward();
+                    auto ipcount0 = num_p_in_load;
+                    for( size_t i=0,ipcount=ipcount0; i<tmp.size(0); ++i ){
+                        for( size_t j=0; j<tmp.size(1); ++j){
+                            for( size_t k=0; k<tmp.size(2); ++k){
+                                auto pos = tmp.get_unit_r_staggered<float>(i,j,k);
+                                particles.set_pos( ipcount++, idim, (pos[idim] + tmp.relem(i,j,k))*the_output_plugin->position_unit() );
+                            }
+                        }
+                    }
+                }
+            } 
+            // otherwise write out the grid data directly to the output plugin
+            else if( the_output_plugin->write_species_as_grid( cosmo_species::dm ))
+            {
+                fluid_component fc = (idim==0)? fluid_component::dx : ((idim==1)? fluid_component::dy : fluid_component::dz );
+                the_output_plugin->write_grid_data( tmp, cosmo_species::dm, fc );
             }
         }
 
@@ -418,33 +433,44 @@ int Run( ConfigFile& the_config )
             }
             tmp.FourierTransformBackward();
 
-            for( size_t i=0,ipcount=0; i<tmp.size(0); ++i ){
-                for( size_t j=0; j<tmp.size(1); ++j){
-                    for( size_t k=0; k<tmp.size(2); ++k){
-                        particles.set_vel( ipcount++, idim, tmp.relem(i,j,k) * the_output_plugin->velocity_unit() );
-                    }
-                }
-            }
-
-            if( initial_bcc_lattice ){
-                tmp.FourierTransformForward();
-                tmp.apply_function_k_dep([&](auto x, auto k) -> ccomplex_t {
-                    real_t shift = k[0]*tmp.get_dx()[0] + k[1]*tmp.get_dx()[1] + k[2]*tmp.get_dx()[2];
-                    return x * std::exp(ccomplex_t(0.0,0.5*shift));
-                });
-                tmp.FourierTransformBackward();
-                auto ipcount0 = num_p_in_load;
-                for( size_t i=0,ipcount=ipcount0; i<tmp.size(0); ++i ){
+            // if we write particle data, store particle data in particle structure
+            if( the_output_plugin->write_species_as_particles( cosmo_species::dm ) ){
+                for( size_t i=0,ipcount=0; i<tmp.size(0); ++i ){
                     for( size_t j=0; j<tmp.size(1); ++j){
                         for( size_t k=0; k<tmp.size(2); ++k){
                             particles.set_vel( ipcount++, idim, tmp.relem(i,j,k) * the_output_plugin->velocity_unit() );
                         }
                     }
                 }
+
+                if( initial_bcc_lattice ){
+                    tmp.FourierTransformForward();
+                    tmp.apply_function_k_dep([&](auto x, auto k) -> ccomplex_t {
+                        real_t shift = k[0]*tmp.get_dx()[0] + k[1]*tmp.get_dx()[1] + k[2]*tmp.get_dx()[2];
+                        return x * std::exp(ccomplex_t(0.0,0.5*shift));
+                    });
+                    tmp.FourierTransformBackward();
+                    auto ipcount0 = num_p_in_load;
+                    for( size_t i=0,ipcount=ipcount0; i<tmp.size(0); ++i ){
+                        for( size_t j=0; j<tmp.size(1); ++j){
+                            for( size_t k=0; k<tmp.size(2); ++k){
+                                particles.set_vel( ipcount++, idim, tmp.relem(i,j,k) * the_output_plugin->velocity_unit() );
+                            }
+                        }
+                    }
+                }
+            }// otherwise write out the grid data directly to the output plugin
+            else if( the_output_plugin->write_species_as_grid( cosmo_species::dm ))
+            {
+                fluid_component fc = (idim==0)? fluid_component::vx : ((idim==1)? fluid_component::vy : fluid_component::vz );
+                the_output_plugin->write_grid_data( tmp, cosmo_species::dm, fc );
             }
         }
 
-        the_output_plugin->write_particle_data( particles );
+        if( the_output_plugin->write_species_as_particles( cosmo_species::dm ) )
+        {
+            the_output_plugin->write_particle_data( particles, cosmo_species::dm );
+        }
     }
 
     return 0;

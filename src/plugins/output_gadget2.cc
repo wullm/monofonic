@@ -49,11 +49,15 @@ public:
 		vunit_ = lunit_ / std::sqrt(astart);
 	}
 
+    bool write_species_as_grid( const cosmo_species & ){ return false; }
+
+    bool write_species_as_particles( const cosmo_species & ){ return true; }
+
 	real_t position_unit() const { return lunit_; }
 
 	real_t velocity_unit() const { return vunit_; }
 
-	void write_particle_data(const particle_container &pc)
+	void write_particle_data(const particle_container &pc, const cosmo_species &s )
 	{
 			// fill the Gadget-2 header
 		memset(reinterpret_cast<void*>(&this_header_),0,sizeof(header));
