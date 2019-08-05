@@ -352,7 +352,7 @@ int Run( ConfigFile& the_config )
         for( int idim=0; idim<3; ++idim ){
             // cyclic rotations of indices
             const int idimp = (idim+1)%3, idimpp = (idim+2)%3;
-
+            const real_t lunit = the_output_plugin->position_unit();
             tmp.FourierTransformForward(false);
 
             // combine the various LPT potentials into one and take gradient
@@ -364,7 +364,7 @@ int Run( ConfigFile& the_config )
                         size_t idx = phi.get_idx(i,j,k);
                         auto phitot = phi.kelem(idx) + phi2.kelem(idx) + phi3a.kelem(idx) + phi3b.kelem(idx);
                         // divide by Lbox, because displacement is in box units for output plugin
-                        tmp.kelem(idx) = ccomplex_t(0.0,1.0) * (kk[idim] * phitot + kk[idimp] * A3[idimpp]->kelem(idx) - kk[idimpp] * A3[idimp]->kelem(idx) ) / boxlen;
+                        tmp.kelem(idx) = lunit * ccomplex_t(0.0,1.0) * (kk[idim] * phitot + kk[idimp] * A3[idimpp]->kelem(idx) - kk[idimpp] * A3[idimp]->kelem(idx) ) / boxlen;
                     }
                 }
             }
@@ -376,7 +376,7 @@ int Run( ConfigFile& the_config )
                     for( size_t j=0; j<tmp.size(1); ++j){
                         for( size_t k=0; k<tmp.size(2); ++k){
                             auto pos = tmp.get_unit_r<float>(i,j,k);
-                            particles.set_pos( ipcount++, idim, (pos[idim] + tmp.relem(i,j,k))*the_output_plugin->position_unit() );
+                            particles.set_pos( ipcount++, idim, pos[idim]*lunit + tmp.relem(i,j,k) );
                         }
                     }
                 }
@@ -388,7 +388,7 @@ int Run( ConfigFile& the_config )
                         for( size_t j=0; j<tmp.size(1); ++j){
                             for( size_t k=0; k<tmp.size(2); ++k){
                                 auto pos = tmp.get_unit_r_staggered<float>(i,j,k);
-                                particles.set_pos( ipcount++, idim, (pos[idim] + tmp.relem(i,j,k))*the_output_plugin->position_unit() );
+                                particles.set_pos( ipcount++, idim, pos[idim]*lunit + tmp.relem(i,j,k) );
                             }
                         }
                     }
@@ -406,7 +406,8 @@ int Run( ConfigFile& the_config )
         for( int idim=0; idim<3; ++idim ){
             // cyclic rotations of indices
             int idimp = (idim+1)%3, idimpp = (idim+2)%3;
-
+            const real_t vunit = the_output_plugin->velocity_unit();
+            
             tmp.FourierTransformForward(false);
 
             #pragma omp parallel for
@@ -418,10 +419,10 @@ int Run( ConfigFile& the_config )
                         // divide by Lbox, because displacement is in box units for output plugin
                         if(!bSymplecticPT){
                             auto phitot_v = vfac1 * phi.kelem(idx) + vfac2 * phi2.kelem(idx) + vfac3 * (phi3a.kelem(idx) + phi3b.kelem(idx));
-                            tmp.kelem(idx) = ccomplex_t(0.0,1.0) * (kk[idim] * phitot_v + vfac3 * (kk[idimp] * A3[idimpp]->kelem(idx) - kk[idimpp] * A3[idimp]->kelem(idx)) ) / boxlen;
+                            tmp.kelem(idx) = vunit*ccomplex_t(0.0,1.0) * (kk[idim] * phitot_v + vfac3 * (kk[idimp] * A3[idimpp]->kelem(idx) - kk[idimpp] * A3[idimp]->kelem(idx)) ) / boxlen;
                         }else{
                             auto phitot_v = vfac1 * phi.kelem(idx) + vfac2 * phi2.kelem(idx);
-                            tmp.kelem(idx) = ccomplex_t(0.0,1.0) * (kk[idim] * phitot_v) + vfac1 * A3[idim]->kelem(idx);
+                            tmp.kelem(idx) = vunit*ccomplex_t(0.0,1.0) * (kk[idim] * phitot_v) + vfac1 * A3[idim]->kelem(idx);
                         }
                     }
                 }
@@ -433,7 +434,7 @@ int Run( ConfigFile& the_config )
                 for( size_t i=0,ipcount=0; i<tmp.size(0); ++i ){
                     for( size_t j=0; j<tmp.size(1); ++j){
                         for( size_t k=0; k<tmp.size(2); ++k){
-                            particles.set_vel( ipcount++, idim, tmp.relem(i,j,k) * the_output_plugin->velocity_unit() );
+                            particles.set_vel( ipcount++, idim, tmp.relem(i,j,k) );
                         }
                     }
                 }
@@ -444,7 +445,7 @@ int Run( ConfigFile& the_config )
                     for( size_t i=0,ipcount=ipcount0; i<tmp.size(0); ++i ){
                         for( size_t j=0; j<tmp.size(1); ++j){
                             for( size_t k=0; k<tmp.size(2); ++k){
-                                particles.set_vel( ipcount++, idim, tmp.relem(i,j,k) * the_output_plugin->velocity_unit() );
+                                particles.set_vel( ipcount++, idim, tmp.relem(i,j,k) );
                             }
                         }
                     }
@@ -461,6 +462,16 @@ int Run( ConfigFile& the_config )
         {
             the_output_plugin->write_particle_data( particles, cosmo_species::dm );
         }
+        
+        if( the_output_plugin->write_species_as_grid( cosmo_species::baryon ) )
+        {
+            phi.FourierTransformForward();
+            phi.apply_Laplacian();
+            phi.FourierTransformBackward();
+            the_output_plugin->write_grid_data( phi, cosmo_species::baryon, fluid_component::density );
+        }
+        
+
     }
 
     return 0;

@@ -131,22 +131,22 @@ std::string grafic2_output_plugin::get_file_name(const cosmo_species &s, const f
         file_name += "delta" + species_str;
         break;
     case fluid_component::vx:
-        file_name += "vel" + species_str + "x";
+        file_name += "vel" + species_str + "z";
         break;
     case fluid_component::vy:
         file_name += "vel" + species_str + "y";
         break;
     case fluid_component::vz:
-        file_name += "vel" + species_str + "z";
+        file_name += "vel" + species_str + "x";
         break;
     case fluid_component::dx:
-        file_name += "pos" + species_str + "x";
+        file_name += "pos" + species_str + "z";
         break;
     case fluid_component::dy:
         file_name += "pos" + species_str + "y";
         break;
     case fluid_component::dz:
-        file_name += "pos" + species_str + "z";
+        file_name += "pos" + species_str + "x";
         break;
     default:
         break;
