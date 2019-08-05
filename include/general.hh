@@ -105,6 +105,13 @@ MPI_Datatype GetMPIDatatype( void )
   #endif
 #endif
 
+inline void multitask_sync_barrier( void )
+{
+#if defined(USE_MPI)
+  MPI_Barrier( MPI_COMM_WORLD );
+#endif
+}
+
 
 
 namespace CONFIG
