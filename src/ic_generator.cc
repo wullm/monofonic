@@ -37,7 +37,7 @@ int Run( ConfigFile& the_config )
     const real_t volfac(std::pow(boxlen / ngrid / 2.0 / M_PI, 1.5));
 
     const bool bDoFixing = the_config.GetValueSafe<bool>("setup", "DoFixing",false);
-    
+
     the_cosmo_calc->WritePowerspectrum(astart, "input_powerspec.txt" );
 
     csoca::ilog << "-----------------------------------------------------------------------------" << std::endl;
@@ -73,6 +73,8 @@ int Run( ConfigFile& the_config )
     Grid_FFT<real_t> A3x({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
     Grid_FFT<real_t> A3y({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
     Grid_FFT<real_t> A3z({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
+    Grid_FFT<ccomplex_t> psi({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
+    Grid_FFT<real_t> rho({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
     //... array [.] access to components of A3:
     std::array< Grid_FFT<real_t>*,3 > A3({&A3x,&A3y,&A3z});
 
@@ -83,7 +85,7 @@ int Run( ConfigFile& the_config )
     // NaiveConvolver<real_t> Conv({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
 
     //--------------------------------------------------------------------
-    // Some operators to add or subtract terms 
+    // Some operators to add or subtract terms
     auto assign_to = [](auto &g){return [&](auto i, auto v){ g[i] = v; };};
     auto add_to = [](auto &g){return [&](auto i, auto v){ g[i] += v; };};
     auto add_twice_to = [](auto &g){return [&](auto i, auto v){ g[i] += 2*v; };};
@@ -91,7 +93,7 @@ int Run( ConfigFile& the_config )
     auto subtract_twice_from = [](auto &g){return [&](auto i, auto v){ g[i] -= 2*v; };};
 
     //--------------------------------------------------------------------
-    
+
     //--------------------------------------------------------------------
     // Fill the grid with a Gaussian white noise field
     //--------------------------------------------------------------------
@@ -101,10 +103,10 @@ int Run( ConfigFile& the_config )
     //... compute 1LPT displacement potential ....
     //======================================================================
     // phi = - delta / k^2
-    double wtime = get_wtime();    
+    double wtime = get_wtime();
     csoca::ilog << std::setw(40) << std::setfill('.') << std::left << "Computing phi(1) term" << std::flush;
     phi.FourierTransformForward();
-    
+
     phi.apply_function_k_dep([&](auto x, auto k) -> ccomplex_t {
         real_t kmod = k.norm();
         if( bDoFixing ) x = (std::abs(x)!=0.0)? x / std::abs(x) : x; //std::exp(ccomplex_t(0, iphase * PhaseRotation));
@@ -114,12 +116,12 @@ int Run( ConfigFile& the_config )
 
     phi.zero_DC_mode();
     csoca::ilog << std::setw(20) << std::setfill(' ') << std::right << "took " << get_wtime()-wtime << "s" << std::endl;
-    
+
     //======================================================================
     //... compute 2LPT displacement potential ....
     //======================================================================
     if( LPTorder > 1 || bSymplecticPT ){
-        wtime = get_wtime();    
+        wtime = get_wtime();
         csoca::ilog << std::setw(40) << std::setfill('.') << std::left << "Computing phi(2) term" << std::flush;
         phi2.FourierTransformForward(false);
         Conv.convolve_SumOfHessians( phi, {0,0}, phi, {1,1}, {2,2}, assign_to( phi2 ) );
@@ -132,11 +134,97 @@ int Run( ConfigFile& the_config )
     }
 
     //======================================================================
+    // initialise psi = exp(i Phi(1)/hbar)
+    //======================================================================
+    real_t hbar= the_config.GetValueSafe<real_t>("sch", "hbar", 0.1);
+    real_t dt = the_config.GetValueSafe<real_t>("sch", "dt", 0.5);
+    phi.FourierTransformBackward();
+    psi.assign_function_of_grids_r([&]( real_t p ){return std::exp(ccomplex_t(0.0,1.0)/hbar*p);}, phi );
+
+    //======================================================================
+    // evolve wave-function (one drift step) psi = psi *exp(-i hbar *k^2 dt / 2)
+    //======================================================================
+    psi.FourierTransformForward();
+    psi.apply_function_k_dep([hbar,dt]( auto epsi, auto k ){
+        auto k2 = k.norm_squared();
+        return epsi * std::exp( - ccomplex_t(0.0,0.5)*hbar* k2 * dt);
+    });
+    psi.FourierTransformBackward();
+
+    //======================================================================
+    // compute rho
+    //======================================================================
+    // psi.assign_function_of_grids_r([&]( auto p ){return p.norm_squared();}, psi );
+    rho.assign_function_of_grids_r([&]( auto p ){
+        auto pp = std::real(p)*std::real(p) + std::imag(p)*std::imag(p);
+        return pp;
+    }, psi);
+
+
+    //======================================================================
+    // compute  v
+    //======================================================================
+    Grid_FFT<real_t>
+        vx({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen}),
+        vy({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen}),
+        vz({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
+
+    for( int idim=0; idim<3; ++idim )
+    {
+        Grid_FFT<ccomplex_t> grad_psi({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
+        grad_psi.copy_from(psi);
+        grad_psi.FourierTransformForward();
+        grad_psi.apply_function_k_dep([&](auto x, auto k) {
+            return x * ccomplex_t(0.0,k[idim]);
+        });
+        grad_psi.FourierTransformBackward();
+
+        if( idim==0 )
+        {
+            vx.assign_function_of_grids_r([&](auto ppsi, auto pgrad_psi, auto prho) {
+                return std::real((std::conj(ppsi) * pgrad_psi - ppsi * std::conj(pgrad_psi)) / ccomplex_t(0.0, 2.0 / hbar)/prho);
+            }, psi, grad_psi, rho);
+        }
+        else if( idim==1 )
+        {
+            vy.assign_function_of_grids_r([&](auto ppsi, auto pgrad_psi, auto prho) {
+                return std::real((std::conj(ppsi) * pgrad_psi - ppsi * std::conj(pgrad_psi)) / ccomplex_t(0.0, 2.0 / hbar)/prho);
+            }, psi, grad_psi, rho);
+        }
+        else if (idim == 2)
+        {
+            vz.assign_function_of_grids_r([&](auto ppsi, auto pgrad_psi, auto prho) {
+                return std::real((std::conj(ppsi) * pgrad_psi - ppsi * std::conj(pgrad_psi)) / ccomplex_t(0.0, 2.0 / hbar)/prho);
+            }, psi, grad_psi, rho);
+        }
+    }
+
+    // std::cout << "RHO  " << rho.relem(1,2,3) << std::endl;
+    // std::cout << "VX  " << vx.relem(1,2,3) << std::endl;
+    // std::cout << "VY  " << vy.relem(1,2,3) << std::endl;
+    // std::cout << "VZ  " << vz.relem(1,2,3) << std::endl;
+    const std::string fname_sch_hdf5 = the_config.GetValueSafe<std::string>("output", "fname_hdf5", "output_sch.hdf5");
+
+    #if defined(USE_MPI)
+            if( CONFIG::MPI_task_rank == 0 )
+                unlink(fname_sch_hdf5.c_str());
+            MPI_Barrier( MPI_COMM_WORLD );
+    #else
+            unlink(fname_sch_hdf5.c_str());
+    #endif
+
+    rho.Write_to_HDF5(fname_sch_hdf5, "rho");
+    vx.Write_to_HDF5(fname_sch_hdf5, "vx");
+    vy.Write_to_HDF5(fname_sch_hdf5, "vy");
+    vz.Write_to_HDF5(fname_sch_hdf5, "vz");
+
+
+    //======================================================================
     //... compute 3LPT displacement potential
     //======================================================================
     if( LPTorder > 2  && !bSymplecticPT ){
         //... 3a term ...
-        wtime = get_wtime();    
+        wtime = get_wtime();
         csoca::ilog << std::setw(40) << std::setfill('.') << std::left << "Computing phi(3a) term" << std::flush;
         phi3a.FourierTransformForward(false);
         Conv.convolve_Hessians( phi, {0,0}, phi, {1,1}, phi, {2,2}, assign_to(phi3a) );
@@ -146,9 +234,9 @@ int Run( ConfigFile& the_config )
         Conv.convolve_Hessians( phi, {0,1}, phi, {0,1}, phi, {2,2}, subtract_from(phi3a) );
         phi3a.apply_InverseLaplacian();
         csoca::ilog << std::setw(20) << std::setfill(' ') << std::right << "took " << get_wtime()-wtime << "s" << std::endl;
-        
+
         //... 3b term ...
-        wtime = get_wtime();    
+        wtime = get_wtime();
         csoca::ilog << std::setw(40) << std::setfill('.') << std::left << "Computing phi(3b) term" << std::flush;
         phi3b.FourierTransformForward(false);
         Conv.convolve_SumOfHessians( phi, {0,0}, phi2, {1,1}, {2,2}, assign_to(phi3b) );
@@ -160,9 +248,9 @@ int Run( ConfigFile& the_config )
         phi3b.apply_InverseLaplacian();
         phi3b *= 0.5; // factor 1/2 from definition of phi(3b)!
         csoca::ilog << std::setw(20) << std::setfill(' ') << std::right << "took " << get_wtime()-wtime << "s" << std::endl;
-        
+
         //... transversal term ...
-        wtime = get_wtime();    
+        wtime = get_wtime();
         csoca::ilog << std::setw(40) << std::setfill('.') << std::left << "Computing A(3) term" << std::flush;
         for( int idim=0; idim<3; ++idim ){
             // cyclic rotations of indices
@@ -179,7 +267,7 @@ int Run( ConfigFile& the_config )
 
     if( bSymplecticPT ){
         //... transversal term ...
-        wtime = get_wtime();    
+        wtime = get_wtime();
         csoca::ilog << std::setw(40) << std::setfill('.') << std::left << "Computing vNLO(3) term" << std::flush;
         for( int idim=0; idim<3; ++idim ){
             // cyclic rotations of indices
@@ -195,7 +283,7 @@ int Run( ConfigFile& the_config )
     ///... scale all potentials with respective growth factors
     phi *= g1;
     phi2 *= g2;
-    phi3a *= g3a; 
+    phi3a *= g3a;
     phi3b *= g3b;
     (*A3[0]) *= g3c;
     (*A3[1]) *= g3c;
@@ -203,7 +291,7 @@ int Run( ConfigFile& the_config )
 
     csoca::ilog << "-----------------------------------------------------------------------------" << std::endl;
 
-    
+
     ///////////////////////////////////////////////////////////////////////
     // we store the densities here if we compute them
     //======================================================================
@@ -277,7 +365,7 @@ int Run( ConfigFile& the_config )
         phi2.Write_to_HDF5(fname_hdf5, "phi2");
         phi3a.Write_to_HDF5(fname_hdf5, "phi3a");
         phi3b.Write_to_HDF5(fname_hdf5, "phi3b");
-        
+
         delta.Write_to_HDF5(fname_hdf5, "delta");
         delta2.Write_to_HDF5(fname_hdf5, "delta2");
         delta3a.Write_to_HDF5(fname_hdf5, "delta3a");
@@ -293,7 +381,7 @@ int Run( ConfigFile& the_config )
         // we store displacements and velocities here if we compute them
         //======================================================================
         Grid_FFT<real_t> tmp({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
-        
+
         // write out positions
         for( int idim=0; idim<3; ++idim ){
             // cyclic rotations of indices
@@ -307,9 +395,9 @@ int Run( ConfigFile& the_config )
                     for (size_t k = 0; k < phi.size(2); ++k) {
                         auto kk = phi.get_k<real_t>(i,j,k);
                         size_t idx = phi.get_idx(i,j,k);
-                        
+
                         auto phitot = phi.kelem(idx) + phi2.kelem(idx) + phi3a.kelem(idx) + phi3b.kelem(idx);
-                        
+
                         // divide by Lbox, because displacement is in box units for output plugin
                         tmp.kelem(idx) = ccomplex_t(0.0,1.0) * (kk[idim] * phitot + kk[idimp] * A3[idimpp]->kelem(idx) - kk[idimpp] * A3[idimp]->kelem(idx) ) / boxlen;
                     }
@@ -332,8 +420,8 @@ int Run( ConfigFile& the_config )
                     for (size_t k = 0; k < phi.size(2); ++k) {
                         auto kk = phi.get_k<real_t>(i,j,k);
                         size_t idx = phi.get_idx(i,j,k);
-                        
-                        
+
+
                         // divide by Lbox, because displacement is in box units for output plugin
                         if(!bSymplecticPT){
                             auto phitot_v = vfac1 * phi.kelem(idx) + vfac2 * phi2.kelem(idx) + vfac3 * (phi3a.kelem(idx) + phi3b.kelem(idx));
@@ -351,7 +439,7 @@ int Run( ConfigFile& the_config )
 
         the_output_plugin->write_dm_mass(tmp);
         the_output_plugin->write_dm_density(tmp);
-        
+
         the_output_plugin->finalize();
 		//delete the_output_plugin;
     }
@@ -360,4 +448,3 @@ int Run( ConfigFile& the_config )
 
 
 }
-

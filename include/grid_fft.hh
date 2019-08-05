@@ -46,7 +46,7 @@ public:
     ptrdiff_t local_0_size_, local_1_size_;
 
     Grid_FFT(const std::array<size_t, 3> &N, const std::array<real_t, 3> &L, space_t initialspace = rspace_id)
-        : n_(N), length_(L), space_(initialspace), data_(nullptr), cdata_(nullptr) 
+        : n_(N), length_(L), space_(initialspace), data_(nullptr), cdata_(nullptr)
     {
         //invalidated = true;
         this->Setup();
@@ -68,7 +68,7 @@ public:
     bool is_refined( size_t ilevel, size_t i, size_t j, size_t k ) const { return false; }
     size_t levelmin() const {return 7;}
     size_t levelmax() const {return 7;}
-    
+
     void Setup();
 
     size_t size(size_t i) const { return sizes_[i]; }
@@ -83,6 +83,24 @@ public:
         #pragma omp parallel for
         for (size_t i = 0; i < ntot_; ++i)
             data_[i] = 0.0;
+    }
+
+    void copy_from( const Grid_FFT<data_t>& g ){
+        // make sure the two fields are in the same space
+        if( g.space_ != this->space_ ){
+            if( this->space_ == kspace_id ) this->FourierTransformBackward(false);
+            else this->FourierTransformForward(false);
+        }
+
+        // make sure the two fields have the same dimensions
+        assert( this->n_[0] == g.n_[0] );
+        assert( this->n_[1] == g.n_[1] );
+        assert( this->n_[2] == g.n_[2] );
+
+        // now we can copy all the data over
+        #pragma omp parallel for
+        for (size_t i = 0; i < ntot_; ++i)
+            data_[i] = g.data_[i];
     }
 
     data_t& operator[]( size_t i ){
@@ -321,6 +339,7 @@ public:
         }
     }
 
+
     template <typename functional, typename grid1_t, typename grid2_t>
     void assign_function_of_grids_r(const functional &f, const grid1_t &g1, const grid2_t &g2)
     {
@@ -368,6 +387,27 @@ public:
                     const auto &elemg3 = g3.relem(i, j, k);
 
                     elem = f(elemg1, elemg2, elemg3);
+                }
+            }
+        }
+    }
+
+    template <typename functional, typename grid_t>
+    void assign_function_of_grids_k(const functional &f, const grid_t &g)
+    {
+        assert(g.size(0) == size(0) && g.size(1) == size(1)); // && g.size(2) == size(2) );
+
+    #pragma omp parallel for
+        for (size_t i = 0; i < sizes_[0]; ++i)
+        {
+            for (size_t j = 0; j < sizes_[1]; ++j)
+            {
+                for (size_t k = 0; k < sizes_[2]; ++k)
+                {
+                    auto &elem = this->kelem(i, j, k);
+                    const auto &elemg = g.kelem(i, j, k);
+
+                    elem = f(elemg);
                 }
             }
         }
@@ -451,7 +491,7 @@ public:
             #endif
             sum /= sizes_[0]*sizes_[1]*sizes_[2];
 
-#pragma omp parallel for 
+#pragma omp parallel for
             for (size_t i = 0; i < sizes_[0]; ++i)
             {
                 for (size_t j = 0; j < sizes_[1]; ++j)
@@ -464,4 +504,5 @@ public:
             }
         }
     }
+
 };
