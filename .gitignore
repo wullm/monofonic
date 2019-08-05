@@ -53,3 +53,4 @@ src/CMakeCache.txt
 src/fastLPT
 src/input_powerspec.txt
 src/Makefile
+.DS_Store
