@@ -262,7 +262,7 @@ int Run( ConfigFile& the_config )
             phi.FourierTransformBackward();
             real_t std_phi1 = phi.std();
 
-            const real_t hbar = std_phi1/(2.0*M_PI);
+            const real_t hbar = 2.0 * M_PI/ngrid * (3*std_phi1); //3sigma
             csoca::ilog << "SCPT : hbar = " << hbar << " from sigma(phi1) = " << std_phi1 << std::endl;
             
             psi.assign_function_of_grids_r([&]( real_t p ){return std::exp(-ccomplex_t(0.0,1.0)/hbar*p);}, phi );
