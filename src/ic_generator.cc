@@ -161,92 +161,6 @@ int Run( ConfigFile& the_config )
     }
 
     //======================================================================
-    // initialise psi = exp(i Phi(1)/hbar)
-    //======================================================================
-    real_t hbar= the_config.GetValueSafe<real_t>("sch", "hbar", 0.1);
-    real_t dt = the_config.GetValueSafe<real_t>("sch", "dt", 0.5);
-    phi.FourierTransformBackward();
-    psi.assign_function_of_grids_r([&]( real_t p ){return std::exp(ccomplex_t(0.0,1.0)/hbar*p);}, phi );
-
-    //======================================================================
-    // evolve wave-function (one drift step) psi = psi *exp(-i hbar *k^2 dt / 2)
-    //======================================================================
-    psi.FourierTransformForward();
-    psi.apply_function_k_dep([hbar,dt]( auto epsi, auto k ){
-        auto k2 = k.norm_squared();
-        return epsi * std::exp( - ccomplex_t(0.0,0.5)*hbar* k2 * dt);
-    });
-    psi.FourierTransformBackward();
-
-    //======================================================================
-    // compute rho
-    //======================================================================
-    // psi.assign_function_of_grids_r([&]( auto p ){return p.norm_squared();}, psi );
-    rho.assign_function_of_grids_r([&]( auto p ){
-        auto pp = std::real(p)*std::real(p) + std::imag(p)*std::imag(p);
-        return pp;
-    }, psi);
-
-
-    //======================================================================
-    // compute  v
-    //======================================================================
-    Grid_FFT<real_t>
-        vx({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen}),
-        vy({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen}),
-        vz({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
-
-    for( int idim=0; idim<3; ++idim )
-    {
-        Grid_FFT<ccomplex_t> grad_psi({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
-        grad_psi.copy_from(psi);
-        grad_psi.FourierTransformForward();
-        grad_psi.apply_function_k_dep([&](auto x, auto k) {
-            return x * ccomplex_t(0.0,k[idim]);
-        });
-        grad_psi.FourierTransformBackward();
-
-        if( idim==0 )
-        {
-            vx.assign_function_of_grids_r([&](auto ppsi, auto pgrad_psi, auto prho) {
-                return std::real((std::conj(ppsi) * pgrad_psi - ppsi * std::conj(pgrad_psi)) / ccomplex_t(0.0, 2.0 / hbar)/prho);
-            }, psi, grad_psi, rho);
-        }
-        else if( idim==1 )
-        {
-            vy.assign_function_of_grids_r([&](auto ppsi, auto pgrad_psi, auto prho) {
-                return std::real((std::conj(ppsi) * pgrad_psi - ppsi * std::conj(pgrad_psi)) / ccomplex_t(0.0, 2.0 / hbar)/prho);
-            }, psi, grad_psi, rho);
-        }
-        else if (idim == 2)
-        {
-            vz.assign_function_of_grids_r([&](auto ppsi, auto pgrad_psi, auto prho) {
-                return std::real((std::conj(ppsi) * pgrad_psi - ppsi * std::conj(pgrad_psi)) / ccomplex_t(0.0, 2.0 / hbar)/prho);
-            }, psi, grad_psi, rho);
-        }
-    }
-
-    // std::cout << "RHO  " << rho.relem(1,2,3) << std::endl;
-    // std::cout << "VX  " << vx.relem(1,2,3) << std::endl;
-    // std::cout << "VY  " << vy.relem(1,2,3) << std::endl;
-    // std::cout << "VZ  " << vz.relem(1,2,3) << std::endl;
-    const std::string fname_sch_hdf5 = the_config.GetValueSafe<std::string>("output", "fname_hdf5", "output_sch.hdf5");
-
-    #if defined(USE_MPI)
-            if( CONFIG::MPI_task_rank == 0 )
-                unlink(fname_sch_hdf5.c_str());
-            MPI_Barrier( MPI_COMM_WORLD );
-    #else
-            unlink(fname_sch_hdf5.c_str());
-    #endif
-
-    rho.Write_to_HDF5(fname_sch_hdf5, "rho");
-    vx.Write_to_HDF5(fname_sch_hdf5, "vx");
-    vy.Write_to_HDF5(fname_sch_hdf5, "vy");
-    vz.Write_to_HDF5(fname_sch_hdf5, "vz");
-
-
-    //======================================================================
     //... compute 3LPT displacement potential
     //======================================================================
     if( LPTorder > 2  && !bSymplecticPT ){
@@ -404,160 +318,216 @@ int Run( ConfigFile& the_config )
         A3[2]->Write_to_HDF5(fname_hdf5, "A3z");
 
     }else{
-        //======================================================================
-        // we store displacements and velocities here if we compute them
-        //======================================================================
+        // temporary storage of data
         Grid_FFT<real_t> tmp({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
-        size_t num_p_in_load = phi.local_size();
-        particle_container particles;
 
-        // if output plugin wants particles, then we need to store them, along with their IDs
-        if( the_output_plugin->write_species_as_particles( cosmo_species::dm ) ){
-            // if particles occupy a bcc lattice, then there are 2 x N^3 of them...
-            if( initial_bcc_lattice )
-                particles.allocate( 2*num_p_in_load );
-            else
-                particles.allocate( num_p_in_load );
-            
-            // generate particle IDs
-            auto ipcount0 = (initial_bcc_lattice? 2:1) * particles.get_local_offset();
-            for( size_t i=0,ipcount=0; i<tmp.size(0); ++i ){
-                for( size_t j=0; j<tmp.size(1); ++j){
-                    for( size_t k=0; k<tmp.size(2); ++k){
-                        particles.set_id( ipcount, ipcount+ipcount0 );
-                        ++ipcount;
-                        if( initial_bcc_lattice ){
-                            particles.set_id( ipcount, ipcount+ipcount0 );
-                            ++ipcount;    
-                        }
-                    }
-                }
-            }
-        }
-        
-        // write out positions
-        for( int idim=0; idim<3; ++idim ){
-            // cyclic rotations of indices
-            const int idimp = (idim+1)%3, idimpp = (idim+2)%3;
-            const real_t lunit = the_output_plugin->position_unit();
-            tmp.FourierTransformForward(false);
 
-            // combine the various LPT potentials into one and take gradient
-            #pragma omp parallel for
-            for (size_t i = 0; i < phi.size(0); ++i) {
-                for (size_t j = 0; j < phi.size(1); ++j) {
-                    for (size_t k = 0; k < phi.size(2); ++k) {
-                        auto kk = phi.get_k<real_t>(i,j,k);
-                        size_t idx = phi.get_idx(i,j,k);
-                        auto phitot = phi.kelem(idx) + phi2.kelem(idx) + phi3a.kelem(idx) + phi3b.kelem(idx);
-                        // divide by Lbox, because displacement is in box units for output plugin
-                        tmp.kelem(idx) = lunit * ccomplex_t(0.0,1.0) * (kk[idim] * phitot + kk[idimp] * A3[idimpp]->kelem(idx) - kk[idimpp] * A3[idimp]->kelem(idx) ) / boxlen;
-                    }
-                }
-            }
-            tmp.FourierTransformBackward();
+        if( the_output_plugin->write_species_as( cosmo_species::dm ) == output_type::field_eulerian ){
+            //======================================================================
+            // initialise psi = exp(i Phi(1)/hbar)
+            //======================================================================
+            real_t hbar= the_config.GetValueSafe<real_t>("sch", "hbar", 0.01);
+            real_t dt = the_config.GetValueSafe<real_t>("sch", "dt", 1.0);
+            phi.FourierTransformBackward();
+            psi.assign_function_of_grids_r([&]( real_t p ){return std::exp(ccomplex_t(0.0,1.0)/hbar*p);}, phi );
 
-            // if we write particle data, store particle data in particle structure
-            if( the_output_plugin->write_species_as_particles( cosmo_species::dm ) ){
-                for( size_t i=0,ipcount=0; i<tmp.size(0); ++i ){
-                    for( size_t j=0; j<tmp.size(1); ++j){
-                        for( size_t k=0; k<tmp.size(2); ++k){
-                            auto pos = tmp.get_unit_r<float>(i,j,k);
-                            particles.set_pos( ipcount++, idim, pos[idim]*lunit + tmp.relem(i,j,k) );
-                        }
-                    }
-                }
+            //======================================================================
+            // evolve wave-function (one drift step) psi = psi *exp(-i hbar *k^2 dt / 2)
+            //======================================================================
+            psi.FourierTransformForward();
+            psi.apply_function_k_dep([hbar,dt]( auto epsi, auto k ){
+                auto k2 = k.norm_squared();
+                return epsi * std::exp( - ccomplex_t(0.0,0.5)*hbar* k2 * dt);
+            });
+            psi.FourierTransformBackward();
 
-                if( initial_bcc_lattice ){
-                    tmp.stagger_field();
-                    auto ipcount0 = num_p_in_load;
-                    for( size_t i=0,ipcount=ipcount0; i<tmp.size(0); ++i ){
-                        for( size_t j=0; j<tmp.size(1); ++j){
-                            for( size_t k=0; k<tmp.size(2); ++k){
-                                auto pos = tmp.get_unit_r_staggered<float>(i,j,k);
-                                particles.set_pos( ipcount++, idim, pos[idim]*lunit + tmp.relem(i,j,k) );
-                            }
-                        }
-                    }
-                }
-            } 
-            // otherwise write out the grid data directly to the output plugin
-            else if( the_output_plugin->write_species_as_grid( cosmo_species::dm ))
+            //======================================================================
+            // compute rho
+            //======================================================================
+            rho.assign_function_of_grids_r([&]( auto p ){
+                auto pp = std::real(p)*std::real(p) + std::imag(p)*std::imag(p);
+                return pp;
+            }, psi);
+
+            the_output_plugin->write_grid_data( rho, cosmo_species::dm, fluid_component::density );
+
+            //======================================================================
+            // compute  v
+            //======================================================================
+            for( int idim=0; idim<3; ++idim )
             {
-                fluid_component fc = (idim==0)? fluid_component::dx : ((idim==1)? fluid_component::dy : fluid_component::dz );
+                Grid_FFT<ccomplex_t> grad_psi({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
+                grad_psi.copy_from(psi);
+                grad_psi.FourierTransformForward();
+                grad_psi.apply_function_k_dep([&](auto x, auto k) {
+                    return x * ccomplex_t(0.0,k[idim]);
+                });
+                grad_psi.FourierTransformBackward();
+
+                tmp.assign_function_of_grids_r([&](auto ppsi, auto pgrad_psi, auto prho) {
+                        return std::real((std::conj(ppsi) * pgrad_psi - ppsi * std::conj(pgrad_psi)) / ccomplex_t(0.0, 2.0 / hbar)/prho);
+                    }, psi, grad_psi, rho);
+
+                fluid_component fc = (idim==0)? fluid_component::vx : ((idim==1)? fluid_component::vy : fluid_component::vz );
                 the_output_plugin->write_grid_data( tmp, cosmo_species::dm, fc );
             }
         }
 
-        // write out velocities
-        for( int idim=0; idim<3; ++idim ){
-            // cyclic rotations of indices
-            int idimp = (idim+1)%3, idimpp = (idim+2)%3;
-            const real_t vunit = the_output_plugin->velocity_unit();
-            
-            tmp.FourierTransformForward(false);
+        if( the_output_plugin->write_species_as( cosmo_species::dm ) == output_type::particles 
+         || the_output_plugin->write_species_as( cosmo_species::dm ) == output_type::field_lagrangian ){
+            //======================================================================
+            // we store displacements and velocities here if we compute them
+            //======================================================================
+            size_t num_p_in_load = phi.local_size();
+            particle_container particles;
 
-            #pragma omp parallel for
-            for (size_t i = 0; i < phi.size(0); ++i) {
-                for (size_t j = 0; j < phi.size(1); ++j) {
-                    for (size_t k = 0; k < phi.size(2); ++k) {
-                        auto kk = phi.get_k<real_t>(i,j,k);
-                        size_t idx = phi.get_idx(i,j,k);
-                        // divide by Lbox, because displacement is in box units for output plugin
-                        if(!bSymplecticPT){
-                            auto phitot_v = vfac1 * phi.kelem(idx) + vfac2 * phi2.kelem(idx) + vfac3 * (phi3a.kelem(idx) + phi3b.kelem(idx));
-                            tmp.kelem(idx) = vunit*ccomplex_t(0.0,1.0) * (kk[idim] * phitot_v + vfac3 * (kk[idimp] * A3[idimpp]->kelem(idx) - kk[idimpp] * A3[idimp]->kelem(idx)) ) / boxlen;
-                        }else{
-                            auto phitot_v = vfac1 * phi.kelem(idx) + vfac2 * phi2.kelem(idx);
-                            tmp.kelem(idx) = vunit*ccomplex_t(0.0,1.0) * (kk[idim] * phitot_v) + vfac1 * A3[idim]->kelem(idx);
+            // if output plugin wants particles, then we need to store them, along with their IDs
+            if( the_output_plugin->write_species_as( cosmo_species::dm ) == output_type::particles ){
+                // if particles occupy a bcc lattice, then there are 2 x N^3 of them...
+                if( initial_bcc_lattice )
+                    particles.allocate( 2*num_p_in_load );
+                else
+                    particles.allocate( num_p_in_load );
+                
+                // generate particle IDs
+                auto ipcount0 = (initial_bcc_lattice? 2:1) * particles.get_local_offset();
+                for( size_t i=0,ipcount=0; i<tmp.size(0); ++i ){
+                    for( size_t j=0; j<tmp.size(1); ++j){
+                        for( size_t k=0; k<tmp.size(2); ++k){
+                            particles.set_id( ipcount, ipcount+ipcount0 );
+                            ++ipcount;
+                            if( initial_bcc_lattice ){
+                                particles.set_id( ipcount, ipcount+ipcount0 );
+                                ++ipcount;    
+                            }
                         }
                     }
                 }
             }
-            tmp.FourierTransformBackward();
+        
+            // write out positions
+            for( int idim=0; idim<3; ++idim ){
+                // cyclic rotations of indices
+                const int idimp = (idim+1)%3, idimpp = (idim+2)%3;
+                const real_t lunit = the_output_plugin->position_unit();
+                tmp.FourierTransformForward(false);
 
-            // if we write particle data, store particle data in particle structure
-            if( the_output_plugin->write_species_as_particles( cosmo_species::dm ) ){
-                for( size_t i=0,ipcount=0; i<tmp.size(0); ++i ){
-                    for( size_t j=0; j<tmp.size(1); ++j){
-                        for( size_t k=0; k<tmp.size(2); ++k){
-                            particles.set_vel( ipcount++, idim, tmp.relem(i,j,k) );
+                // combine the various LPT potentials into one and take gradient
+                #pragma omp parallel for
+                for (size_t i = 0; i < phi.size(0); ++i) {
+                    for (size_t j = 0; j < phi.size(1); ++j) {
+                        for (size_t k = 0; k < phi.size(2); ++k) {
+                            auto kk = phi.get_k<real_t>(i,j,k);
+                            size_t idx = phi.get_idx(i,j,k);
+                            auto phitot = phi.kelem(idx) + phi2.kelem(idx) + phi3a.kelem(idx) + phi3b.kelem(idx);
+                            // divide by Lbox, because displacement is in box units for output plugin
+                            tmp.kelem(idx) = lunit * ccomplex_t(0.0,1.0) * (kk[idim] * phitot + kk[idimp] * A3[idimpp]->kelem(idx) - kk[idimpp] * A3[idimp]->kelem(idx) ) / boxlen;
                         }
                     }
                 }
+                tmp.FourierTransformBackward();
 
-                if( initial_bcc_lattice ){
-                    tmp.stagger_field();
-                    auto ipcount0 = num_p_in_load;
-                    for( size_t i=0,ipcount=ipcount0; i<tmp.size(0); ++i ){
+                // if we write particle data, store particle data in particle structure
+                if( the_output_plugin->write_species_as( cosmo_species::dm ) == output_type::particles ){
+                    for( size_t i=0,ipcount=0; i<tmp.size(0); ++i ){
+                        for( size_t j=0; j<tmp.size(1); ++j){
+                            for( size_t k=0; k<tmp.size(2); ++k){
+                                auto pos = tmp.get_unit_r<float>(i,j,k);
+                                particles.set_pos( ipcount++, idim, pos[idim]*lunit + tmp.relem(i,j,k) );
+                            }
+                        }
+                    }
+
+                    if( initial_bcc_lattice ){
+                        tmp.stagger_field();
+                        auto ipcount0 = num_p_in_load;
+                        for( size_t i=0,ipcount=ipcount0; i<tmp.size(0); ++i ){
+                            for( size_t j=0; j<tmp.size(1); ++j){
+                                for( size_t k=0; k<tmp.size(2); ++k){
+                                    auto pos = tmp.get_unit_r_staggered<float>(i,j,k);
+                                    particles.set_pos( ipcount++, idim, pos[idim]*lunit + tmp.relem(i,j,k) );
+                                }
+                            }
+                        }
+                    }
+                } 
+                // otherwise write out the grid data directly to the output plugin
+                else if( the_output_plugin->write_species_as( cosmo_species::dm ) == output_type::field_lagrangian )
+                {
+                    fluid_component fc = (idim==0)? fluid_component::dx : ((idim==1)? fluid_component::dy : fluid_component::dz );
+                    the_output_plugin->write_grid_data( tmp, cosmo_species::dm, fc );
+                }
+            }
+
+            // write out velocities
+            for( int idim=0; idim<3; ++idim ){
+                // cyclic rotations of indices
+                int idimp = (idim+1)%3, idimpp = (idim+2)%3;
+                const real_t vunit = the_output_plugin->velocity_unit();
+                
+                tmp.FourierTransformForward(false);
+
+                #pragma omp parallel for
+                for (size_t i = 0; i < phi.size(0); ++i) {
+                    for (size_t j = 0; j < phi.size(1); ++j) {
+                        for (size_t k = 0; k < phi.size(2); ++k) {
+                            auto kk = phi.get_k<real_t>(i,j,k);
+                            size_t idx = phi.get_idx(i,j,k);
+                            // divide by Lbox, because displacement is in box units for output plugin
+                            if(!bSymplecticPT){
+                                auto phitot_v = vfac1 * phi.kelem(idx) + vfac2 * phi2.kelem(idx) + vfac3 * (phi3a.kelem(idx) + phi3b.kelem(idx));
+                                tmp.kelem(idx) = vunit*ccomplex_t(0.0,1.0) * (kk[idim] * phitot_v + vfac3 * (kk[idimp] * A3[idimpp]->kelem(idx) - kk[idimpp] * A3[idimp]->kelem(idx)) ) / boxlen;
+                            }else{
+                                auto phitot_v = vfac1 * phi.kelem(idx) + vfac2 * phi2.kelem(idx);
+                                tmp.kelem(idx) = vunit*ccomplex_t(0.0,1.0) * (kk[idim] * phitot_v) + vfac1 * A3[idim]->kelem(idx);
+                            }
+                        }
+                    }
+                }
+                tmp.FourierTransformBackward();
+
+                // if we write particle data, store particle data in particle structure
+                if( the_output_plugin->write_species_as( cosmo_species::dm ) == output_type::particles ){
+                    for( size_t i=0,ipcount=0; i<tmp.size(0); ++i ){
                         for( size_t j=0; j<tmp.size(1); ++j){
                             for( size_t k=0; k<tmp.size(2); ++k){
                                 particles.set_vel( ipcount++, idim, tmp.relem(i,j,k) );
                             }
                         }
                     }
-                }
-            }// otherwise write out the grid data directly to the output plugin
-            else if( the_output_plugin->write_species_as_grid( cosmo_species::dm ))
-            {
-                fluid_component fc = (idim==0)? fluid_component::vx : ((idim==1)? fluid_component::vy : fluid_component::vz );
-                the_output_plugin->write_grid_data( tmp, cosmo_species::dm, fc );
-            }
-        }
 
-        if( the_output_plugin->write_species_as_particles( cosmo_species::dm ) )
-        {
-            the_output_plugin->write_particle_data( particles, cosmo_species::dm );
-        }
-        
-        if( the_output_plugin->write_species_as_grid( cosmo_species::baryon ) )
-        {
-            phi.FourierTransformForward();
-            phi.apply_Laplacian();
-            phi.FourierTransformBackward();
-            the_output_plugin->write_grid_data( phi, cosmo_species::baryon, fluid_component::density );
-        }
-        
+                    if( initial_bcc_lattice ){
+                        tmp.stagger_field();
+                        auto ipcount0 = num_p_in_load;
+                        for( size_t i=0,ipcount=ipcount0; i<tmp.size(0); ++i ){
+                            for( size_t j=0; j<tmp.size(1); ++j){
+                                for( size_t k=0; k<tmp.size(2); ++k){
+                                    particles.set_vel( ipcount++, idim, tmp.relem(i,j,k) );
+                                }
+                            }
+                        }
+                    }
+                }// otherwise write out the grid data directly to the output plugin
+                else if( the_output_plugin->write_species_as( cosmo_species::dm ) == output_type::field_lagrangian )
+                {
+                    fluid_component fc = (idim==0)? fluid_component::vx : ((idim==1)? fluid_component::vy : fluid_component::vz );
+                    the_output_plugin->write_grid_data( tmp, cosmo_species::dm, fc );
+                }
+            }
+
+            if( the_output_plugin->write_species_as( cosmo_species::dm ) == output_type::particles )
+            {
+                the_output_plugin->write_particle_data( particles, cosmo_species::dm );
+            }
+            
+            // if( the_output_plugin->write_species_as_grid( cosmo_species::baryon ) )
+            // {
+            //     phi.FourierTransformForward();
+            //     phi.apply_Laplacian();
+            //     phi.FourierTransformBackward();
+            //     the_output_plugin->write_grid_data( phi, cosmo_species::baryon, fluid_component::density );
+            // }
+         }
 
     }
 

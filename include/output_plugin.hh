@@ -19,6 +19,8 @@
 #include <grid_fft.hh>
 #include <config_file.hh>
 
+enum class output_type {particles,field_lagrangian,field_eulerian};
+
 class output_plugin
 {
 protected:
@@ -48,10 +50,13 @@ public:
 	virtual void write_grid_data(const Grid_FFT<real_t> &g, const cosmo_species &s, const fluid_component &c ) {};
 
 	//! routine to query whether species is written as grid data
-	virtual bool write_species_as_grid( const cosmo_species &s ) = 0;
+	virtual output_type write_species_as ( const cosmo_species &s ) const = 0;
+
+	//! routine to query whether species is written as grid data
+	// virtual bool write_species_as_grid( const cosmo_species &s ) = 0;
 
 	//! routine to query whether species is written as particle data
-	virtual bool write_species_as_particles( const cosmo_species &s ){ return !write_species_as_grid(s); }
+	// virtual bool write_species_as_particles( const cosmo_species &s ){ return !write_species_as_grid(s); }
 	
 	//! routine to return a multiplicative factor that contains the desired position units for the output
 	virtual real_t position_unit() const = 0;

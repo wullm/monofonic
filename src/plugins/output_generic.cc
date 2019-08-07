@@ -17,14 +17,17 @@ class generic_output_plugin : public output_plugin
 {
 private:
 	std::string get_field_name( const cosmo_species &s, const fluid_component &c );
-
+protected:
+	bool out_eulerian_;
 public:
 	//! constructor
 	explicit generic_output_plugin(ConfigFile &cf )
 	: output_plugin(cf, "Generic HDF5")
 	{
-		real_t astart  = 1.0/(1.0+cf_.GetValue<double>("setup", "zstart"));
-		real_t boxsize = cf_.GetValue<double>("setup", "BoxLength");
+		real_t astart   = 1.0/(1.0+cf_.GetValue<double>("setup", "zstart"));
+		real_t boxsize  = cf_.GetValue<double>("setup", "BoxLength");
+
+		out_eulerian_   = cf_.GetValueSafe<bool>("output", "generic_out_eulerian",false);
 
 	#if defined(USE_MPI)
         if( CONFIG::MPI_task_rank == 0 )
@@ -40,9 +43,17 @@ public:
 		HDFWriteGroupAttribute<double>( fname_, "Header", "astart", astart );
 	}
 
-    bool write_species_as_grid( const cosmo_species & ){ return true; }
+    output_type write_species_as( const cosmo_species &s ) const
+	{ 
+		if( out_eulerian_ )
+			return output_type::field_eulerian;
+		return output_type::field_lagrangian;
+	}
+
 	real_t position_unit() const { return 1.0; }
+	
 	real_t velocity_unit() const { return 1.0; }
+	
 	void write_grid_data(const Grid_FFT<real_t> &g, const cosmo_species &s, const fluid_component &c );
 };
 

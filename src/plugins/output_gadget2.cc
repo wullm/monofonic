@@ -49,9 +49,7 @@ public:
 		vunit_ = lunit_ / std::sqrt(astart);
 	}
 
-    bool write_species_as_grid( const cosmo_species & ){ return false; }
-
-    bool write_species_as_particles( const cosmo_species & ){ return true; }
+    output_type write_species_as( const cosmo_species & ) const { return output_type::particles; }
 
 	real_t position_unit() const { return lunit_; }
 

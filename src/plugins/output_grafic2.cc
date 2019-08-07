@@ -93,9 +93,10 @@ public:
         }
     }
 
-    bool write_species_as_grid(const cosmo_species &) { return true; }
-
-    bool write_species_as_particles(const cosmo_species &) { return false; }
+    output_type write_species_as(const cosmo_species &s) const {
+        if( s == cosmo_species::baryon ) return output_type::field_eulerian;
+        return output_type::field_lagrangian;
+     }
 
     real_t position_unit() const { return lunit_; }
 
