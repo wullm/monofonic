@@ -312,7 +312,9 @@ public:
 
     double std(void)
     {
-        real_t sum1{0.0}, sum2{0.0};
+        double sum1{0.0}, sum2{0.0};
+        size_t count{0};
+
 #pragma omp parallel for reduction(+ : sum1, sum2)
         for (size_t i = 0; i < sizes_[0]; ++i)
         {
@@ -326,15 +328,39 @@ public:
                 }
             }
         }
+        count = sizes_[0] * sizes_[1] * sizes_[2];
 
-        sum1 /= sizes_[0] * sizes_[1] * sizes_[2];
-        sum2 /= sizes_[0] * sizes_[1] * sizes_[2];
+#ifdef USE_MPI
+        double globsum1{0.0}, globsum2{0.0};
+        size_t globcount{0};
+
+        MPI_Allreduce( reinterpret_cast<const void*>(&sum1),
+                       reinterpret_cast<void*>(&globsum1), 
+                       1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD  );
+
+        MPI_Allreduce( reinterpret_cast<const void*>(&sum2),
+                       reinterpret_cast<void*>(&globsum2), 
+                       1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD  );
+
+        MPI_Allreduce( reinterpret_cast<const void*>(&count),
+                       reinterpret_cast<void*>(&globcount), 
+                       1, MPI_UNSIGNED_LONG_LONG, MPI_SUM, MPI_COMM_WORLD  );
+
+        sum1  = globsum1;
+        sum2  = globsum2;
+        count = globcount; 
+#endif 
+        sum1 /= count;
+        sum2 /= count;
 
         return std::sqrt(sum2 - sum1 * sum1);
     }
+
     double mean(void)
     {
-        real_t sum1{0.0};
+        double sum1{0.0};
+        size_t count{0};
+
 #pragma omp parallel for reduction(+ : sum1)
         for (size_t i = 0; i < sizes_[0]; ++i)
         {
@@ -347,8 +373,25 @@ public:
                 }
             }
         }
+        count = sizes_[0] * sizes_[1] * sizes_[2];
 
-        sum1 /= sizes_[0] * sizes_[1] * sizes_[2];
+#ifdef USE_MPI
+        double globsum1{0.0};
+        size_t globcount{0};
+
+        MPI_Allreduce( reinterpret_cast<const void*>(&sum1),
+                       reinterpret_cast<void*>(&globsum1), 
+                       1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD  );
+
+        MPI_Allreduce( reinterpret_cast<const void*>(&count),
+                       reinterpret_cast<void*>(&globcount), 
+                       1, MPI_UNSIGNED_LONG_LONG, MPI_SUM, MPI_COMM_WORLD  );
+
+        sum1  = globsum1;
+        count = globcount; 
+#endif 
+
+        sum1 /= count;
 
         return sum1;
     }

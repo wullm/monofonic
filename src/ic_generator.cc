@@ -255,18 +255,26 @@ int Run( ConfigFile& the_config )
             //======================================================================
             // initialise psi = exp(i Phi(1)/hbar)
             //======================================================================
-            real_t hbar= the_config.GetValueSafe<real_t>("sch", "hbar", 0.000001);
-            real_t dt = the_config.GetValueSafe<real_t>("sch", "dt", 1.0);
+            //real_t hbar= the_config.GetValueSafe<real_t>("sch", "hbar", 0.000001);
+            //real_t dt = the_config.GetValueSafe<real_t>("sch", "dt", 1.0);
+
+            
             phi.FourierTransformBackward();
+            real_t std_phi1 = phi.std();
+
+            const real_t hbar = std_phi1/(2.0*M_PI);
+            csoca::ilog << "SCPT : hbar = " << hbar << " from sigma(phi1) = " << std_phi1 << std::endl;
+            
             psi.assign_function_of_grids_r([&]( real_t p ){return std::exp(-ccomplex_t(0.0,1.0)/hbar*p);}, phi );
             phi.FourierTransformForward();
+
             //======================================================================
             // evolve wave-function (one drift step) psi = psi *exp(-i hbar *k^2 dt / 2)
             //======================================================================
             psi.FourierTransformForward();
-            psi.apply_function_k_dep([hbar,dt]( auto epsi, auto k ){
+            psi.apply_function_k_dep([hbar]( auto epsi, auto k ){
                 auto k2 = k.norm_squared();
-                return epsi * std::exp( - ccomplex_t(0.0,0.5)*hbar* k2 * dt);
+                return epsi * std::exp( - ccomplex_t(0.0,0.5)*hbar* k2);
             });
             psi.FourierTransformBackward();
 
