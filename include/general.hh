@@ -3,6 +3,7 @@
 #include <logger.hh>
 
 #include <complex>
+#include <map>
 
 #if defined(USE_MPI)
 #include <mpi.h>
@@ -23,6 +24,7 @@ using complex_t = fftw_complex;
 
 enum class fluid_component { density, vx, vy, vz, dx, dy, dz };
 enum class cosmo_species { dm, baryon, neutrino };
+extern std::map<cosmo_species,std::string> cosmo_species_name;
 
 using ccomplex_t = std::complex<real_t>;
 
