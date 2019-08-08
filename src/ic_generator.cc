@@ -278,7 +278,7 @@ int Run( ConfigFile& the_config )
                 real_t std_phi1 = phi.std();
 
                 const real_t hbar = 2.0 * M_PI/ngrid * (3*std_phi1/Dplus0); //3sigma, but this might rather depend on gradients of phi...
-                csoca::ilog << "SCPT : hbar = " << hbar << " from sigma(phi1) = " << std_phi1 << std::endl;
+                csoca::ilog << "Semiclassical PT : hbar = " << hbar << " from sigma(phi1) = " << std_phi1 << std::endl;
                 
                 if( LPTorder == 1 ){
                     psi.assign_function_of_grids_r([hbar,Dplus0]( real_t pphi ){
