@@ -122,7 +122,7 @@ int Run( ConfigFile& the_config )
     constexpr real_t epsilon_q1d{0.25};
 
     constexpr real_t epsy{0.25};
-    constexpr real_t epsz{0.25};
+    constexpr real_t epsz{0.0};//epsz{0.25};
     
     phi.FourierTransformBackward(false);
 
@@ -262,21 +262,38 @@ int Run( ConfigFile& the_config )
             phi.FourierTransformBackward();
             real_t std_phi1 = phi.std();
 
-            const real_t hbar = 2.0 * M_PI/ngrid * (3*std_phi1); //3sigma
+            const real_t hbar = 2.0 * M_PI/ngrid * (3*std_phi1/Dplus0); //3sigma, but this might rather depend on gradients of phi...
             csoca::ilog << "SCPT : hbar = " << hbar << " from sigma(phi1) = " << std_phi1 << std::endl;
             
-            psi.assign_function_of_grids_r([&]( real_t p ){return std::exp(-ccomplex_t(0.0,1.0)/hbar*p);}, phi );
-            phi.FourierTransformForward();
+            if( LPTorder == 1 ){
+                psi.assign_function_of_grids_r([hbar,Dplus0]( real_t pphi ){
+                    return std::exp(ccomplex_t(0.0,1.0/hbar) * (pphi / Dplus0));
+                }, phi );
+            }else if( LPTorder >= 2 ){
+                phi2.FourierTransformBackward();
+                // we don't have a 1/2 in the Veff term because pre-factor is already 3/7
+                psi.assign_function_of_grids_r([hbar,Dplus0]( real_t pphi, real_t pphi2 ){
+                    return std::exp(ccomplex_t(0.0,1.0/hbar) * (pphi + pphi2) / Dplus0);
+                }, phi, phi2 );
+                // phi2.FourierTransformBackward();
+            }
+            // phi.FourierTransformForward();
 
             //======================================================================
             // evolve wave-function (one drift step) psi = psi *exp(-i hbar *k^2 dt / 2)
             //======================================================================
             psi.FourierTransformForward();
-            psi.apply_function_k_dep([hbar]( auto epsi, auto k ){
+            psi.apply_function_k_dep([hbar,Dplus0]( auto epsi, auto k ){
                 auto k2 = k.norm_squared();
-                return epsi * std::exp( - ccomplex_t(0.0,0.5)*hbar* k2);
+                return epsi * std::exp( - ccomplex_t(0.0,0.5)*hbar* k2 * Dplus0);
             });
             psi.FourierTransformBackward();
+
+            if( LPTorder >= 2 ){
+                psi.assign_function_of_grids_r([&](auto ppsi, auto pphi2) {
+                    return ppsi * std::exp(ccomplex_t(0.0,1.0/hbar) * (pphi2) / Dplus0);
+                }, psi, phi2);
+            }
 
             //======================================================================
             // compute rho
