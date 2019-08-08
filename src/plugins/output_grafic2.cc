@@ -36,6 +36,7 @@ protected:
     bool bhavebaryons_;
     std::vector<float> data_buf_;
     std::string dirname_;
+    bool bUseSPT_;
 
 public:
     //! constructor
@@ -54,10 +55,11 @@ public:
             omegaL = cf_.GetValue<double>("cosmology", "Omega_L");
         uint32_t ngrid = cf_.GetValue<int>("setup", "GridRes");
 
+        bUseSPT_ = cf_.GetValueSafe<bool>("output", "grafic_use_SPT", false);
+        levelmin_ = uint32_t(std::log2(double(ngrid)) + 1e-6);
 
-        levelmin_ = uint32_t( std::log2( double(ngrid) ) + 1e-6 );
-
-        if( std::abs( std::pow( 2.0, levelmin_ )-double(ngrid) ) > 1e-4 ){
+        if (std::abs(std::pow(2.0, levelmin_) - double(ngrid)) > 1e-4)
+        {
             csoca::elog << interface_name_ << " plugin requires setup/GridRes to be power of 2!" << std::endl;
             abort();
         }
@@ -93,10 +95,12 @@ public:
         }
     }
 
-    output_type write_species_as(const cosmo_species &s) const {
-        if( s == cosmo_species::baryon ) return output_type::field_eulerian;
+    output_type write_species_as(const cosmo_species &s) const
+    {
+        if (s == cosmo_species::baryon && !bUseSPT_)
+            return output_type::field_eulerian;
         return output_type::field_lagrangian;
-     }
+    }
 
     real_t position_unit() const { return lunit_; }
 
@@ -158,8 +162,16 @@ std::string grafic2_output_plugin::get_file_name(const cosmo_species &s, const f
 
 void grafic2_output_plugin::write_grid_data(const Grid_FFT<real_t> &g, const cosmo_species &s, const fluid_component &c)
 {
+    // ignore certain components
+    if (s == cosmo_species::dm && c == fluid_component::density)
+        return;
+    if (s == cosmo_species::baryon && (c == fluid_component::dx || c == fluid_component::dy || c == fluid_component::dz))
+        return;
+
+    // get file name based on species and fluid component type
     std::string file_name = this->get_file_name(s, c);
 
+    // serialize parallel write
     for (int write_rank = 0; write_rank < CONFIG::MPI_task_size; ++write_rank)
     {
         if (write_rank == CONFIG::MPI_task_rank)
@@ -252,7 +264,7 @@ void grafic2_output_plugin::write_ramses_namelist(void) const
         << "/\n\n";
 
     // initialize with settings for naddref additional levels of refinement
-    unsigned naddref = 5; 
+    unsigned naddref = 5;
 
     // -- AMR_PARAMS -- //
     ofst << "&AMR_PARAMS\n"

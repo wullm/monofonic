@@ -274,10 +274,6 @@ int Run( ConfigFile& the_config )
                 //======================================================================
                 // initialise psi = exp(i Phi(1)/hbar)
                 //======================================================================
-                //real_t hbar= the_config.GetValueSafe<real_t>("sch", "hbar", 0.000001);
-                //real_t dt = the_config.GetValueSafe<real_t>("sch", "dt", 1.0);
-
-                
                 phi.FourierTransformBackward();
                 real_t std_phi1 = phi.std();
 
@@ -322,7 +318,6 @@ int Run( ConfigFile& the_config )
                     return pp;
                 }, psi);
 
-                // the_output_plugin->write_grid_data( rho, cosmo_species::dm, fluid_component::density );
                 the_output_plugin->write_grid_data( rho, this_species, fluid_component::density );
 
                 //======================================================================
@@ -343,13 +338,10 @@ int Run( ConfigFile& the_config )
                         }, psi, grad_psi, rho);
 
                     fluid_component fc = (idim==0)? fluid_component::vx : ((idim==1)? fluid_component::vy : fluid_component::vz );
-                    //the_output_plugin->write_grid_data( tmp, cosmo_species::dm, fc );
                     the_output_plugin->write_grid_data( tmp, this_species, fc );
                 }
             }
 
-            // if( the_output_plugin->write_species_as( cosmo_species::dm ) == output_type::particles 
-            // || the_output_plugin->write_species_as( cosmo_species::dm ) == output_type::field_lagrangian ){
             if( the_output_plugin->write_species_as( this_species ) == output_type::particles 
              || the_output_plugin->write_species_as( this_species ) == output_type::field_lagrangian )
             {
@@ -360,7 +352,6 @@ int Run( ConfigFile& the_config )
                 particle_container particles;
 
                 // if output plugin wants particles, then we need to store them, along with their IDs
-                //if( the_output_plugin->write_species_as( cosmo_species::dm ) == output_type::particles ){
                 if( the_output_plugin->write_species_as( this_species ) == output_type::particles )
                 {
                     // if particles occupy a bcc lattice, then there are 2 x N^3 of them...
@@ -408,7 +399,6 @@ int Run( ConfigFile& the_config )
                     tmp.FourierTransformBackward();
 
                     // if we write particle data, store particle data in particle structure
-                    // if( the_output_plugin->write_species_as( cosmo_species::dm ) == output_type::particles ){
                     if( the_output_plugin->write_species_as( this_species ) == output_type::particles )
                     {
                         for( size_t i=0,ipcount=0; i<tmp.size(0); ++i ){
@@ -438,7 +428,6 @@ int Run( ConfigFile& the_config )
                     else if( the_output_plugin->write_species_as( this_species ) == output_type::field_lagrangian )
                     {
                         fluid_component fc = (idim==0)? fluid_component::dx : ((idim==1)? fluid_component::dy : fluid_component::dz );
-                        // the_output_plugin->write_grid_data( tmp, cosmo_species::dm, fc );
                         the_output_plugin->write_grid_data( tmp, this_species, fc );
                     }
                 }
@@ -471,7 +460,6 @@ int Run( ConfigFile& the_config )
                     tmp.FourierTransformBackward();
 
                     // if we write particle data, store particle data in particle structure
-                    // if( the_output_plugin->write_species_as( cosmo_species::dm ) == output_type::particles ){
                     if( the_output_plugin->write_species_as( this_species ) == output_type::particles ){
                         for( size_t i=0,ipcount=0; i<tmp.size(0); ++i ){
                             for( size_t j=0; j<tmp.size(1); ++j){
@@ -493,32 +481,26 @@ int Run( ConfigFile& the_config )
                             }
                         }
                     }// otherwise write out the grid data directly to the output plugin
-                    // else if( the_output_plugin->write_species_as( cosmo_species::dm ) == output_type::field_lagrangian )
                     else if( the_output_plugin->write_species_as( this_species ) == output_type::field_lagrangian )
                     {
                         fluid_component fc = (idim==0)? fluid_component::vx : ((idim==1)? fluid_component::vy : fluid_component::vz );
-                        // the_output_plugin->write_grid_data( tmp, cosmo_species::dm, fc );
                         the_output_plugin->write_grid_data( tmp, this_species, fc );
                     }
                 }
-
-                // if( the_output_plugin->write_species_as( cosmo_species::dm ) == output_type::particles )
-                // {
-                //     the_output_plugin->write_particle_data( particles, cosmo_species::dm );
-                // }
 
                 if( the_output_plugin->write_species_as( this_species ) == output_type::particles )
                 {
                     the_output_plugin->write_particle_data( particles, this_species );
                 }
                 
-                // if( the_output_plugin->write_species_as_grid( cosmo_species::baryon ) )
-                // {
-                //     phi.FourierTransformForward();
-                //     phi.apply_Laplacian();
-                //     phi.FourierTransformBackward();
-                //     the_output_plugin->write_grid_data( phi, cosmo_species::baryon, fluid_component::density );
-                // }
+                if( the_output_plugin->write_species_as( this_species ) == output_type::field_lagrangian )
+                {
+                    // use density simply from 1st order SPT
+                    phi.FourierTransformForward();
+                    phi.apply_negative_Laplacian();
+                    phi.FourierTransformBackward();
+                    the_output_plugin->write_grid_data( phi, this_species, fluid_component::density );
+                }
             }
 
         }
