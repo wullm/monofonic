@@ -107,6 +107,7 @@ int main( int argc, char** argv )
     //------------------------------------------------------------------------------
     // Write code configuration to screen
     //------------------------------------------------------------------------------
+    csoca::ilog << std::setw(40) << std::left << "CPU vendor string" << " : " << SystemStat::Cpu().get_CPUstring() << std::endl;
 #if defined(USE_MPI)
     csoca::ilog << std::setw(40) << std::left << "MPI is enabled" << " : " << "yes (" << CONFIG::MPI_task_size << " tasks)" << std::endl;
 #else

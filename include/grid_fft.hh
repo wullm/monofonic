@@ -64,23 +64,22 @@ public:
     }
 
     const Grid_FFT<data_t>* get_grid( size_t ilevel ) const { return this; }
-    bool is_in_mask( size_t ilevel, size_t i, size_t j, size_t k ) const { return true; }
-    bool is_refined( size_t ilevel, size_t i, size_t j, size_t k ) const { return false; }
-    size_t levelmin() const {return 7;}
-    size_t levelmax() const {return 7;}
 
     void Setup();
 
+    //! return the (local) size of dimension i
     size_t size(size_t i) const { return sizes_[i]; }
 
-    // size_t local_size( void ) const { return n_[0] * n_[1] * n_[2]; }
+    //! return locally stored number of elements of field
     size_t local_size( void ) const { return local_0_size_ * n_[1] * n_[2]; }
 
+    //! return a bounding box of the global extent of the field
     const bounding_box<size_t>& get_global_range( void ) const
     {
         return global_range_;
     }
 
+    //! set all field elements to zero
     void zero()
     {
         #pragma omp parallel for
