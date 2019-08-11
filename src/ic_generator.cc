@@ -254,7 +254,7 @@ int Run( ConfigFile& the_config )
         const bool testing_compute_densities = false;
         if( testing_compute_densities )
         {
-            testing::output_potentials_and_densities( ngrid, boxlen, phi, phi2, phi3a, phi3b, A3 );
+            testing::output_potentials_and_densities( the_config, ngrid, boxlen, phi, phi2, phi3a, phi3b, A3 );
         }
         else
         {

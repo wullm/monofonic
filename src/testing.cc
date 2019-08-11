@@ -1,12 +1,14 @@
 #include <testing.hh>
+#include <unistd.h> // for unlink
 
 void output_potentials_and_densities(
+    ConfigFile& the_config,
     size_t ngrid, real_t boxlen,
-    const Grid_FFT<real_t> &phi,
-    const Grid_FFT<real_t> &phi2,
-    const Grid_FFT<real_t> &phi3a,
-    const Grid_FFT<real_t> &phi3b,
-    const std::array<Grid_FFT<real_t> *, 3> &A3)
+    Grid_FFT<real_t> &phi,
+    Grid_FFT<real_t> &phi2,
+    Grid_FFT<real_t> &phi3a,
+    Grid_FFT<real_t> &phi3b,
+    std::array<Grid_FFT<real_t> *, 3> &A3)
 {
     const std::string fname_hdf5 = the_config.GetValueSafe<std::string>("output", "fname_hdf5", "output.hdf5");
     const std::string fname_analysis = the_config.GetValueSafe<std::string>("output", "fbase_analysis", "output");
