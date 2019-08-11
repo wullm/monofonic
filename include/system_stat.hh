@@ -15,7 +15,6 @@
 #include <cstring>
 #include <cstdio>
 #include <strings.h>
-#include <libcpuid.h>
 #endif
 
 namespace SystemStat
