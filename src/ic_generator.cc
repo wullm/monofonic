@@ -277,7 +277,7 @@ int Run( ConfigFile& the_config )
                 phi.FourierTransformBackward();
                 real_t std_phi1 = phi.std();
 
-                const real_t hbar = 2.0 * M_PI/ngrid * (3*std_phi1/Dplus0); //3sigma, but this might rather depend on gradients of phi...
+                const real_t hbar = 2.0 * M_PI/ngrid * (2*std_phi1/Dplus0); //3sigma, but this might rather depend on gradients of phi...
                 csoca::ilog << "Semiclassical PT : hbar = " << hbar << " from sigma(phi1) = " << std_phi1 << std::endl;
                 
                 if( LPTorder == 1 ){
@@ -319,7 +319,9 @@ int Run( ConfigFile& the_config )
                 }, psi);
 
                 the_output_plugin->write_grid_data( rho, this_species, fluid_component::density );
-
+                rho.Write_PowerSpectrum("input_powerspec_sampled_evolved_semiclassical.txt");
+                rho.FourierTransformBackward();
+                
                 //======================================================================
                 // compute  v
                 //======================================================================
@@ -332,6 +334,7 @@ int Run( ConfigFile& the_config )
                         return x * ccomplex_t(0.0,k[idim]);
                     });
                     grad_psi.FourierTransformBackward();
+                    psi.FourierTransformBackward();
 
                     tmp.assign_function_of_grids_r([&](auto ppsi, auto pgrad_psi, auto prho) {
                             return std::real((std::conj(ppsi) * pgrad_psi - ppsi * std::conj(pgrad_psi)) / ccomplex_t(0.0, 2.0 / hbar)/(1.0+prho));
@@ -498,6 +501,7 @@ int Run( ConfigFile& the_config )
                     // use density simply from 1st order SPT
                     phi.FourierTransformForward();
                     phi.apply_negative_Laplacian();
+                    phi.Write_PowerSpectrum("input_powerspec_sampled_SPT.txt");
                     phi.FourierTransformBackward();
                     the_output_plugin->write_grid_data( phi, this_species, fluid_component::density );
                 }

@@ -29,18 +29,18 @@ public:
 
 		out_eulerian_   = cf_.GetValueSafe<bool>("output", "generic_out_eulerian",false);
 
-	#if defined(USE_MPI)
-        if( CONFIG::MPI_task_rank == 0 )
-            unlink(fname_.c_str());
-        MPI_Barrier( MPI_COMM_WORLD );
-	#else
-        unlink(fname_.c_str());
-	#endif
+		if( CONFIG::MPI_task_rank == 0 )
+		{
+			unlink(fname_.c_str());
+			HDFCreateFile( fname_ );
+			HDFCreateGroup( fname_, "Header" );
+			HDFWriteGroupAttribute<double>( fname_, "Header", "Boxsize", boxsize );
+			HDFWriteGroupAttribute<double>( fname_, "Header", "astart", astart );
+		}
 
-		HDFCreateFile( fname_ );
-		HDFCreateGroup( fname_, "Header" );
-		HDFWriteGroupAttribute<double>( fname_, "Header", "Boxsize", boxsize );
-		HDFWriteGroupAttribute<double>( fname_, "Header", "astart", astart );
+#if defined(USE_MPI)
+		MPI_Barrier( MPI_COMM_WORLD );
+#endif
 	}
 
     output_type write_species_as( const cosmo_species &s ) const
