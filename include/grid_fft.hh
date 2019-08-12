@@ -70,6 +70,10 @@ public:
     //! return the (local) size of dimension i
     size_t size(size_t i) const { return sizes_[i]; }
 
+    //! return the (global) size of dimension i
+    size_t global_size(size_t i) const { return n_[i]; }
+
+
     //! return locally stored number of elements of field
     size_t local_size( void ) const { return local_0_size_ * n_[1] * n_[2]; }
 

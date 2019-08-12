@@ -88,8 +88,8 @@ public:
         remove(dirname_.c_str());
         mkdir(dirname_.c_str(), 0777);
 
-        // write RAMSES namelist file?
-        if (cf_.GetValueSafe<bool>("output", "ramses_nml", true))
+        // write RAMSES namelist file? if so only with one task
+        if (cf_.GetValueSafe<bool>("output", "ramses_nml", true) && CONFIG::MPI_task_rank==0 )
         {
             write_ramses_namelist();
         }
@@ -176,12 +176,11 @@ void grafic2_output_plugin::write_grid_data(const Grid_FFT<real_t> &g, const cos
     {
         if (write_rank == CONFIG::MPI_task_rank)
         {
-            // std::cerr << "WRITING..." << std::endl;
             if (write_rank == 0)
             {
                 unlink(file_name.c_str());
             }
-            std::ofstream ofs(file_name.c_str(), std::ios::binary);
+            std::ofstream ofs(file_name.c_str(), std::ios::binary|std::ios::app);
 
             // write header or seek to end of file
             if (write_rank == 0)
@@ -191,16 +190,11 @@ void grafic2_output_plugin::write_grid_data(const Grid_FFT<real_t> &g, const cos
                 ofs.write(reinterpret_cast<const char *>(&header_), blocksz);
                 ofs.write(reinterpret_cast<const char *>(&blocksz), sizeof(int));
             }
-            else
-            {
-                // seek to end of file
-                ofs.seekp(std::ios::end);
-            }
 
             // check field size against buffer size...
             uint32_t ngrid = cf_.GetValue<int>("setup", "GridRes");
-            assert(g.size(0) == ngrid && g.size(1) == ngrid && g.size(2) == ngrid);
-
+            assert( g.global_size(0) == ngrid && g.global_size(1) == ngrid && g.global_size(2) == ngrid);
+            assert( g.size(1) == ngrid && g.size(2) == ngrid);
             // write actual field slice by slice
             for (size_t i = 0; i < g.size(0); ++i)
             {
@@ -286,5 +280,5 @@ void grafic2_output_plugin::write_ramses_namelist(void) const
 
 namespace
 {
-output_plugin_creator_concrete<grafic2_output_plugin> creator1("grafic2");
+  output_plugin_creator_concrete<grafic2_output_plugin> creator1("grafic2");
 } // namespace
