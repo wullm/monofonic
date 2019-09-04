@@ -46,7 +46,7 @@ public:
     ptrdiff_t local_0_size_, local_1_size_;
 
     Grid_FFT(const std::array<size_t, 3> &N, const std::array<real_t, 3> &L, space_t initialspace = rspace_id)
-        : n_(N), length_(L), space_(initialspace), data_(nullptr), cdata_(nullptr) 
+        : n_(N), length_(L), space_(initialspace), data_(nullptr), cdata_(nullptr)
     {
         //invalidated = true;
         this->Setup();
@@ -64,25 +64,49 @@ public:
     }
 
     const Grid_FFT<data_t>* get_grid( size_t ilevel ) const { return this; }
-    bool is_in_mask( size_t ilevel, size_t i, size_t j, size_t k ) const { return true; }
-    bool is_refined( size_t ilevel, size_t i, size_t j, size_t k ) const { return false; }
-    size_t levelmin() const {return 7;}
-    size_t levelmax() const {return 7;}
-    
+
     void Setup();
 
+    //! return the (local) size of dimension i
     size_t size(size_t i) const { return sizes_[i]; }
 
+    //! return the (global) size of dimension i
+    size_t global_size(size_t i) const { return n_[i]; }
+
+
+    //! return locally stored number of elements of field
+    size_t local_size( void ) const { return local_0_size_ * n_[1] * n_[2]; }
+
+    //! return a bounding box of the global extent of the field
     const bounding_box<size_t>& get_global_range( void ) const
     {
         return global_range_;
     }
 
+    //! set all field elements to zero
     void zero()
     {
         #pragma omp parallel for
         for (size_t i = 0; i < ntot_; ++i)
             data_[i] = 0.0;
+    }
+
+    void copy_from( const Grid_FFT<data_t>& g ){
+        // make sure the two fields are in the same space
+        if( g.space_ != this->space_ ){
+            if( this->space_ == kspace_id ) this->FourierTransformBackward(false);
+            else this->FourierTransformForward(false);
+        }
+
+        // make sure the two fields have the same dimensions
+        assert( this->n_[0] == g.n_[0] );
+        assert( this->n_[1] == g.n_[1] );
+        assert( this->n_[2] == g.n_[2] );
+
+        // now we can copy all the data over
+        #pragma omp parallel for
+        for (size_t i = 0; i < ntot_; ++i)
+            data_[i] = g.data_[i];
     }
 
     data_t& operator[]( size_t i ){
@@ -135,6 +159,30 @@ public:
         return rr;
     }
 
+    template <typename ft>
+    vec3<ft> get_unit_r(const size_t i, const size_t j, const size_t k) const
+    {
+        vec3<ft> rr;
+
+        rr[0] = real_t(i + local_0_start_) / real_t(n_[0]);
+        rr[1] = real_t(j) / real_t(n_[1]);
+        rr[2] = real_t(k) / real_t(n_[2]);
+
+        return rr;
+    }
+    
+    template <typename ft>
+    vec3<ft> get_unit_r_staggered(const size_t i, const size_t j, const size_t k) const
+    {
+        vec3<ft> rr;
+
+        rr[0] = (real_t(i + local_0_start_)+0.5) / real_t(n_[0]);
+        rr[1] = (real_t(j)+0.5) / real_t(n_[1]);
+        rr[2] = (real_t(k)+0.5) / real_t(n_[2]);
+
+        return rr;
+    }
+
     void cell_pos( int ilevel, size_t i, size_t j, size_t k, double* x ) const {
         x[0] = double(i+local_0_start_)/size(0);
         x[1] = double(j)/size(1);
@@ -143,6 +191,14 @@ public:
 
     size_t count_leaf_cells( int, int ) const {
         return n_[0]*n_[1]*n_[2];
+    }
+
+    real_t get_dx( int idim ) const{
+        return dx_[idim];
+    }
+
+    const std::array<real_t, 3>& get_dx( void ) const{
+        return dx_;
     }
 
     template <typename ft>
@@ -186,6 +242,16 @@ public:
         this->apply_function_k_dep([&](auto x, auto k) {
             real_t kmod2 = k.norm_squared();
             return -x*kmod2;
+        });
+        this->zero_DC_mode();
+        return *this;
+    }
+
+    Grid_FFT<data_t>& apply_negative_Laplacian( void ){
+        this->FourierTransformForward();
+        this->apply_function_k_dep([&](auto x, auto k) {
+            real_t kmod2 = k.norm_squared();
+            return x*kmod2;
         });
         this->zero_DC_mode();
         return *this;
@@ -259,7 +325,9 @@ public:
 
     double std(void)
     {
-        real_t sum1{0.0}, sum2{0.0};
+        double sum1{0.0}, sum2{0.0};
+        size_t count{0};
+
 #pragma omp parallel for reduction(+ : sum1, sum2)
         for (size_t i = 0; i < sizes_[0]; ++i)
         {
@@ -273,15 +341,39 @@ public:
                 }
             }
         }
+        count = sizes_[0] * sizes_[1] * sizes_[2];
 
-        sum1 /= sizes_[0] * sizes_[1] * sizes_[2];
-        sum2 /= sizes_[0] * sizes_[1] * sizes_[2];
+#ifdef USE_MPI
+        double globsum1{0.0}, globsum2{0.0};
+        size_t globcount{0};
+
+        MPI_Allreduce( reinterpret_cast<const void*>(&sum1),
+                       reinterpret_cast<void*>(&globsum1), 
+                       1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD  );
+
+        MPI_Allreduce( reinterpret_cast<const void*>(&sum2),
+                       reinterpret_cast<void*>(&globsum2), 
+                       1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD  );
+
+        MPI_Allreduce( reinterpret_cast<const void*>(&count),
+                       reinterpret_cast<void*>(&globcount), 
+                       1, MPI_UNSIGNED_LONG_LONG, MPI_SUM, MPI_COMM_WORLD  );
+
+        sum1  = globsum1;
+        sum2  = globsum2;
+        count = globcount; 
+#endif 
+        sum1 /= count;
+        sum2 /= count;
 
         return std::sqrt(sum2 - sum1 * sum1);
     }
+
     double mean(void)
     {
-        real_t sum1{0.0};
+        double sum1{0.0};
+        size_t count{0};
+
 #pragma omp parallel for reduction(+ : sum1)
         for (size_t i = 0; i < sizes_[0]; ++i)
         {
@@ -294,8 +386,25 @@ public:
                 }
             }
         }
+        count = sizes_[0] * sizes_[1] * sizes_[2];
 
-        sum1 /= sizes_[0] * sizes_[1] * sizes_[2];
+#ifdef USE_MPI
+        double globsum1{0.0};
+        size_t globcount{0};
+
+        MPI_Allreduce( reinterpret_cast<const void*>(&sum1),
+                       reinterpret_cast<void*>(&globsum1), 
+                       1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD  );
+
+        MPI_Allreduce( reinterpret_cast<const void*>(&count),
+                       reinterpret_cast<void*>(&globcount), 
+                       1, MPI_UNSIGNED_LONG_LONG, MPI_SUM, MPI_COMM_WORLD  );
+
+        sum1  = globsum1;
+        count = globcount; 
+#endif 
+
+        sum1 /= count;
 
         return sum1;
     }
@@ -320,6 +429,7 @@ public:
             }
         }
     }
+
 
     template <typename functional, typename grid1_t, typename grid2_t>
     void assign_function_of_grids_r(const functional &f, const grid1_t &g1, const grid2_t &g2)
@@ -373,6 +483,27 @@ public:
         }
     }
 
+    template <typename functional, typename grid_t>
+    void assign_function_of_grids_k(const functional &f, const grid_t &g)
+    {
+        assert(g.size(0) == size(0) && g.size(1) == size(1)); // && g.size(2) == size(2) );
+
+    #pragma omp parallel for
+        for (size_t i = 0; i < sizes_[0]; ++i)
+        {
+            for (size_t j = 0; j < sizes_[1]; ++j)
+            {
+                for (size_t k = 0; k < sizes_[2]; ++k)
+                {
+                    auto &elem = this->kelem(i, j, k);
+                    const auto &elemg = g.kelem(i, j, k);
+
+                    elem = f(elemg);
+                }
+            }
+        }
+    }
+
     template <typename functional>
     void apply_function_k_dep(const functional &f)
     {
@@ -415,13 +546,22 @@ public:
 
     void FillRandomReal(unsigned long int seed = 123456ul);
 
-    void Write_to_HDF5(std::string fname, std::string datasetname);
+    void Write_to_HDF5(std::string fname, std::string datasetname) const;
 
     void Write_PowerSpectrum( std::string ofname );
 
     void Compute_PowerSpectrum(std::vector<double> &bin_k, std::vector<double> &bin_P, std::vector<double> &bin_eP, std::vector<size_t> &bin_count, int nbins);
 
     void Write_PDF(std::string ofname, int nbins = 1000, double scale = 1.0, double rhomin = 1e-3, double rhomax = 1e3);
+
+    void stagger_field( void ){
+        FourierTransformForward();
+        apply_function_k_dep([&](auto x, auto k) -> ccomplex_t {
+            real_t shift = k[0]*get_dx()[0] + k[1]*get_dx()[1] + k[2]*get_dx()[2];
+            return x * std::exp(ccomplex_t(0.0,0.5*shift));
+        });
+        FourierTransformBackward();
+    }
 
     void zero_DC_mode(void)
     {
@@ -432,7 +572,7 @@ public:
             cdata_[0] = (data_t)0.0;
         }else{
             data_t sum = 0.0;
-// #pragma omp parallel for reduction(+:sum)
+            // #pragma omp parallel for reduction(+:sum)
             for (size_t i = 0; i < sizes_[0]; ++i)
             {
                 for (size_t j = 0; j < sizes_[1]; ++j)
@@ -451,7 +591,7 @@ public:
             #endif
             sum /= sizes_[0]*sizes_[1]*sizes_[2];
 
-#pragma omp parallel for 
+#pragma omp parallel for
             for (size_t i = 0; i < sizes_[0]; ++i)
             {
                 for (size_t j = 0; j < sizes_[1]; ++j)
@@ -464,4 +604,5 @@ public:
             }
         }
     }
+
 };

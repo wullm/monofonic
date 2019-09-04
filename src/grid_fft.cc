@@ -273,7 +273,7 @@ void create_hdf5(std::string Filename)
 }
 
 template <typename data_t>
-void Grid_FFT<data_t>::Write_to_HDF5(std::string fname, std::string datasetname)
+void Grid_FFT<data_t>::Write_to_HDF5(std::string fname, std::string datasetname) const
 {
   hid_t file_id, dset_id;    /* file and dataset identifiers */
   hid_t filespace, memspace; /* file and memory dataspace identifiers */
