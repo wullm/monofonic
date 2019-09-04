@@ -1,17 +1,27 @@
 cmake_minimum_required(VERSION 3.9)
-set(PRGNAME fastLPT)
-project(fastLPT)
+set(PRGNAME monofonIC)
+project(monofonIC)
 
 # include class submodule
 include(${CMAKE_CURRENT_SOURCE_DIR}/external/class.cmake)
 
-#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O0 -march=native -Wall -fno-omit-frame-pointer -g  -fsanitize=undefined")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -march=native -Wall -pedantic")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O0 -march=native -Wall -fno-omit-frame-pointer -g  -fsanitize=address")
+#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -march=native -Wall -pedantic")
 find_package(PkgConfig REQUIRED)
 
 set(CMAKE_MODULE_PATH
         "${CMAKE_MODULE_PATH};${PROJECT_SOURCE_DIR}")
 
+
+########################################################################################################################
+# Add a custom command that produces version.cc, plus
+# a dummy output that's not actually produced, in order
+# to force version.cmake to always be re-run before the build
+ADD_CUSTOM_COMMAND(
+    OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/version.cc
+           ${CMAKE_CURRENT_BINARY_DIR}/_version.cc
+    COMMAND ${CMAKE_COMMAND} -P
+            ${CMAKE_CURRENT_SOURCE_DIR}/version.cmake)
 
 ########################################################################################################################
 # OpenMP
@@ -53,6 +63,8 @@ include_directories(${PROJECT_SOURCE_DIR}/include)
 file( GLOB SOURCES
   ${PROJECT_SOURCE_DIR}/src/*.cc
 )
+# add the auto generated version file
+list (APPEND SOURCES "${CMAKE_CURRENT_BINARY_DIR}/version.cc")
 
 # PLUGINS
 # get all the *.cc files in the plugin subfolder
