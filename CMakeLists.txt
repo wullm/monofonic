@@ -5,8 +5,8 @@ project(monofonIC)
 # include class submodule
 include(${CMAKE_CURRENT_SOURCE_DIR}/external/class.cmake)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O0 -march=native -Wall -fno-omit-frame-pointer -g  -fsanitize=address")
-#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -march=native -Wall -pedantic")
+# set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O0 -march=native -Wall -fno-omit-frame-pointer -g  -fsanitize=address")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -march=native -Wall -pedantic")
 find_package(PkgConfig REQUIRED)
 
 set(CMAKE_MODULE_PATH
@@ -46,6 +46,7 @@ endif(ENABLE_MPI)
 
 
 # FFTW
+cmake_policy(SET CMP0074 NEW)
 find_package(FFTW3 REQUIRED)
 
 # GSL

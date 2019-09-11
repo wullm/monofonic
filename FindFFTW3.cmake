@@ -13,7 +13,7 @@
 #UNSET(FFTW_MPI_LIBRARY CACHE)
 
 FIND_PATH(FFTW_INCLUDE_DIR fftw3.h
-  PATHS ${FFTW3_DIR}
+  PATHS ${FFTW3_DIR} ENV ${FFTW3_ROOT}
   PATH_SUFFIXES include
   DOC "Directory where the FFTW3 header files are located"
   NO_DEFAULT_PATH
