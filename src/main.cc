@@ -49,24 +49,14 @@ int main( int argc, char** argv )
     }
 #endif
 
-    csoca::ilog //<< "                                __           _____ _____  \n"
-                //<< "                               / _|         |_   _/  __ \\ \n"
-                //<< "   _ __ ___   ___  _ __   ___ | |_ ___  _ __  | | | /  \\/ \n"
-                //<< "  | '_ ` _ \\ / _ \\| '_ \\ / _ \\|  _/ _ \\| '_ \\ | | | |     \n"
-                //<< "  | | | | | | (_) | | | | (_) | || (_) | | | || |_| \\__/\\ \n"
-                //<< "  |_| |_| |_|\\___/|_| |_|\\___/|_| \\___/|_| |_\\___/ \\____/ \n"
-                //<< "                                                          \n"                    
-                << "\n\n"                                                                                               
-                << "                                        .8888b                   dP  a88888b. \n"
+    csoca::ilog << "\n"
+                << " unigrid MUSIC                         .8888b                   dP  a88888b. \n"
                 << "                                        88   \"                   88 d8\'   `88 \n"
                 << "  88d8b.d8b. .d8888b. 88d888b. .d8888b. 88aaa  .d8888b. 88d888b. 88 88        \n"
                 << "  88\'`88\'`88 88\'  `88 88\'  `88 88\'  `88 88     88\'  `88 88\'  `88 88 88        \n"
                 << "  88  88  88 88.  .88 88    88 88.  .88 88     88.  .88 88    88 88 Y8.   .88 \n"
-                << "  dP  dP  dP `88888P\' dP    dP `88888P\' dP     `88888P\' dP    dP dP  Y88888P\' \n"
-                << "                                                                              \n"                                                                        
-                << "--------------------------------------------------------------------------------" << std::endl
-                << " version  : v0.1a" << std::endl
-                << " git rev. : " << GIT_REV << ", tag: " << GIT_TAG << ", branch: " << GIT_BRANCH <<"\n"
+                << "  dP  dP  dP `88888P\' dP    dP `88888P\' dP     `88888P\' dP    dP dP  Y88888P\' \n" << std::endl
+                << "version  : v0.1a, git rev. : " << GIT_REV << ", tag: " << GIT_TAG << ", branch: " << GIT_BRANCH << std::endl
                 << "--------------------------------------------------------------------------------" << std::endl;
     
 
@@ -123,16 +113,16 @@ int main( int argc, char** argv )
     //------------------------------------------------------------------------------
     // Write code configuration to screen
     //------------------------------------------------------------------------------
-    csoca::ilog << std::setw(40) << std::left << "CPU vendor string" << " : " << SystemStat::Cpu().get_CPUstring() << std::endl;
+    csoca::ilog << std::setw(32) << std::left << "CPU vendor string" << " : " << SystemStat::Cpu().get_CPUstring() << std::endl;
 #if defined(USE_MPI)
-    csoca::ilog << std::setw(40) << std::left << "MPI is enabled" << " : " << "yes (" << CONFIG::MPI_task_size << " tasks)" << std::endl;
+    csoca::ilog << std::setw(32) << std::left << "MPI is enabled" << " : " << "yes (" << CONFIG::MPI_task_size << " tasks)" << std::endl;
 #else
-    csoca::ilog << std::setw(40) << std::left << "MPI is enabled" << " : " << "no" << std::endl;
+    csoca::ilog << std::setw(32) << std::left << "MPI is enabled" << " : " << "no" << std::endl;
 #endif
-    csoca::ilog << std::setw(40) << std::left << "MPI supports multi-threading" << " : " << (CONFIG::MPI_threads_ok? "yes" : "no") << std::endl;
-    csoca::ilog << std::setw(40) << std::left << "Available HW threads / task" << " : " << std::thread::hardware_concurrency() << " (" << CONFIG::num_threads << " used)" << std::endl;
-    csoca::ilog << std::setw(40) << std::left << "FFTW supports multi-threading" << " : " << (CONFIG::FFTW_threads_ok? "yes" : "no") << std::endl;
-    csoca::ilog << std::setw(40) << std::left << "FFTW mode" << " : ";
+    csoca::ilog << std::setw(32) << std::left << "MPI supports multi-threading" << " : " << (CONFIG::MPI_threads_ok? "yes" : "no") << std::endl;
+    csoca::ilog << std::setw(32) << std::left << "Available HW threads / task" << " : " << std::thread::hardware_concurrency() << " (" << CONFIG::num_threads << " used)" << std::endl;
+    csoca::ilog << std::setw(32) << std::left << "FFTW supports multi-threading" << " : " << (CONFIG::FFTW_threads_ok? "yes" : "no") << std::endl;
+    csoca::ilog << std::setw(32) << std::left << "FFTW mode" << " : ";
 #if defined(FFTW_MODE_PATIENT)
 	csoca::ilog << "FFTW_PATIENT" << std::endl;
 #elif defined(FFTW_MODE_MEASURE)
@@ -155,9 +145,9 @@ int main( int argc, char** argv )
     MPI_Allreduce(&minupmem,&temp,1,MPI_UNSIGNED,MPI_MIN,MPI_COMM_WORLD); minupmem = temp;
     MPI_Allreduce(&maxupmem,&temp,1,MPI_UNSIGNED,MPI_MAX,MPI_COMM_WORLD); maxupmem = temp;
 #endif
-    csoca::ilog << std::setw(40) << std::left << "Total system memory (phys)" << " : " << mem.get_TotalMem()/1024/1024 << " Mb" << std::endl;
-    csoca::ilog << std::setw(40) << std::left << "Used system memory (phys)" << " : " << "Max: " << maxupmem << " Mb, Min: " << minupmem << " Mb" << std::endl;
-    csoca::ilog << std::setw(40) << std::left << "Available system memory (phys)" << " : " <<  "Max: " << maxpmem << " Mb, Min: " << minpmem << " Mb" << std::endl;
+    csoca::ilog << std::setw(32) << std::left << "Total system memory (phys)" << " : " << mem.get_TotalMem()/1024/1024 << " Mb" << std::endl;
+    csoca::ilog << std::setw(32) << std::left << "Used system memory (phys)" << " : " << "Max: " << maxupmem << " Mb, Min: " << minupmem << " Mb" << std::endl;
+    csoca::ilog << std::setw(32) << std::left << "Available system memory (phys)" << " : " <<  "Max: " << maxpmem << " Mb, Min: " << minpmem << " Mb" << std::endl;
     
     //--------------------------------------------------------------------
     // Initialise plug-ins
@@ -184,6 +174,7 @@ int main( int argc, char** argv )
     MPI_Finalize();
 #endif
 
+    csoca::ilog << "--------------------------------------------------------------------------------" << std::endl;
     csoca::ilog << "Done." << std::endl;
 
     return 0;

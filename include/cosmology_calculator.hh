@@ -62,7 +62,6 @@ public:
     explicit CosmologyCalculator(ConfigFile &cf)
     : cosmo_param_(cf)
     {   
-        csoca::ilog << "-----------------------------------------------------------------------------" << std::endl;
         transfer_function_ = std::move(select_TransferFunction_plugin(cf));
         transfer_function_->intialise();
         cosmo_param_.pnorm = this->ComputePNorm();

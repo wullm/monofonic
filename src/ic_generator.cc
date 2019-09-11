@@ -32,29 +32,47 @@ int Initialise( ConfigFile& the_config )
 
 int Run( ConfigFile& the_config )
 {
-    //--------------------------------------------------------------------
+    //---------------------------------------------------------------------------------------------------------
     // Read run parameters
-    //--------------------------------------------------------------------
+    //---------------------------------------------------------------------------------------------------------
 
+    //! number of resolution elements per dimension
     const size_t ngrid = the_config.GetValue<size_t>("setup", "GridRes");
+
+    //! box side length in h-1 Mpc
     const real_t boxlen = the_config.GetValue<double>("setup", "BoxLength");
+
+    //! starting redshift
     const real_t zstart = the_config.GetValue<double>("setup", "zstart");
+
+    //! order of the LPT approximation 
     int LPTorder = the_config.GetValueSafe<double>("setup","LPTorder",100);
+
+    //! initialice particles on a bcc lattice instead of a standard sc lattice (doubles number of particles) 
     const bool initial_bcc_lattice = the_config.GetValueSafe<bool>("setup","BCClattice",false);
-    const bool bSymplecticPT = the_config.GetValueSafe<bool>("setup","SymplecticPT",false);
+
+    //! apply fixing of the complex mode amplitude following Angulo & Pontzen (2016) [https://arxiv.org/abs/1603.05253]
+    const bool bDoFixing = the_config.GetValueSafe<bool>("setup", "DoFixing", false);
+
+    //! do baryon ICs?
+    const bool bDoBaryons = the_config.GetValueSafe<bool>("setup", "DoBaryons", false );
+
+    //---------------------------------------------------------------------------------------------------------
+
     const real_t astart = 1.0/(1.0+zstart);
     const real_t volfac(std::pow(boxlen / ngrid / 2.0 / M_PI, 1.5));
 
-    const bool bDoFixing = the_config.GetValueSafe<bool>("setup", "DoFixing",false);
+
+    // Anisotropy parameters for beyond box tidal field 
 
     the_cosmo_calc->WritePowerspectrum(astart, "input_powerspec.txt" );
 
-    csoca::ilog << "-----------------------------------------------------------------------------" << std::endl;
+    //csoca::ilog << "-----------------------------------------------------------------------------" << std::endl;
 
-    if( bSymplecticPT && LPTorder!=2 ){
-        csoca::wlog << "SymplecticPT has been selected and will overwrite chosen order of LPT to 2" << std::endl;
-        LPTorder = 2;
-    }
+    // if( bSymplecticPT && LPTorder!=2 ){
+    //     csoca::wlog << "SymplecticPT has been selected and will overwrite chosen order of LPT to 2" << std::endl;
+    //     LPTorder = 2;
+    // }
 
     //--------------------------------------------------------------------
     // Compute LPT time coefficients
@@ -102,14 +120,14 @@ int Run( ConfigFile& the_config )
     std::vector<cosmo_species> species_list;
 
     species_list.push_back( cosmo_species::dm );
-    species_list.push_back( cosmo_species::baryon );
+    if( bDoBaryons ) species_list.push_back( cosmo_species::baryon );
 
+    csoca::ilog << "--------------------------------------------------------------------------------" << std::endl;
 
     for( auto& this_species : species_list )
     {
-        csoca::ilog << "-----------------------------------------------------------------------------" << std::endl;
-        csoca::ilog << ">> Computing ICs for species \'" << cosmo_species_name[this_species] << "\'" << std::endl;
-        csoca::ilog << "-----------------------------------------------------------------------------" << std::endl;
+        csoca::ilog << std::endl
+                    << ">>> Computing ICs for species \'" << cosmo_species_name[this_species] << "\' <<<\n" << std::endl;
 
         //======================================================================
         //... compute 1LPT displacement potential ....
@@ -163,7 +181,7 @@ int Run( ConfigFile& the_config )
         //======================================================================
         //... compute 2LPT displacement potential ....
         //======================================================================
-        if( LPTorder > 1 || bSymplecticPT ){
+        if( LPTorder > 1 ){
             wtime = get_wtime();
             csoca::ilog << std::setw(40) << std::setfill('.') << std::left << "Computing phi(2) term" << std::flush;
             phi2.FourierTransformForward(false);
@@ -179,7 +197,7 @@ int Run( ConfigFile& the_config )
         //======================================================================
         //... compute 3LPT displacement potential
         //======================================================================
-        if( LPTorder > 2  && !bSymplecticPT ){
+        if( LPTorder > 2 ){
             //... 3a term ...
             wtime = get_wtime();
             csoca::ilog << std::setw(40) << std::setfill('.') << std::left << "Computing phi(3a) term" << std::flush;
@@ -222,20 +240,20 @@ int Run( ConfigFile& the_config )
             csoca::ilog << std::setw(20) << std::setfill(' ') << std::right << "took " << get_wtime()-wtime << "s" << std::endl;
         }
 
-        if( bSymplecticPT ){
-            //... transversal term ...
-            wtime = get_wtime();
-            csoca::ilog << std::setw(40) << std::setfill('.') << std::left << "Computing vNLO(3) term" << std::flush;
-            for( int idim=0; idim<3; ++idim ){
-                // cyclic rotations of indices
-                A3[idim]->FourierTransformForward(false);
-                Conv.convolve_Gradient_and_Hessian( phi, {0},  phi2, {idim,0}, assign_to(*A3[idim]) );
-                Conv.convolve_Gradient_and_Hessian( phi, {1},  phi2, {idim,1}, add_to(*A3[idim]) );
-                Conv.convolve_Gradient_and_Hessian( phi, {2},  phi2, {idim,2}, add_to(*A3[idim]) );
-            }
-            csoca::ilog << std::setw(20) << std::setfill(' ') << std::right << "took " << get_wtime()-wtime << "s" << std::endl;
+        // if( bSymplecticPT ){
+        //     //... transversal term ...
+        //     wtime = get_wtime();
+        //     csoca::ilog << std::setw(40) << std::setfill('.') << std::left << "Computing vNLO(3) term" << std::flush;
+        //     for( int idim=0; idim<3; ++idim ){
+        //         // cyclic rotations of indices
+        //         A3[idim]->FourierTransformForward(false);
+        //         Conv.convolve_Gradient_and_Hessian( phi, {0},  phi2, {idim,0}, assign_to(*A3[idim]) );
+        //         Conv.convolve_Gradient_and_Hessian( phi, {1},  phi2, {idim,1}, add_to(*A3[idim]) );
+        //         Conv.convolve_Gradient_and_Hessian( phi, {2},  phi2, {idim,2}, add_to(*A3[idim]) );
+        //     }
+        //     csoca::ilog << std::setw(20) << std::setfill(' ') << std::right << "took " << get_wtime()-wtime << "s" << std::endl;
 
-        }
+        // }
 
         ///... scale all potentials with respective growth factors
         phi *= g1;
@@ -246,7 +264,7 @@ int Run( ConfigFile& the_config )
         (*A3[1]) *= g3c;
         (*A3[2]) *= g3c;
 
-        csoca::ilog << "-----------------------------------------------------------------------------" << std::endl;
+        csoca::ilog << "--------------------------------------------------------------------------------" << std::endl;
 
         ///////////////////////////////////////////////////////////////////////
         // we store the densities here if we compute them
@@ -450,13 +468,12 @@ int Run( ConfigFile& the_config )
                                 auto kk = phi.get_k<real_t>(i,j,k);
                                 size_t idx = phi.get_idx(i,j,k);
                                 // divide by Lbox, because displacement is in box units for output plugin
-                                if(!bSymplecticPT){
                                     auto phitot_v = vfac1 * phi.kelem(idx) + vfac2 * phi2.kelem(idx) + vfac3 * (phi3a.kelem(idx) + phi3b.kelem(idx));
                                     tmp.kelem(idx) = vunit*ccomplex_t(0.0,1.0) * (kk[idim] * phitot_v + vfac3 * (kk[idimp] * A3[idimpp]->kelem(idx) - kk[idimpp] * A3[idimp]->kelem(idx)) ) / boxlen;
-                                }else{
-                                    auto phitot_v = vfac1 * phi.kelem(idx) + vfac2 * phi2.kelem(idx);
-                                    tmp.kelem(idx) = vunit*ccomplex_t(0.0,1.0) * (kk[idim] * phitot_v) + vfac1 * A3[idim]->kelem(idx);
-                                }
+                                // if( bSymplecticPT){
+                                //     auto phitot_v = vfac1 * phi.kelem(idx) + vfac2 * phi2.kelem(idx);
+                                //     tmp.kelem(idx) = vunit*ccomplex_t(0.0,1.0) * (kk[idim] * phitot_v) + vfac1 * A3[idim]->kelem(idx);
+                                // }
                             }
                         }
                     }
