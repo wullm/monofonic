@@ -179,6 +179,13 @@ public:
         return (a2 * Hp + 2.5 / (a * Dp * H)) * 100.0;
     }
 
+    //! Compute the growth rate dlogD+ / dloga
+    real_t CalcGrowthRate( real_t a ) const
+    {
+        real_t H = H_of_a(a, (void *)&cosmo_param_);
+        return this->CalcVFact(a) / (a*a*H);
+    }
+
     //! Integrand for the sigma_8 normalization of the power spectrum
     /*! Returns the value of the primordial power spectrum multiplied with 
      the transfer function and the window function of 8 Mpc/h at wave number k */

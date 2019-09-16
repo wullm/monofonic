@@ -36,34 +36,64 @@ int Run( ConfigFile& the_config )
     // Read run parameters
     //---------------------------------------------------------------------------------------------------------
 
+    //---------------------------------------------------------------------------------------------------------
     //! number of resolution elements per dimension
     const size_t ngrid = the_config.GetValue<size_t>("setup", "GridRes");
 
+    //---------------------------------------------------------------------------------------------------------
     //! box side length in h-1 Mpc
     const real_t boxlen = the_config.GetValue<double>("setup", "BoxLength");
 
+    //---------------------------------------------------------------------------------------------------------
     //! starting redshift
     const real_t zstart = the_config.GetValue<double>("setup", "zstart");
 
+    //---------------------------------------------------------------------------------------------------------
     //! order of the LPT approximation 
     int LPTorder = the_config.GetValueSafe<double>("setup","LPTorder",100);
 
+    //---------------------------------------------------------------------------------------------------------
     //! initialice particles on a bcc lattice instead of a standard sc lattice (doubles number of particles) 
     const bool initial_bcc_lattice = the_config.GetValueSafe<bool>("setup","BCClattice",false);
 
+    //---------------------------------------------------------------------------------------------------------
     //! apply fixing of the complex mode amplitude following Angulo & Pontzen (2016) [https://arxiv.org/abs/1603.05253]
     const bool bDoFixing = the_config.GetValueSafe<bool>("setup", "DoFixing", false);
 
+    //---------------------------------------------------------------------------------------------------------
     //! do baryon ICs?
     const bool bDoBaryons = the_config.GetValueSafe<bool>("setup", "DoBaryons", false );
+
+    //---------------------------------------------------------------------------------------------------------
+    //! add beyond box tidal field modes following Schmidt et al. (2018) [https://arxiv.org/abs/1803.03274]
+    bool bAddExternalTides = the_config.ContainsKey("cosmology", "LSS_aniso_lx") 
+                           & the_config.ContainsKey("cosmology", "LSS_aniso_ly") 
+                           & the_config.ContainsKey("cosmology", "LSS_aniso_lz");
+
+    if( bAddExternalTides && !(  the_config.ContainsKey("cosmology", "LSS_aniso_lx") 
+                               | the_config.ContainsKey("cosmology", "LSS_aniso_ly") 
+                               | the_config.ContainsKey("cosmology", "LSS_aniso_lz") ))
+    {
+        csoca::elog << "Not all dimensions of LSS_aniso_l{x,y,z} specified! Will ignore external tidal field!" << std::endl;
+        bAddExternalTides = false;
+    }
+    // Anisotropy parameters for beyond box tidal field 
+    real_t lss_aniso_lx = the_config.GetValueSafe<double>("cosmology", "LSS_aniso_lx", 0.0);
+    real_t lss_aniso_ly = the_config.GetValueSafe<double>("cosmology", "LSS_aniso_ly", 0.0);
+    real_t lss_aniso_lz = the_config.GetValueSafe<double>("cosmology", "LSS_aniso_lz", 0.0);
+
+    if( std::abs(lss_aniso_lx+lss_aniso_ly+lss_aniso_lz) > 1e-10 ){
+        csoca::elog << "External tidal field is not trace-free! Will subtract trace!" << std::endl;
+        auto tr_l_3 = (lss_aniso_lx+lss_aniso_ly+lss_aniso_lz)/3.0;
+        lss_aniso_lx -= tr_l_3;
+        lss_aniso_ly -= tr_l_3;
+        lss_aniso_lz -= tr_l_3;
+    }
 
     //---------------------------------------------------------------------------------------------------------
 
     const real_t astart = 1.0/(1.0+zstart);
     const real_t volfac(std::pow(boxlen / ngrid / 2.0 / M_PI, 1.5));
-
-
-    // Anisotropy parameters for beyond box tidal field 
 
     the_cosmo_calc->WritePowerspectrum(astart, "input_powerspec.txt" );
 
@@ -89,6 +119,11 @@ int Run( ConfigFile& the_config )
     const double vfac1 =  vfac;
     const double vfac2 =  2*vfac1;
     const double vfac3 =  3*vfac1;
+
+    // coefficients needed for anisotropic external tides
+    const double Omega_m_of_a = the_cosmo_calc->cosmo_param_.Omega_m / std::pow(astart,3);
+    const double f1 = the_cosmo_calc->CalcGrowthRate(astart);
+    const double f_aniso = -4.0/3.0 * f1 * f1 / Omega_m_of_a;
 
     //--------------------------------------------------------------------
     // Create arrays
@@ -123,7 +158,7 @@ int Run( ConfigFile& the_config )
     if( bDoBaryons ) species_list.push_back( cosmo_species::baryon );
 
     csoca::ilog << "--------------------------------------------------------------------------------" << std::endl;
-
+    
     for( auto& this_species : species_list )
     {
         csoca::ilog << std::endl
@@ -190,8 +225,21 @@ int Run( ConfigFile& the_config )
             Conv.convolve_Hessians( phi, {0,1}, phi, {0,1}, subtract_from(phi2) );
             Conv.convolve_Hessians( phi, {0,2}, phi, {0,2}, subtract_from(phi2) );
             Conv.convolve_Hessians( phi, {1,2}, phi, {1,2}, subtract_from(phi2) );
+
+            if( bAddExternalTides ){
+                phi2.assign_function_of_grids_kdep([&]( vec3<real_t> kvec, ccomplex_t pphi, ccomplex_t pphi2 ){
+                    // sign in front of f_aniso is reversed since phi1 = -phi
+                    return pphi2 + f_aniso * (kvec[0]*kvec[0]*lss_aniso_lx+kvec[1]*kvec[1]*lss_aniso_ly+kvec[2]*kvec[2]*lss_aniso_lz)*pphi;
+                }, phi, phi2 );
+            }
+
             phi2.apply_InverseLaplacian();
             csoca::ilog << std::setw(20) << std::setfill(' ') << std::right << "took " << get_wtime()-wtime << "s" << std::endl;
+
+            if( bAddExternalTides ){
+                csoca::wlog << "Added external tide contribution to phi(2)... Make sure your N-body code supports this!" << std::endl;
+                csoca::wlog << " lss_aniso = (" << lss_aniso_lx << ", " << lss_aniso_ly << ", " << lss_aniso_lz << ")" << std::endl;
+            }
         }
 
         //======================================================================
@@ -468,8 +516,8 @@ int Run( ConfigFile& the_config )
                                 auto kk = phi.get_k<real_t>(i,j,k);
                                 size_t idx = phi.get_idx(i,j,k);
                                 // divide by Lbox, because displacement is in box units for output plugin
-                                    auto phitot_v = vfac1 * phi.kelem(idx) + vfac2 * phi2.kelem(idx) + vfac3 * (phi3a.kelem(idx) + phi3b.kelem(idx));
-                                    tmp.kelem(idx) = vunit*ccomplex_t(0.0,1.0) * (kk[idim] * phitot_v + vfac3 * (kk[idimp] * A3[idimpp]->kelem(idx) - kk[idimpp] * A3[idimp]->kelem(idx)) ) / boxlen;
+                                auto phitot_v = vfac1 * phi.kelem(idx) + vfac2 * phi2.kelem(idx) + vfac3 * (phi3a.kelem(idx) + phi3b.kelem(idx));
+                                tmp.kelem(idx) = vunit*ccomplex_t(0.0,1.0) * (kk[idim] * phitot_v + vfac3 * (kk[idimp] * A3[idimpp]->kelem(idx) - kk[idimpp] * A3[idimp]->kelem(idx)) ) / boxlen;
                                 // if( bSymplecticPT){
                                 //     auto phitot_v = vfac1 * phi.kelem(idx) + vfac2 * phi2.kelem(idx);
                                 //     tmp.kelem(idx) = vunit*ccomplex_t(0.0,1.0) * (kk[idim] * phitot_v) + vfac1 * A3[idim]->kelem(idx);
