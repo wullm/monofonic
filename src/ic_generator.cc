@@ -78,16 +78,18 @@ int Run( ConfigFile& the_config )
         bAddExternalTides = false;
     }
     // Anisotropy parameters for beyond box tidal field 
-    real_t lss_aniso_lx = the_config.GetValueSafe<double>("cosmology", "LSS_aniso_lx", 0.0);
-    real_t lss_aniso_ly = the_config.GetValueSafe<double>("cosmology", "LSS_aniso_ly", 0.0);
-    real_t lss_aniso_lz = the_config.GetValueSafe<double>("cosmology", "LSS_aniso_lz", 0.0);
-
-    if( std::abs(lss_aniso_lx+lss_aniso_ly+lss_aniso_lz) > 1e-10 ){
+    std::array<real_t,3> lss_aniso_lambda = {
+        the_config.GetValueSafe<double>("cosmology", "LSS_aniso_lx", 0.0),
+        the_config.GetValueSafe<double>("cosmology", "LSS_aniso_ly", 0.0),
+        the_config.GetValueSafe<double>("cosmology", "LSS_aniso_lz", 0.0),
+    };  
+    
+    if( std::abs(lss_aniso_lambda[0]+lss_aniso_lambda[1]+lss_aniso_lambda[2]) > 1e-10 ){
         csoca::elog << "External tidal field is not trace-free! Will subtract trace!" << std::endl;
-        auto tr_l_3 = (lss_aniso_lx+lss_aniso_ly+lss_aniso_lz)/3.0;
-        lss_aniso_lx -= tr_l_3;
-        lss_aniso_ly -= tr_l_3;
-        lss_aniso_lz -= tr_l_3;
+        auto tr_l_3 = (lss_aniso_lambda[0]+lss_aniso_lambda[1]+lss_aniso_lambda[2])/3.0;
+        lss_aniso_lambda[0] -= tr_l_3;
+        lss_aniso_lambda[1] -= tr_l_3;
+        lss_aniso_lambda[2] -= tr_l_3;
     }
 
     //---------------------------------------------------------------------------------------------------------
@@ -125,6 +127,12 @@ int Run( ConfigFile& the_config )
     const double Omega_m_of_a = the_cosmo_calc->cosmo_param_.Omega_m * ai3 / (the_cosmo_calc->cosmo_param_.Omega_m * ai3 + the_cosmo_calc->cosmo_param_.Omega_DE);
     const double f1 = the_cosmo_calc->CalcGrowthRate(astart);
     const double f_aniso = -4.0/3.0 * f1 * f1 / Omega_m_of_a;
+
+    const std::array<real_t,3> lss_aniso_alpha = {
+        1.0 - Dplus0 * lss_aniso_lambda[0],
+        1.0 - Dplus0 * lss_aniso_lambda[1],
+        1.0 - Dplus0 * lss_aniso_lambda[2],
+    };
 
     //--------------------------------------------------------------------
     // Create arrays
@@ -230,7 +238,7 @@ int Run( ConfigFile& the_config )
             if( bAddExternalTides ){
                 phi2.assign_function_of_grids_kdep([&]( vec3<real_t> kvec, ccomplex_t pphi, ccomplex_t pphi2 ){
                     // sign in front of f_aniso is reversed since phi1 = -phi
-                    return pphi2 + f_aniso * (kvec[0]*kvec[0]*lss_aniso_lx+kvec[1]*kvec[1]*lss_aniso_ly+kvec[2]*kvec[2]*lss_aniso_lz)*pphi;
+                    return pphi2 + f_aniso * (kvec[0]*kvec[0]*lss_aniso_lambda[0]+kvec[1]*kvec[1]*lss_aniso_lambda[1]+kvec[2]*kvec[2]*lss_aniso_lambda[2])*pphi;
                 }, phi, phi2 );
             }
 
@@ -239,7 +247,7 @@ int Run( ConfigFile& the_config )
 
             if( bAddExternalTides ){
                 csoca::wlog << "Added external tide contribution to phi(2)... Make sure your N-body code supports this!" << std::endl;
-                csoca::wlog << " lss_aniso = (" << lss_aniso_lx << ", " << lss_aniso_ly << ", " << lss_aniso_lz << ")" << std::endl;
+                csoca::wlog << " lss_aniso = (" << lss_aniso_lambda[0] << ", " << lss_aniso_lambda[1] << ", " << lss_aniso_lambda[2] << ")" << std::endl;
             }
         }
 
@@ -519,6 +527,11 @@ int Run( ConfigFile& the_config )
                                 // divide by Lbox, because displacement is in box units for output plugin
                                 auto phitot_v = vfac1 * phi.kelem(idx) + vfac2 * phi2.kelem(idx) + vfac3 * (phi3a.kelem(idx) + phi3b.kelem(idx));
                                 tmp.kelem(idx) = vunit*ccomplex_t(0.0,1.0) * (kk[idim] * phitot_v + vfac3 * (kk[idimp] * A3[idimpp]->kelem(idx) - kk[idimpp] * A3[idimp]->kelem(idx)) ) / boxlen;
+
+                                if( bAddExternalTides ){
+                                    // modify velocities with anisotropic expansion factor**2
+                                    tmp.kelem(idx) *= std::pow(lss_aniso_alpha[idim],2.0);
+                                }
                                 // if( bSymplecticPT){
                                 //     auto phitot_v = vfac1 * phi.kelem(idx) + vfac2 * phi2.kelem(idx);
                                 //     tmp.kelem(idx) = vunit*ccomplex_t(0.0,1.0) * (kk[idim] * phitot_v) + vfac1 * A3[idim]->kelem(idx);
