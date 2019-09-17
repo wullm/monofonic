@@ -121,7 +121,8 @@ int Run( ConfigFile& the_config )
     const double vfac3 =  3*vfac1;
 
     // coefficients needed for anisotropic external tides
-    const double Omega_m_of_a = the_cosmo_calc->cosmo_param_.Omega_m / std::pow(astart,3);
+    const double ai3 = std::pow(astart,-3);
+    const double Omega_m_of_a = the_cosmo_calc->cosmo_param_.Omega_m * ai3 / (the_cosmo_calc->cosmo_param_.Omega_m * ai3 + the_cosmo_calc->cosmo_param_.Omega_DE);
     const double f1 = the_cosmo_calc->CalcGrowthRate(astart);
     const double f_aniso = -4.0/3.0 * f1 * f1 / Omega_m_of_a;
 

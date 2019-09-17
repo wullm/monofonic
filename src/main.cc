@@ -50,7 +50,7 @@ int main( int argc, char** argv )
 #endif
 
     csoca::ilog << "\n"
-                << " unigrid MUSIC                         .8888b                   dP  a88888b. \n"
+                << " unigrid MUSIC                          .8888b                   dP  a88888b. \n"
                 << "                                        88   \"                   88 d8\'   `88 \n"
                 << "  88d8b.d8b. .d8888b. 88d888b. .d8888b. 88aaa  .d8888b. 88d888b. 88 88        \n"
                 << "  88\'`88\'`88 88\'  `88 88\'  `88 88\'  `88 88     88\'  `88 88\'  `88 88 88        \n"

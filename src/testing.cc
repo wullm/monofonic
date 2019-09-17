@@ -1,6 +1,8 @@
 #include <testing.hh>
 #include <unistd.h> // for unlink
 
+namespace testing{
+
 void output_potentials_and_densities(
     ConfigFile& the_config,
     size_t ngrid, real_t boxlen,
@@ -40,7 +42,7 @@ void output_potentials_and_densities(
                 delta2.kelem(idx) = laplace * phi2.kelem(idx);
                 delta3a.kelem(idx) = laplace * phi3a.kelem(idx);
                 delta3b.kelem(idx) = laplace * phi3b.kelem(idx);
-                delta3.kelem(idx) = delta3a.kelem(idx) + delta3b.kelem(idx);
+                delta3.kelem(idx) = delta3a.kelem(idx) + delta3b.kelem(idx); 
             }
         }
     }
@@ -89,3 +91,5 @@ void output_potentials_and_densities(
     A3[1]->Write_to_HDF5(fname_hdf5, "A3y");
     A3[2]->Write_to_HDF5(fname_hdf5, "A3z");
 }
+
+} // namespace testing
