@@ -7,6 +7,7 @@
 #include <vec3.hh>
 #include <general.hh>
 #include <bounding_box.hh>
+#include <typeinfo>
 
 enum space_t
 {
