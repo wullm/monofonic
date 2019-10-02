@@ -245,7 +245,7 @@ class OrszagConvolver : public BaseConvolver<data_t, OrszagConvolver<data_t>>
 {
 private:
     Grid_FFT<data_t> *f1p_, *f2p_;
-    Grid_FFT<data_t> *fbuf_, *fbuf2_;
+    Grid_FFT<data_t> *fbuf_;
 
     using BaseConvolver<data_t, OrszagConvolver<data_t>>::np_;
     using BaseConvolver<data_t, OrszagConvolver<data_t>>::length_;
@@ -268,13 +268,11 @@ public:
     
     OrszagConvolver( const std::array<size_t, 3> &N, const std::array<real_t, 3> &L )
     : BaseConvolver<data_t,OrszagConvolver<data_t>>( {3*N[0]/2,3*N[1]/2,3*N[2]/2}, L )
-    //: np_({3*N[0]/2,3*N[1]/2,3*N[2]/2}), length_(L)
     {
         //... create temporaries
         f1p_  = new Grid_FFT<data_t>(np_, length_, kspace_id);
         f2p_  = new Grid_FFT<data_t>(np_, length_, kspace_id);
         fbuf_ = new Grid_FFT<data_t>(N, length_, kspace_id); // needed for MPI, or for triple conv.
-        fbuf2_ = new Grid_FFT<data_t>(N, length_, kspace_id); // needed for MPI, or for triple conv.
 
 #if defined(USE_MPI)
         maxslicesz_ = f1p_->sizes_[1] * f1p_->sizes_[3] * 2;
@@ -307,7 +305,6 @@ public:
         delete f1p_;
         delete f2p_;
         delete fbuf_;
-        delete fbuf2_;
 #if defined(USE_MPI)
         delete[] crecvbuf_;
 #endif
@@ -341,31 +338,8 @@ public:
     void convolve3( kfunc1 kf1, kfunc2 kf2, kfunc3 kf3, opp output_op )
     {
         auto assign_to = [](auto &g){return [&](auto i, auto v){ g[i] = v; };};
-    
-        #warning double check if fbuf_ can be used here, or fbuf2, in case remove fbuf2
-        fbuf_->FourierTransformForward(false);
-        // convolve kf1 and kf2, store result in fbuf_
         convolve2( kf1, kf2, assign_to(*fbuf_) );
-        //... prepare data 1
-        f1p_->FourierTransformForward(false);
-        // pad result from fbuf_ to f1p_, fbuf_ is now unused
-        this->pad_insert( [&]( size_t i, size_t j, size_t k )->ccomplex_t{return fbuf_->kelem(i,j,k);}, *f1p_ );
-
-        //... prepare data 2
-        f2p_->FourierTransformForward(false);
-        this->pad_insert( kf3, *f2p_ );
-        
-        //... convolve
-        f1p_->FourierTransformBackward();
-        f2p_->FourierTransformBackward();
-
-        #pragma omp parallel for
-        for (size_t i = 0; i < f1p_->ntot_; ++i){
-            (*f2p_).relem(i) *= (*f1p_).relem(i);
-        }
-        f2p_->FourierTransformForward();
-        //... copy data back
-        unpad(*f2p_, output_op);
+        convolve2( [&]( size_t i, size_t j, size_t k )->ccomplex_t{return fbuf_->kelem(i,j,k);}, kf3, output_op );
     }
 
     // template< typename opp >
