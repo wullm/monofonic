@@ -114,13 +114,16 @@ int Run( ConfigFile& the_config )
 
     const double g1  = -Dplus0;
     const double g2  = ((LPTorder>1)? -3.0/7.0*Dplus0*Dplus0 : 0.0);
-    const double g3a = ((LPTorder>2)? -1.0/3.0*Dplus0*Dplus0*Dplus0 : 0.0);
-    const double g3b = ((LPTorder>2)? 10.0/21.*Dplus0*Dplus0*Dplus0 : 0.0);
-    const double g3c = ((LPTorder>2)? -1.0/7.0*Dplus0*Dplus0*Dplus0 : 0.0);
+    const double g3a = ((LPTorder>2)? 1.0/3.0*Dplus0*Dplus0*Dplus0 : 0.0);
+    const double g3b = ((LPTorder>2)? -10.0/21.*Dplus0*Dplus0*Dplus0 : 0.0);
+    const double g3c = ((LPTorder>2)? 1.0/7.0*Dplus0*Dplus0*Dplus0 : 0.0);
 
+    // vfac = d log D+ / dt 
+    // d(D+^2)/dt = 2*D+ * d D+/dt = 2 * D+^2 * vfac
+    // d(D+^3)/dt = 3*D+^2* d D+/dt = 3 * D+^3 * vfac
     const double vfac1 =  vfac;
-    const double vfac2 =  2*vfac1;
-    const double vfac3 =  3*vfac1;
+    const double vfac2 =  2*vfac;
+    const double vfac3 =  3*vfac;
 
     // coefficients needed for anisotropic external tides
     const double ai3 = std::pow(astart,-3);
