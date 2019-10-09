@@ -436,20 +436,24 @@ int Run( ConfigFile& the_config )
                 if( the_output_plugin->write_species_as( this_species ) == output_type::particles )
                 {
                     // if particles occupy a bcc lattice, then there are 2 x N^3 of them...
-                    if( initial_bcc_lattice )
-                        particles.allocate( 2*num_p_in_load );
-                    else
-                        particles.allocate( num_p_in_load );
-                    
                     // generate particle IDs
-                    auto ipcount0 = (initial_bcc_lattice? 2:1) * particles.get_local_offset();
+                    if( !initial_bcc_lattice ){
+                        particles.allocate( num_p_in_load );
+                        for( size_t i=0,ipcount=0; i<tmp.size(0); ++i ){
+                            for( size_t j=0; j<tmp.size(1); ++j){
+                                for( size_t k=0; k<tmp.size(2); ++k){
+                                    particles.set_id( ipcount++, tmp.get_cell_idx_1d(i,j,k) );
+                                }
+                            }
+                        }
+                    }else{
+                        // if particles occupy a bcc lattice, then there are 2 x N^3 of them...
+                        particles.allocate( 2*num_p_in_load );
                     for( size_t i=0,ipcount=0; i<tmp.size(0); ++i ){
                         for( size_t j=0; j<tmp.size(1); ++j){
                             for( size_t k=0; k<tmp.size(2); ++k){
-                                particles.set_id( ipcount, ipcount+ipcount0 );
-                                ++ipcount;
-                                if( initial_bcc_lattice ){
-                                    particles.set_id( ipcount, ipcount+ipcount0 );
+                                    particles.set_id( ipcount, 2*tmp.get_cell_idx_1d(i,j,k) );
+                                    particles.set_id( ipcount+num_p_in_load, 2*tmp.get_cell_idx_1d(i,j,k)+1 );
                                     ++ipcount;    
                                 }
                             }
