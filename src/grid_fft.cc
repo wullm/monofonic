@@ -6,7 +6,7 @@
 #include <gsl/gsl_randist.h>
 
 template <typename data_t>
-void Grid_FFT<data_t>::FillRandomReal( unsigned long int seed )
+void Grid_FFT<data_t>::FillRandomReal(unsigned long int seed)
 {
     gsl_rng *RNG = gsl_rng_alloc(gsl_rng_mt19937);
 #if defined(USE_MPI)
@@ -20,7 +20,7 @@ void Grid_FFT<data_t>::FillRandomReal( unsigned long int seed )
         {
             for (size_t k = 0; k < sizes_[2]; ++k)
             {
-                this->relem(i,j,k) = gsl_ran_ugaussian_ratio_method(RNG);
+                this->relem(i, j, k) = gsl_ran_ugaussian_ratio_method(RNG);
             }
         }
     }
@@ -73,8 +73,8 @@ void Grid_FFT<data_t>::Setup(void)
     for (int i = 0; i < 3; ++i)
     {
         nhalf_[i] = n_[i] / 2;
-        kfac_[i]  = 2.0 * M_PI / length_[i];
-        dx_[i]    = length_[i] / n_[i];
+        kfac_[i] = 2.0 * M_PI / length_[i];
+        dx_[i] = length_[i] / n_[i];
 
         global_range_.x1_[i] = 0;
         global_range_.x2_[i] = n_[i];
@@ -82,8 +82,8 @@ void Grid_FFT<data_t>::Setup(void)
 
     local_0_size_ = n_[0];
     local_1_size_ = n_[1];
-    local_0_start_= 0;
-    local_1_start_= 0;
+    local_0_start_ = 0;
+    local_1_start_ = 0;
 
     if (space_ == rspace_id)
     {
@@ -100,8 +100,6 @@ void Grid_FFT<data_t>::Setup(void)
         sizes_[3] = npc_;
     }
 
-    
-
 #else //// i.e. ifdef USE_MPI ////////////////////////////////////////////////////////////////////////////////////
 
     size_t cmplxsz;
@@ -110,10 +108,10 @@ void Grid_FFT<data_t>::Setup(void)
     {
         cmplxsz = FFTW_API(mpi_local_size_3d_transposed)(n_[0], n_[1], n_[2] / 2 + 1, MPI_COMM_WORLD,
                                                          &local_0_size_, &local_0_start_, &local_1_size_, &local_1_start_);
-        ntot_  = 2 * cmplxsz;
-        data_  = (data_t*)fftw_malloc(ntot_ * sizeof(real_t));
+        ntot_ = 2 * cmplxsz;
+        data_ = (data_t *)fftw_malloc(ntot_ * sizeof(real_t));
         cdata_ = reinterpret_cast<ccomplex_t *>(data_);
-        plan_  = FFTW_API(mpi_plan_dft_r2c_3d)(n_[0], n_[1], n_[2], (real_t *)data_, (complex_t *)data_,
+        plan_ = FFTW_API(mpi_plan_dft_r2c_3d)(n_[0], n_[1], n_[2], (real_t *)data_, (complex_t *)data_,
                                               MPI_COMM_WORLD, FFTW_RUNMODE | FFTW_MPI_TRANSPOSED_OUT);
         iplan_ = FFTW_API(mpi_plan_dft_c2r_3d)(n_[0], n_[1], n_[2], (complex_t *)data_, (real_t *)data_,
                                                MPI_COMM_WORLD, FFTW_RUNMODE | FFTW_MPI_TRANSPOSED_IN);
@@ -122,11 +120,11 @@ void Grid_FFT<data_t>::Setup(void)
     {
         cmplxsz = FFTW_API(mpi_local_size_3d_transposed)(n_[0], n_[1], n_[2], MPI_COMM_WORLD,
                                                          &local_0_size_, &local_0_start_, &local_1_size_, &local_1_start_);
-        ntot_  = cmplxsz;
-        data_  = (data_t*)fftw_malloc(ntot_ * sizeof(ccomplex_t));
+        ntot_ = cmplxsz;
+        data_ = (data_t *)fftw_malloc(ntot_ * sizeof(ccomplex_t));
         cdata_ = reinterpret_cast<ccomplex_t *>(data_);
-        plan_  = FFTW_API(mpi_plan_dft_3d)(n_[0], n_[1], n_[2], (complex_t *)data_, (complex_t *)data_,
-                                            MPI_COMM_WORLD, FFTW_FORWARD, FFTW_RUNMODE | FFTW_MPI_TRANSPOSED_OUT);
+        plan_ = FFTW_API(mpi_plan_dft_3d)(n_[0], n_[1], n_[2], (complex_t *)data_, (complex_t *)data_,
+                                          MPI_COMM_WORLD, FFTW_FORWARD, FFTW_RUNMODE | FFTW_MPI_TRANSPOSED_OUT);
         iplan_ = FFTW_API(mpi_plan_dft_3d)(n_[0], n_[1], n_[2], (complex_t *)data_, (complex_t *)data_,
                                            MPI_COMM_WORLD, FFTW_BACKWARD, FFTW_RUNMODE | FFTW_MPI_TRANSPOSED_IN);
     }
@@ -135,7 +133,7 @@ void Grid_FFT<data_t>::Setup(void)
         csoca::elog.Print("unknown data type in Grid_FFT<data_t>::setup_fft_interface\n");
         abort();
     }
-    
+
     csoca::dlog.Print("[FFT] Setting up a distributed memory field %lux%lux%lu\n", n_[0], n_[1], n_[2]);
     fft_norm_fac_ = 1.0 / sqrt((double)n_[0] * (double)n_[1] * (double)n_[2]);
 
@@ -153,15 +151,14 @@ void Grid_FFT<data_t>::Setup(void)
     for (int i = 0; i < 3; ++i)
     {
         nhalf_[i] = n_[i] / 2;
-        kfac_[i]  = 2.0 * M_PI / length_[i];
-        dx_[i]    = length_[i] / n_[i];
-        
+        kfac_[i] = 2.0 * M_PI / length_[i];
+        dx_[i] = length_[i] / n_[i];
+
         global_range_.x1_[i] = 0;
         global_range_.x2_[i] = n_[i];
     }
     global_range_.x1_[0] = (int)local_0_start_;
     global_range_.x2_[0] = (int)(local_0_start_ + local_0_size_);
-    
 
     if (space_ == rspace_id)
     {
@@ -184,7 +181,7 @@ void Grid_FFT<data_t>::Setup(void)
 template <typename data_t>
 void Grid_FFT<data_t>::ApplyNorm(void)
 {
-    #pragma omp parallel for
+#pragma omp parallel for
     for (size_t i = 0; i < ntot_; ++i)
         data_[i] *= fft_norm_fac_;
 }
@@ -193,7 +190,7 @@ template <typename data_t>
 void Grid_FFT<data_t>::FourierTransformForward(bool do_transform)
 {
 #if defined(USE_MPI)
-    MPI_Barrier( MPI_COMM_WORLD );
+    MPI_Barrier(MPI_COMM_WORLD);
 #endif
 
     if (space_ != kspace_id)
@@ -224,7 +221,7 @@ template <typename data_t>
 void Grid_FFT<data_t>::FourierTransformBackward(bool do_transform)
 {
 #if defined(USE_MPI)
-    MPI_Barrier( MPI_COMM_WORLD );
+    MPI_Barrier(MPI_COMM_WORLD);
 #endif
 
     if (space_ != rspace_id)
@@ -275,157 +272,84 @@ void create_hdf5(std::string Filename)
 template <typename data_t>
 void Grid_FFT<data_t>::Write_to_HDF5(std::string fname, std::string datasetname) const
 {
-  hid_t file_id, dset_id;    /* file and dataset identifiers */
-  hid_t filespace, memspace; /* file and memory dataspace identifiers */
-  hsize_t offset[3], count[3];
-  hid_t dtype_id = H5T_NATIVE_FLOAT;
-  hid_t plist_id;
+    hid_t file_id, dset_id;    /* file and dataset identifiers */
+    hid_t filespace, memspace; /* file and memory dataspace identifiers */
+    hsize_t offset[3], count[3];
+    hid_t dtype_id = H5T_NATIVE_FLOAT;
+    hid_t plist_id;
 
 #if defined(USE_MPI)
 
-  int mpi_size, mpi_rank;
+    int mpi_size, mpi_rank;
 
-  mpi_size = MPI_Get_size();
-  mpi_rank = MPI_Get_rank();
+    mpi_size = MPI_Get_size();
+    mpi_rank = MPI_Get_rank();
 
-  if (!file_exists(fname) && mpi_rank == 0)
-    create_hdf5(fname);
-  MPI_Barrier(MPI_COMM_WORLD);
+    if (!file_exists(fname) && mpi_rank == 0)
+        create_hdf5(fname);
+    MPI_Barrier(MPI_COMM_WORLD);
 
 #if defined(USE_MPI_IO)
-  plist_id = H5Pcreate(H5P_FILE_ACCESS);
-  H5Pset_fapl_mpio(plist_id, MPI_COMM_WORLD, MPI_INFO_NULL);
+    plist_id = H5Pcreate(H5P_FILE_ACCESS);
+    H5Pset_fapl_mpio(plist_id, MPI_COMM_WORLD, MPI_INFO_NULL);
 #else
-  plist_id = H5P_DEFAULT;
+    plist_id = H5P_DEFAULT;
 #endif
 
 #else
 
-  if (!file_exists(fname))
-    create_hdf5(fname);
+    if (!file_exists(fname))
+        create_hdf5(fname);
 
-  plist_id = H5P_DEFAULT;
+    plist_id = H5P_DEFAULT;
 
 #endif
 
 #if defined(USE_MPI) && !defined(USE_MPI_IO)
-  for (int itask = 0; itask < mpi_size; ++itask) {
-    MPI_Barrier(MPI_COMM_WORLD);
-    if (itask != mpi_rank)
-      continue;
+    for (int itask = 0; itask < mpi_size; ++itask)
+    {
+        MPI_Barrier(MPI_COMM_WORLD);
+        if (itask != mpi_rank)
+            continue;
 
 #endif
 
-    // file_id = H5Fcreate( fname.c_str(), H5F_ACC_RDWR, H5P_DEFAULT,
-    // H5P_DEFAULT );
-    file_id = H5Fopen(fname.c_str(), H5F_ACC_RDWR, plist_id);
+        // file_id = H5Fcreate( fname.c_str(), H5F_ACC_RDWR, H5P_DEFAULT,
+        // H5P_DEFAULT );
+        file_id = H5Fopen(fname.c_str(), H5F_ACC_RDWR, plist_id);
 
-    for (int i = 0; i < 3; ++i)
-      count[i] = size(i);
+        for (int i = 0; i < 3; ++i)
+            count[i] = size(i);
 
 #if defined(USE_MPI)
-    count[0] *= mpi_size;
+        count[0] *= mpi_size;
 #endif
 
-    if (typeid(data_t) == typeid(float))
-      dtype_id = H5T_NATIVE_FLOAT;
-    else if (typeid(data_t) == typeid(double))
-      dtype_id = H5T_NATIVE_DOUBLE;
-    else if (typeid(data_t) == typeid(std::complex<float>)) {
-      dtype_id = H5T_NATIVE_FLOAT;
-    } else if (typeid(data_t) == typeid(std::complex<double>)) {
-      dtype_id = H5T_NATIVE_DOUBLE;
-    }
-
-#if defined(USE_MPI) && !defined(USE_MPI_IO)
-    if (itask == 0) {
-      filespace = H5Screate_simple(3, count, NULL);
-      dset_id = H5Dcreate2(file_id, datasetname.c_str(), dtype_id, filespace,
-                           H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
-      H5Sclose(filespace);
-    } else {
-      dset_id = H5Dopen1(file_id, datasetname.c_str());
-    }
-#else
-  filespace = H5Screate_simple(3, count, NULL);
-  dset_id = H5Dcreate2(file_id, datasetname.c_str(), dtype_id, filespace,
-                       H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
-  H5Sclose(filespace);
-#endif
-
-    hsize_t slice_sz = size(1) * size(2);
-
-    real_t *buf = new real_t[slice_sz];
-
-    count[0] = 1;
-    count[1] = size(1);
-    count[2] = size(2);
-
-    offset[1] = 0;
-    offset[2] = 0;
-
-#if defined(USE_MPI) && defined(USE_MPI_IO)
-    H5Pclose(plist_id);
-    plist_id = H5Pcreate(H5P_DATASET_XFER);
-    H5Pset_dxpl_mpio(plist_id, H5FD_MPIO_COLLECTIVE);
-#else
-  plist_id = H5P_DEFAULT;
-#endif
-
-    memspace = H5Screate_simple(3, count, NULL);
-    filespace = H5Dget_space(dset_id);
-
-    for (size_t i = 0; i < size(0); ++i) {
-#if defined(USE_MPI)
-      offset[0] = mpi_rank * size(0) + i;
-#else
-      offset[0] = i;
-#endif
-
-      for (size_t j = 0; j < size(1); ++j){
-        for (size_t k = 0; k < size(2); ++k) {
-          buf[j * size(2) + k] = std::real(relem(i, j, k));
+        if (typeid(data_t) == typeid(float))
+            dtype_id = H5T_NATIVE_FLOAT;
+        else if (typeid(data_t) == typeid(double))
+            dtype_id = H5T_NATIVE_DOUBLE;
+        else if (typeid(data_t) == typeid(std::complex<float>))
+        {
+            dtype_id = H5T_NATIVE_FLOAT;
         }
-      }
-
-      
-
-      H5Sselect_hyperslab(filespace, H5S_SELECT_SET, offset, NULL, count, NULL);
-      H5Dwrite(dset_id, dtype_id, memspace, filespace, H5P_DEFAULT, buf);
-
-      
-    }
-
-    
-    H5Sclose(filespace);
-    H5Sclose(memspace);
-    
-#if defined(USE_MPI) && defined(USE_MPI_IO)
-    H5Pclose(plist_id);
-#endif
-
-    // H5Sclose(filespace);
-    H5Dclose(dset_id);
-
-    if (typeid(data_t) == typeid(std::complex<float>) ||
-        typeid(data_t) == typeid(std::complex<double>)) {
-      datasetname += std::string(".im");
-
-      for (int i = 0; i < 3; ++i)
-        count[i] = size(i);
-#if defined(USE_MPI)
-      count[0] *= mpi_size;
-#endif
+        else if (typeid(data_t) == typeid(std::complex<double>))
+        {
+            dtype_id = H5T_NATIVE_DOUBLE;
+        }
 
 #if defined(USE_MPI) && !defined(USE_MPI_IO)
-      if (itask == 0) {
-        filespace = H5Screate_simple(3, count, NULL);
-        dset_id = H5Dcreate2(file_id, datasetname.c_str(), dtype_id, filespace,
-                             H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
-        H5Sclose(filespace);
-      } else {
-        dset_id = H5Dopen1(file_id, datasetname.c_str());
-      }
+        if (itask == 0)
+        {
+            filespace = H5Screate_simple(3, count, NULL);
+            dset_id = H5Dcreate2(file_id, datasetname.c_str(), dtype_id, filespace,
+                                 H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+            H5Sclose(filespace);
+        }
+        else
+        {
+            dset_id = H5Dopen1(file_id, datasetname.c_str());
+        }
 #else
     filespace = H5Screate_simple(3, count, NULL);
     dset_id = H5Dcreate2(file_id, datasetname.c_str(), dtype_id, filespace,
@@ -433,77 +357,162 @@ void Grid_FFT<data_t>::Write_to_HDF5(std::string fname, std::string datasetname)
     H5Sclose(filespace);
 #endif
 
+        hsize_t slice_sz = size(1) * size(2);
+
+        real_t *buf = new real_t[slice_sz];
+
+        count[0] = 1;
+        count[1] = size(1);
+        count[2] = size(2);
+
+        offset[1] = 0;
+        offset[2] = 0;
+
 #if defined(USE_MPI) && defined(USE_MPI_IO)
-      // H5Pclose( plist_id );
-      plist_id = H5Pcreate(H5P_DATASET_XFER);
-      H5Pset_dxpl_mpio(plist_id, H5FD_MPIO_COLLECTIVE);
+        H5Pclose(plist_id);
+        plist_id = H5Pcreate(H5P_DATASET_XFER);
+        H5Pset_dxpl_mpio(plist_id, H5FD_MPIO_COLLECTIVE);
 #else
     plist_id = H5P_DEFAULT;
 #endif
 
-      count[0] = 1;
+        memspace = H5Screate_simple(3, count, NULL);
+        filespace = H5Dget_space(dset_id);
 
-      for (size_t i = 0; i < size(0); ++i) {
+        for (size_t i = 0; i < size(0); ++i)
+        {
 #if defined(USE_MPI)
-        offset[0] = mpi_rank * size(0) + i;
+            offset[0] = mpi_rank * size(0) + i;
 #else
         offset[0] = i;
 #endif
 
-        for (size_t j = 0; j < size(1); ++j)
-          for (size_t k = 0; k < size(2); ++k) {
-            buf[j * size(2) + k] = std::imag(relem(i, j, k));
-          }
+            for (size_t j = 0; j < size(1); ++j)
+            {
+                for (size_t k = 0; k < size(2); ++k)
+                {
+                    buf[j * size(2) + k] = std::real(relem(i, j, k));
+                }
+            }
 
-        memspace = H5Screate_simple(3, count, NULL);
-        filespace = H5Dget_space(dset_id);
+            H5Sselect_hyperslab(filespace, H5S_SELECT_SET, offset, NULL, count, NULL);
+            H5Dwrite(dset_id, dtype_id, memspace, filespace, H5P_DEFAULT, buf);
+        }
 
-        H5Sselect_hyperslab(filespace, H5S_SELECT_SET, offset, NULL, count,
-                            NULL);
-
-        H5Dwrite(dset_id, dtype_id, memspace, filespace, H5P_DEFAULT, buf);
-
-        H5Sclose(memspace);
         H5Sclose(filespace);
-      }
+        H5Sclose(memspace);
 
 #if defined(USE_MPI) && defined(USE_MPI_IO)
-      H5Pclose(plist_id);
+        H5Pclose(plist_id);
 #endif
 
-      H5Dclose(dset_id);
+        // H5Sclose(filespace);
+        H5Dclose(dset_id);
 
-      delete[] buf;
-    }
+        if (typeid(data_t) == typeid(std::complex<float>) ||
+            typeid(data_t) == typeid(std::complex<double>))
+        {
+            datasetname += std::string(".im");
 
-    H5Fclose(file_id);
+            for (int i = 0; i < 3; ++i)
+                count[i] = size(i);
+#if defined(USE_MPI)
+            count[0] *= mpi_size;
+#endif
 
 #if defined(USE_MPI) && !defined(USE_MPI_IO)
-  }
+            if (itask == 0)
+            {
+                filespace = H5Screate_simple(3, count, NULL);
+                dset_id = H5Dcreate2(file_id, datasetname.c_str(), dtype_id, filespace,
+                                     H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+                H5Sclose(filespace);
+            }
+            else
+            {
+                dset_id = H5Dopen1(file_id, datasetname.c_str());
+            }
+#else
+        filespace = H5Screate_simple(3, count, NULL);
+        dset_id = H5Dcreate2(file_id, datasetname.c_str(), dtype_id, filespace,
+                             H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+        H5Sclose(filespace);
+#endif
+
+#if defined(USE_MPI) && defined(USE_MPI_IO)
+            // H5Pclose( plist_id );
+            plist_id = H5Pcreate(H5P_DATASET_XFER);
+            H5Pset_dxpl_mpio(plist_id, H5FD_MPIO_COLLECTIVE);
+#else
+        plist_id = H5P_DEFAULT;
+#endif
+
+            count[0] = 1;
+
+            for (size_t i = 0; i < size(0); ++i)
+            {
+#if defined(USE_MPI)
+                offset[0] = mpi_rank * size(0) + i;
+#else
+            offset[0] = i;
+#endif
+
+                for (size_t j = 0; j < size(1); ++j)
+                    for (size_t k = 0; k < size(2); ++k)
+                    {
+                        buf[j * size(2) + k] = std::imag(relem(i, j, k));
+                    }
+
+                memspace = H5Screate_simple(3, count, NULL);
+                filespace = H5Dget_space(dset_id);
+
+                H5Sselect_hyperslab(filespace, H5S_SELECT_SET, offset, NULL, count,
+                                    NULL);
+
+                H5Dwrite(dset_id, dtype_id, memspace, filespace, H5P_DEFAULT, buf);
+
+                H5Sclose(memspace);
+                H5Sclose(filespace);
+            }
+
+#if defined(USE_MPI) && defined(USE_MPI_IO)
+            H5Pclose(plist_id);
+#endif
+
+            H5Dclose(dset_id);
+
+            delete[] buf;
+        }
+
+        H5Fclose(file_id);
+
+#if defined(USE_MPI) && !defined(USE_MPI_IO)
+    }
 #endif
 }
 
 #include <iomanip>
 
 template <typename data_t>
-void Grid_FFT<data_t>::Write_PDF( std::string ofname, int nbins, double scale, double vmin, double vmax )
+void Grid_FFT<data_t>::Write_PDF(std::string ofname, int nbins, double scale, double vmin, double vmax)
 {
     double logvmin = std::log10(vmin);
     double logvmax = std::log10(vmax);
     double idv = double(nbins) / (logvmax - logvmin);
 
-    std::vector<double> count( nbins, 0.0 ), scount( nbins, 0.0 );
+    std::vector<double> count(nbins, 0.0), scount(nbins, 0.0);
 
-    for( size_t ix=0; ix<size(0); ix++ )
-        for( size_t iy=0; iy<size(1); iy++ )
+    for (size_t ix = 0; ix < size(0); ix++)
+        for (size_t iy = 0; iy < size(1); iy++)
             for (size_t iz = 0; iz < size(2); iz++)
             {
-                auto v = this->relem(ix,iy,iz);
-                int ibin = int( (std::log10(std::abs(v))-logvmin)*idv );
-                if( ibin >= 0 && ibin < nbins ){
+                auto v = this->relem(ix, iy, iz);
+                int ibin = int((std::log10(std::abs(v)) - logvmin) * idv);
+                if (ibin >= 0 && ibin < nbins)
+                {
                     count[ibin] += 1.0;
                 }
-                ibin = int(((std::log10((std::abs(v)-1.0) * scale + 1.0 )) - logvmin) * idv);
+                ibin = int(((std::log10((std::abs(v) - 1.0) * scale + 1.0)) - logvmin) * idv);
                 if (ibin >= 0 && ibin < nbins)
                 {
                     scount[ibin] += 1.0;
@@ -521,8 +530,9 @@ void Grid_FFT<data_t>::Write_PDF( std::string ofname, int nbins, double scale, d
         ofs << "# " << std::setw(14) << "rho" << std::setw(16) << "d rho / dV" << std::setw(16) << "d (rho/D+) / dV"
             << "\n";
 
-        for( int ibin=0; ibin<nbins; ++ibin ){
-            double vmean = std::pow(10.0, logvmin + (double(ibin)+0.5)/idv );
+        for (int ibin = 0; ibin < nbins; ++ibin)
+        {
+            double vmean = std::pow(10.0, logvmin + (double(ibin) + 0.5) / idv);
             double dv = std::pow(10.0, logvmin + (double(ibin) + 1.0) / idv) - std::pow(10.0, logvmin + (double(ibin)) / idv);
 
             ofs << std::setw(16) << vmean
@@ -536,28 +546,30 @@ void Grid_FFT<data_t>::Write_PDF( std::string ofname, int nbins, double scale, d
 }
 
 template <typename data_t>
-void Grid_FFT<data_t>::Write_PowerSpectrum( std::string ofname )
+void Grid_FFT<data_t>::Write_PowerSpectrum(std::string ofname)
 {
     std::vector<double> bin_k, bin_P, bin_eP;
     std::vector<size_t> bin_count;
-    int nbins = 4*std::max( nhalf_[0], std::max(nhalf_[1], nhalf_[2]) );
-    this->Compute_PowerSpectrum( bin_k, bin_P, bin_eP, bin_count, nbins );
+    int nbins = 4 * std::max(nhalf_[0], std::max(nhalf_[1], nhalf_[2]));
+    this->Compute_PowerSpectrum(bin_k, bin_P, bin_eP, bin_count );
 #if defined(USE_MPI)
     if (CONFIG::MPI_task_rank == 0)
     {
 #endif
-        std::ofstream ofs( ofname.c_str());
-        
-        ofs << "# " << std::setw(14) << "k" << std::setw(16) << "P(k)" << std::setw(16) << "err. P(k)"
-            << std::setw(16) <<"#modes" << "\n";
+        std::ofstream ofs(ofname.c_str());
 
-        for( int ibin=0; ibin<nbins; ++ibin ){
-            if( bin_count[ibin] > 0 )
-            ofs << std::setw(16) << bin_k[ibin]
-                << std::setw(16) << bin_P[ibin]
-                << std::setw(16) << bin_eP[ibin]
-                << std::setw(16) << bin_count[ibin]
-                << std::endl;
+        ofs << "# " << std::setw(14) << "k" << std::setw(16) << "P(k)" << std::setw(16) << "err. P(k)"
+            << std::setw(16) << "#modes"
+            << "\n";
+
+        for (size_t ibin = 0; ibin < bin_k.size(); ++ibin)
+        {
+            if (bin_count[ibin] > 0)
+                ofs << std::setw(16) << bin_k[ibin]
+                    << std::setw(16) << bin_P[ibin]
+                    << std::setw(16) << bin_eP[ibin]
+                    << std::setw(16) << bin_count[ibin]
+                    << std::endl;
         }
 #if defined(USE_MPI)
     }
@@ -565,16 +577,18 @@ void Grid_FFT<data_t>::Write_PowerSpectrum( std::string ofname )
 }
 
 template <typename data_t>
-void Grid_FFT<data_t>::Compute_PowerSpectrum(std::vector<double> &bin_k, std::vector<double> &bin_P, std::vector<double> &bin_eP, std::vector<size_t> &bin_count, int nbins)
+void Grid_FFT<data_t>::Compute_PowerSpectrum(std::vector<double> &bin_k, std::vector<double> &bin_P, std::vector<double> &bin_eP, std::vector<size_t> &bin_count )
 {
     this->FourierTransformForward();
 
     real_t kmax = std::max(std::max(kfac_[0] * nhalf_[0], kfac_[1] * nhalf_[1]),
                            kfac_[2] * nhalf_[2]),
            kmin = std::min(std::min(kfac_[0], kfac_[1]), kfac_[2]),
-           dklog = log10(kmax / kmin) / nbins;
+           dk = kmin;
 
-    bin_count.assign(nbins,0);
+    const int nbins = kmax / kmin;
+
+    bin_count.assign(nbins, 0);
     bin_k.assign(nbins, 0);
     bin_P.assign(nbins, 0);
     bin_eP.assign(nbins, 0);
@@ -585,9 +599,9 @@ void Grid_FFT<data_t>::Compute_PowerSpectrum(std::vector<double> &bin_k, std::ve
             {
                 vec3<double> k3 = get_k<double>(ix, iy, iz);
                 double k = k3.norm();
-                int idx2 = int((1.0f / dklog * std::log10(k / kmin)));
+                int idx2 = k / dk; //int((1.0f / dklog * std::log10(k / kmin)));
                 auto z = this->kelem(ix, iy, iz);
-                double vabs = z.real()*z.real()+z.imag()*z.imag();
+                double vabs = z.real() * z.real() + z.imag() * z.imag();
 
                 if (k >= kmin && k < kmax)
                 {
@@ -628,17 +642,20 @@ void Grid_FFT<data_t>::Compute_PowerSpectrum(std::vector<double> &bin_k, std::ve
 #endif
 
     const real_t volfac(length_[0] * length_[1] * length_[2] / std::pow(2.0 * M_PI, 3.0));
-    const real_t fftfac(this->fft_norm_fac_*this->fft_norm_fac_);
+    const real_t fftfac(this->fft_norm_fac_ * this->fft_norm_fac_);
 
-    for( int i=0; i<nbins; ++i ){
-        bin_k[i]  /= bin_count[i];
-        bin_P[i]  = bin_P[i] / bin_count[i] * volfac * fftfac;
-        bin_eP[i] = std::sqrt(bin_eP[i] / bin_count[i] - bin_P[i] * bin_P[i])/std::sqrt(bin_count[i]) * volfac * fftfac;
+    for (int i = 0; i < nbins; ++i)
+    {
+        if (bin_count[i] > 0)
+        {
+            bin_k[i] /= bin_count[i];
+            bin_P[i] = bin_P[i] / bin_count[i] * volfac * fftfac;
+            bin_eP[i] = std::sqrt(bin_eP[i] / bin_count[i] - bin_P[i] * bin_P[i]) / std::sqrt(bin_count[i]) * volfac * fftfac;
+        }
     }
 }
 
 /********************************************************************************************/
-
 
 template class Grid_FFT<real_t>;
 template class Grid_FFT<ccomplex_t>;
