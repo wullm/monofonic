@@ -41,7 +41,7 @@ public:
                 auto kk = inl.template get_k<real_t>(i, j, k);
                 return ccomplex_t(0.0, kk[d1l[0]]) * inl.kelem(i, j, k);
             },
-            [&](size_t i, size_t j, size_t k) {
+            [&](size_t i, size_t j, size_t k) -> ccomplex_t {
                 auto kk = inr.template get_k<real_t>(i, j, k);
                 return -kk[d2r[0]] * kk[d2r[1]] * inr.kelem(i, j, k);
             },
@@ -62,7 +62,7 @@ public:
                 auto kk = inl.template get_k<real_t>(i, j, k);
                 return -kk[d2l[0]] * kk[d2l[1]] * inl.kelem(i, j, k);
             },
-            [&](size_t i, size_t j, size_t k) {
+            [&](size_t i, size_t j, size_t k) -> ccomplex_t {
                 auto kk = inr.template get_k<real_t>(i, j, k);
                 return -kk[d2r[0]] * kk[d2r[1]] * inr.kelem(i, j, k);
             },
@@ -184,12 +184,15 @@ public:
             (*fbuf2_).relem(i) *= (*fbuf1_).relem(i);
         }
         fbuf2_->FourierTransformForward();
+        // fbuf2_->dealias();
 //... copy data back
 #pragma omp parallel for
         for (size_t i = 0; i < fbuf2_->ntot_; ++i)
         {
             output_op(i, (*fbuf2_)[i]);
         }
+
+
     }
 
     template <typename kfunc1, typename kfunc2, typename kfunc3, typename opp>
@@ -352,6 +355,7 @@ public:
     void convolve3(kfunc1 kf1, kfunc2 kf2, kfunc3 kf3, opp output_op)
     {
         auto assign_to = [](auto &g) { return [&](auto i, auto v) { g[i] = v; }; };
+        fbuf_->FourierTransformForward(false);
         convolve2(kf1, kf2, assign_to(*fbuf_));
         convolve2([&](size_t i, size_t j, size_t k) -> ccomplex_t { return fbuf_->kelem(i, j, k); }, kf3, output_op);
     }
