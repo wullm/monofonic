@@ -1,8 +1,10 @@
 
 #include <general.hh>
 #include <grid_fft.hh>
+#include <operators.hh>
 #include <convolution.hh>
 #include <testing.hh>
+
 
 #include <ic_generator.hh>
 
@@ -469,7 +471,7 @@ int Run( ConfigFile& the_config )
                                 size_t idx = phi.get_idx(i,j,k);
                                 auto phitot = phi.kelem(idx) + phi2.kelem(idx) + phi3a.kelem(idx) + phi3b.kelem(idx);
                                 // divide by Lbox, because displacement is in box units for output plugin
-                                tmp.kelem(idx) = lunit * ccomplex_t(0.0,1.0) * (kk[idim] * phitot + kk[idimp] * A3[idimpp]->kelem(idx) - kk[idimpp] * A3[idimp]->kelem(idx) ) / boxlen;
+                                tmp.kelem(idx) = lunit * ccomplex_t(0.0,-1.0) * (kk[idim] * phitot + kk[idimp] * A3[idimpp]->kelem(idx) - kk[idimpp] * A3[idimp]->kelem(idx) ) / boxlen;
                             }
                         }
                     }
@@ -525,7 +527,7 @@ int Run( ConfigFile& the_config )
                                 size_t idx = phi.get_idx(i,j,k);
                                 // divide by Lbox, because displacement is in box units for output plugin
                                 auto phitot_v = vfac1 * phi.kelem(idx) + vfac2 * phi2.kelem(idx) + vfac3 * (phi3a.kelem(idx) + phi3b.kelem(idx));
-                                tmp.kelem(idx) = vunit*ccomplex_t(0.0,1.0) * (kk[idim] * phitot_v + vfac3 * (kk[idimp] * A3[idimpp]->kelem(idx) - kk[idimpp] * A3[idimp]->kelem(idx)) ) / boxlen;
+                                tmp.kelem(idx) = vunit*ccomplex_t(0.0,-1.0) * (kk[idim] * phitot_v + vfac3 * (kk[idimp] * A3[idimpp]->kelem(idx) - kk[idimpp] * A3[idimp]->kelem(idx)) ) / boxlen;
 
                                 if( bAddExternalTides ){
                                     // modify velocities with anisotropic expansion factor**2

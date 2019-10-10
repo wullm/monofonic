@@ -16,6 +16,8 @@ public:
     BaseConvolver(const std::array<size_t, 3> &N, const std::array<real_t, 3> &L)
         : np_(N), length_(L) {}
 
+    BaseConvolver( const BaseConvolver& ) = delete;
+    
     virtual ~BaseConvolver() {}
 
     // implements convolution of two Fourier-space fields
@@ -27,6 +29,28 @@ public:
     void convolve3(kfunc1 kf1, kfunc2 kf2, kfunc3 kf3, opp op) {}
 
 public:
+
+    template <typename opp>
+    void convolve_Gradients(Grid_FFT<data_t> &inl, const std::array<int, 1> &d1l,
+                            Grid_FFT<data_t> &inr, const std::array<int, 1> &d1r,
+                            opp output_op)
+    {
+        // transform to FS in case fields are not
+        inl.FourierTransformForward();
+        inr.FourierTransformForward();
+        // perform convolution of Hessians
+        static_cast<derived_t &>(*this).convolve2(
+            [&](size_t i, size_t j, size_t k) -> ccomplex_t {
+                auto kk = inl.template get_k<real_t>(i, j, k);
+                return ccomplex_t(0.0, -kk[d1l[0]]) * inl.kelem(i, j, k);
+            },
+            [&](size_t i, size_t j, size_t k) -> ccomplex_t {
+                auto kk = inr.template get_k<real_t>(i, j, k);
+                return ccomplex_t(0.0, -kk[d1r[0]]) * inr.kelem(i, j, k);
+            },
+            output_op);
+    }
+
     template <typename opp>
     void convolve_Gradient_and_Hessian(Grid_FFT<data_t> &inl, const std::array<int, 1> &d1l,
                                        Grid_FFT<data_t> &inr, const std::array<int, 2> &d2r,
@@ -39,7 +63,7 @@ public:
         static_cast<derived_t &>(*this).convolve2(
             [&](size_t i, size_t j, size_t k) -> ccomplex_t {
                 auto kk = inl.template get_k<real_t>(i, j, k);
-                return ccomplex_t(0.0, kk[d1l[0]]) * inl.kelem(i, j, k);
+                return ccomplex_t(0.0, -kk[d1l[0]]) * inl.kelem(i, j, k);
             },
             [&](size_t i, size_t j, size_t k) -> ccomplex_t {
                 auto kk = inr.template get_k<real_t>(i, j, k);
