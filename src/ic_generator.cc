@@ -327,7 +327,7 @@ int Run( ConfigFile& the_config )
         if( testing_compute_densities )
         {
             // testing::output_potentials_and_densities( the_config, ngrid, boxlen, phi, phi2, phi3a, phi3b, A3 );
-            testing::output_velocity_displacement_symmetries( the_config, ngrid, boxlen, vfac, phi, phi2, phi3a, phi3b, A3 );
+            testing::output_velocity_displacement_symmetries( the_config, ngrid, boxlen, vfac, Dplus0, phi, phi2, phi3a, phi3b, A3 );
         }
         else
         {
