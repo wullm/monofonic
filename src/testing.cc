@@ -231,7 +231,7 @@ void output_velocity_displacement_symmetries(
     }
 
 
-    std::cerr << "std. deviation of invariant : ( D+ | I_xy | I_yz | I_zx ) \n"
+    csoca::ilog << "std. deviation of invariant : ( D+ | I_xy | I_yz | I_zx ) \n"
                     << std::setw(16) << dplus << " "
                     << std::setw(16) << Icomp[0] << " "
                     << std::setw(16) << Icomp[1] << " "
