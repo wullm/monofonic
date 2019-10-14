@@ -66,8 +66,8 @@ public:
         transfer_function_->intialise();
         cosmo_param_.pnorm = this->ComputePNorm();
         cosmo_param_.sqrtpnorm = std::sqrt(cosmo_param_.pnorm);
-        csoca::ilog << std::setw(40) << std::left << "TF supports distinct CDM+baryons" << " : " << (transfer_function_->tf_is_distinct()? "yes" : "no") << std::endl;
-        csoca::ilog << std::setw(40) << std::left << "TF maximum wave number" << " : " << transfer_function_->get_kmax() << " h/Mpc" << std::endl;
+        csoca::ilog << std::setw(32) << std::left << "TF supports distinct CDM+baryons" << " : " << (transfer_function_->tf_is_distinct()? "yes" : "no") << std::endl;
+        csoca::ilog << std::setw(32) << std::left << "TF maximum wave number" << " : " << transfer_function_->get_kmax() << " h/Mpc" << std::endl;
     }
 
     //! Write out a correctly scaled power spectrum at time a
@@ -150,6 +150,29 @@ public:
         double Ha = a * H_of_a(a, Params);
         return 2.5 / (Ha * Ha * Ha);
     }
+
+    //! integrand function for Calc_fPeebles
+	/*!
+	 * @sa Calc_fPeebles
+	 */
+	inline static double fIntegrand( double a, void *Params )
+	{
+		CosmologyParameters *cosm = (CosmologyParameters *)Params;
+		double y = cosm->Omega_m*(1.0/a-1.0) + cosm->Omega_DE*(a*a-1.0) + 1.0;
+		return 1.0/pow(y,1.5);
+	}
+	
+	//! calculates d log D+/d log a
+	/*! this version follows the Peebles (TBD: add citation)
+	 *  formula to compute Bertschinger's vfact
+	 */
+	inline real_t CalcGrowthRate( real_t a )
+	{
+        #warning CalcGrowthRate is only correct if dark energy is a cosmological constant, need to upgrade calculator...
+		real_t y = cosmo_param_.Omega_m*(1.0/a-1.0) + cosmo_param_.Omega_DE*(a*a-1.0) + 1.0;
+		real_t fact = integrate( &fIntegrand, 1e-6, a, (void*)&cosmo_param_ );
+		return (cosmo_param_.Omega_DE*a*a-0.5*cosmo_param_.Omega_m/a)/y - 1.0 + a*fIntegrand(a,(void*)&cosmo_param_)/fact;
+	}
 
     //! Computes the linear theory growth factor D+
     /*! Function integrates over member function GrowthIntegrand and computes

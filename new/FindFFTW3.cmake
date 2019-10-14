@@ -72,7 +72,7 @@ macro(find_specific_libraries KIND PARALLEL)
         set_target_properties(fftw3::${kind}::mpi PROPERTIES
           IMPORTED_LOCATION "${FFTW3_${KIND}_${PARALLEL}_LIBRARY}"
           INTERFACE_INCLUDE_DIRECTORIES "${FFTW3_INCLUDE_DIR_PARALLEL}"
-          IMPORTED_LINK_INTERFACE_LIBRARIES "${MPI_C_LIBRARIES}")
+          IMPORTED_LINK_INTERFACE_LIBRARIES ${MPI_C_LIBRARIES})
       endif()
     endif()
     ##   OpenMP

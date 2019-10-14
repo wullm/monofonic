@@ -11,6 +11,9 @@ public:
 
     vec3( const vec3<T> &v)
     : data_(v.data_), x(data_[0]),y(data_[1]),z(data_[2]){}
+
+    vec3( std::array<T,3>&& d )
+    : data_(std::move(d)), x(data_[0]),y(data_[1]),z(data_[2]){}
     
     vec3( vec3<T> &&v)
     : data_(std::move(v.data_)), x(data_[0]),y(data_[1]),z(data_[2]){}

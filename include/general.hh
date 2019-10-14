@@ -90,6 +90,15 @@ MPI_Datatype GetMPIDatatype( void )
 
 }
 
+inline std::string GetMPIversion( void )
+{
+  int len;
+  char mpi_lib_ver[MPI_MAX_LIBRARY_VERSION_STRING];
+
+  MPI_Get_library_version(mpi_lib_ver, &len);
+  return std::string(mpi_lib_ver);
+}
+
 
 #else
   #if defined(_OPENMP)

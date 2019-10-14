@@ -50,7 +50,7 @@ int main( int argc, char** argv )
 #endif
 
     csoca::ilog << "\n"
-                << " unigrid MUSIC                         .8888b                   dP  a88888b. \n"
+                << " unigrid MUSIC                          .8888b                   dP  a88888b. \n"
                 << "                                        88   \"                   88 d8\'   `88 \n"
                 << "  88d8b.d8b. .d8888b. 88d888b. .d8888b. 88aaa  .d8888b. 88d888b. 88 88        \n"
                 << "  88\'`88\'`88 88\'  `88 88\'  `88 88\'  `88 88     88\'  `88 88\'  `88 88 88        \n"
@@ -113,24 +113,13 @@ int main( int argc, char** argv )
     //------------------------------------------------------------------------------
     // Write code configuration to screen
     //------------------------------------------------------------------------------
+    // hardware related infos
     csoca::ilog << std::setw(32) << std::left << "CPU vendor string" << " : " << SystemStat::Cpu().get_CPUstring() << std::endl;
-#if defined(USE_MPI)
-    csoca::ilog << std::setw(32) << std::left << "MPI is enabled" << " : " << "yes (" << CONFIG::MPI_task_size << " tasks)" << std::endl;
-#else
-    csoca::ilog << std::setw(32) << std::left << "MPI is enabled" << " : " << "no" << std::endl;
-#endif
-    csoca::ilog << std::setw(32) << std::left << "MPI supports multi-threading" << " : " << (CONFIG::MPI_threads_ok? "yes" : "no") << std::endl;
+    
+    // multi-threading related infos
     csoca::ilog << std::setw(32) << std::left << "Available HW threads / task" << " : " << std::thread::hardware_concurrency() << " (" << CONFIG::num_threads << " used)" << std::endl;
-    csoca::ilog << std::setw(32) << std::left << "FFTW supports multi-threading" << " : " << (CONFIG::FFTW_threads_ok? "yes" : "no") << std::endl;
-    csoca::ilog << std::setw(32) << std::left << "FFTW mode" << " : ";
-#if defined(FFTW_MODE_PATIENT)
-	csoca::ilog << "FFTW_PATIENT" << std::endl;
-#elif defined(FFTW_MODE_MEASURE)
-    csoca::ilog << "FFTW_MEASURE" << std::endl;
-#else
-	csoca::ilog << "FFTW_ESTIMATE" << std::endl;
-#endif
 
+    // memory related infos
     SystemStat::Memory mem;
 
     unsigned availpmem = mem.get_AvailMem()/1024/1024;
@@ -149,6 +138,26 @@ int main( int argc, char** argv )
     csoca::ilog << std::setw(32) << std::left << "Used system memory (phys)" << " : " << "Max: " << maxupmem << " Mb, Min: " << minupmem << " Mb" << std::endl;
     csoca::ilog << std::setw(32) << std::left << "Available system memory (phys)" << " : " <<  "Max: " << maxpmem << " Mb, Min: " << minpmem << " Mb" << std::endl;
     
+    // MPI related infos
+#if defined(USE_MPI)
+    csoca::ilog << std::setw(32) << std::left << "MPI is enabled" << " : " << "yes (" << CONFIG::MPI_task_size << " tasks)" << std::endl;
+    csoca::dlog << std::setw(32) << std::left << "MPI version" << " : " << GetMPIversion() << std::endl;
+#else
+    csoca::ilog << std::setw(32) << std::left << "MPI is enabled" << " : " << "no" << std::endl;
+#endif
+    csoca::ilog << std::setw(32) << std::left << "MPI supports multi-threading" << " : " << (CONFIG::MPI_threads_ok? "yes" : "no") << std::endl;
+    
+    // FFTW related infos
+    csoca::ilog << std::setw(32) << std::left << "FFTW version" << " : " << fftw_version << std::endl;
+    csoca::ilog << std::setw(32) << std::left << "FFTW supports multi-threading" << " : " << (CONFIG::FFTW_threads_ok? "yes" : "no") << std::endl;
+    csoca::ilog << std::setw(32) << std::left << "FFTW mode" << " : ";
+#if defined(FFTW_MODE_PATIENT)
+	csoca::ilog << "FFTW_PATIENT" << std::endl;
+#elif defined(FFTW_MODE_MEASURE)
+    csoca::ilog << "FFTW_MEASURE" << std::endl;
+#else
+	csoca::ilog << "FFTW_ESTIMATE" << std::endl;
+#endif
     //--------------------------------------------------------------------
     // Initialise plug-ins
     //--------------------------------------------------------------------

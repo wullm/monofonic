@@ -386,9 +386,53 @@ public:
   }
 };
 
+class transfer_eisenstein_cutoff_plugin : public TransferFunction_plugin
+{
+protected:
+  real_t m_h0;
+  double omegam_, H0_, omegab_, mcdm_, Tkd_, kfs_, kd_;
+  double Rcut_;
+  eisenstein_transfer etf_;
+
+public:
+  transfer_eisenstein_cutoff_plugin(ConfigFile &cf)
+      : TransferFunction_plugin(cf)
+  { 
+    double Tcmb = pcf_->GetValueSafe("cosmology", "Tcmb", 2.726);
+
+    omegam_ = pcf_->GetValue<double>("cosmology", "Omega_m");
+    omegab_ = pcf_->GetValue<double>("cosmology", "Omega_b");
+    H0_ = pcf_->GetValue<double>("cosmology", "H0");
+    m_h0 = H0_ / 100.0;
+
+    etf_.set_parameters(H0_, omegam_, omegab_, Tcmb);
+
+    Rcut_ = pcf_->GetValueSafe<double>("cosmology", "Rcut", 1.0);
+  }
+
+  inline double compute(double k, tf_type type) const
+  {
+    //std::cerr << k << " " << Rcut_ << " " << std::exp(-k*k*Rcut_*Rcut_) << std::endl;
+    double cut = std::exp(-k*k*Rcut_*Rcut_);
+    // std::cerr << k << " " << cut << ", " << std::endl;
+    return etf_.at_k(k) * cut;
+  }
+
+  inline double get_kmin(void) const
+  {
+    return 1e-4;
+  }
+
+  inline double get_kmax(void) const
+  {
+    return 1.e4;
+  }
+};
+
 namespace
 {
 TransferFunction_plugin_creator_concrete<transfer_eisenstein_plugin> creator("eisenstein");
 TransferFunction_plugin_creator_concrete<transfer_eisenstein_wdm_plugin> creator2("eisenstein_wdm");
 TransferFunction_plugin_creator_concrete<transfer_eisenstein_cdmbino_plugin> creator3("eisenstein_cdmbino");
+TransferFunction_plugin_creator_concrete<transfer_eisenstein_cutoff_plugin> creator4("eisenstein_cutoff");
 } // namespace

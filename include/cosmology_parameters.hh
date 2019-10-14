@@ -23,7 +23,7 @@ struct CosmologyParameters
         sqrtpnorm, //!< sqrt of power spectrum normalisation factor
         vfact; //!< velocity<->displacement conversion factor in Zel'dovich approx.
 
-    CosmologyParameters(ConfigFile cf)
+    explicit CosmologyParameters(ConfigFile cf)
     {
         Omega_b = cf.GetValue<double>("cosmology", "Omega_b");
         Omega_m = cf.GetValue<double>("cosmology", "Omega_m");
