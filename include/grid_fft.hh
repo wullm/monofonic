@@ -238,6 +238,17 @@ public:
         return kk;
     }
 
+    inline ccomplex_t gradient( const int idim, std::array<size_t,3> ijk ) const
+    {
+#if defined(USE_MPI)
+        ijk[0] += local_1_start_;
+        std::swap(ijk[0],ijk[1]);
+#endif
+        real_t rgrad = 
+            (ijk[idim]!=nhalf_[idim])? (real_t(ijk[idim]) - real_t(ijk[idim] > nhalf_[idim]) * n_[idim]) * kfac_[idim] : 0.0; 
+        return ccomplex_t(0.0,rgrad);
+    }
+
     Grid_FFT<data_t> &operator*=(data_t x)
     {
         if (space_ == kspace_id)

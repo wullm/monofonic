@@ -40,37 +40,37 @@ public:
         inr.FourierTransformForward();
         // perform convolution of Hessians
         static_cast<derived_t &>(*this).convolve2(
-            [&](size_t i, size_t j, size_t k) -> ccomplex_t {
-                auto kk = inl.template get_k<real_t>(i, j, k);
-                return ccomplex_t(0.0, -kk[d1l[0]]) * inl.kelem(i, j, k);
+            [&inl,&d1l](size_t i, size_t j, size_t k) -> ccomplex_t {
+                auto grad1 = inl.gradient(d1l[0],{i,j,k});
+                return grad1*inl.kelem(i, j, k);
             },
-            [&](size_t i, size_t j, size_t k) -> ccomplex_t {
-                auto kk = inr.template get_k<real_t>(i, j, k);
-                return ccomplex_t(0.0, -kk[d1r[0]]) * inr.kelem(i, j, k);
+            [&inr,&d1r](size_t i, size_t j, size_t k) -> ccomplex_t {
+                auto grad1 = inr.gradient(d1r[0],{i,j,k});
+                return grad1*inr.kelem(i, j, k);
             },
             output_op);
     }
 
-    template <typename opp>
-    void convolve_Gradient_and_Hessian(Grid_FFT<data_t> &inl, const std::array<int, 1> &d1l,
-                                       Grid_FFT<data_t> &inr, const std::array<int, 2> &d2r,
-                                       opp output_op)
-    {
-        // transform to FS in case fields are not
-        inl.FourierTransformForward();
-        inr.FourierTransformForward();
-        // perform convolution of Hessians
-        static_cast<derived_t &>(*this).convolve2(
-            [&](size_t i, size_t j, size_t k) -> ccomplex_t {
-                auto kk = inl.template get_k<real_t>(i, j, k);
-                return ccomplex_t(0.0, -kk[d1l[0]]) * inl.kelem(i, j, k);
-            },
-            [&](size_t i, size_t j, size_t k) -> ccomplex_t {
-                auto kk = inr.template get_k<real_t>(i, j, k);
-                return -kk[d2r[0]] * kk[d2r[1]] * inr.kelem(i, j, k);
-            },
-            output_op);
-    }
+    // template <typename opp>
+    // void convolve_Gradient_and_Hessian(Grid_FFT<data_t> &inl, const std::array<int, 1> &d1l,
+    //                                    Grid_FFT<data_t> &inr, const std::array<int, 2> &d2r,
+    //                                    opp output_op)
+    // {
+    //     // transform to FS in case fields are not
+    //     inl.FourierTransformForward();
+    //     inr.FourierTransformForward();
+    //     // perform convolution of Hessians
+    //     static_cast<derived_t &>(*this).convolve2(
+    //         [&](size_t i, size_t j, size_t k) -> ccomplex_t {
+    //             auto kk = inl.template get_k<real_t>(i, j, k);
+    //             return ccomplex_t(0.0, -kk[d1l[0]]) * inl.kelem(i, j, k);
+    //         },
+    //         [&](size_t i, size_t j, size_t k) -> ccomplex_t {
+    //             auto kk = inr.template get_k<real_t>(i, j, k);
+    //             return -kk[d2r[0]] * kk[d2r[1]] * inr.kelem(i, j, k);
+    //         },
+    //         output_op);
+    // }
 
     template <typename opp>
     void convolve_Hessians(Grid_FFT<data_t> &inl, const std::array<int, 2> &d2l,
@@ -82,13 +82,15 @@ public:
         inr.FourierTransformForward();
         // perform convolution of Hessians
         static_cast<derived_t &>(*this).convolve2(
-            [&](size_t i, size_t j, size_t k) -> ccomplex_t {
-                auto kk = inl.template get_k<real_t>(i, j, k);
-                return -kk[d2l[0]] * kk[d2l[1]] * inl.kelem(i, j, k);
+            [&inl,&d2l](size_t i, size_t j, size_t k) -> ccomplex_t {
+                auto grad1 = inl.gradient(d2l[0],{i,j,k});
+                auto grad2 = inl.gradient(d2l[1],{i,j,k});
+                return grad1*grad2*inl.kelem(i, j, k);
             },
-            [&](size_t i, size_t j, size_t k) -> ccomplex_t {
-                auto kk = inr.template get_k<real_t>(i, j, k);
-                return -kk[d2r[0]] * kk[d2r[1]] * inr.kelem(i, j, k);
+            [&inr,&d2r](size_t i, size_t j, size_t k) -> ccomplex_t {
+                auto grad1 = inr.gradient(d2r[0],{i,j,k});
+                auto grad2 = inr.gradient(d2r[1],{i,j,k});
+                return grad1*grad2*inr.kelem(i, j, k);
             },
             output_op);
     }
@@ -106,16 +108,19 @@ public:
         // perform convolution of Hessians
         static_cast<derived_t &>(*this).convolve3(
             [&inl, &d2l](size_t i, size_t j, size_t k) -> ccomplex_t {
-                auto kk = inl.template get_k<real_t>(i, j, k);
-                return -kk[d2l[0]] * kk[d2l[1]] * inl.kelem(i, j, k);
+                auto grad1 = inl.gradient(d2l[0],{i,j,k});
+                auto grad2 = inl.gradient(d2l[1],{i,j,k});
+                return grad1*grad2*inl.kelem(i, j, k);
             },
             [&inm, &d2m](size_t i, size_t j, size_t k) -> ccomplex_t {
-                auto kk = inm.template get_k<real_t>(i, j, k);
-                return -kk[d2m[0]] * kk[d2m[1]] * inm.kelem(i, j, k);
+                auto grad1 = inm.gradient(d2m[0],{i,j,k});
+                auto grad2 = inm.gradient(d2m[1],{i,j,k});
+                return grad1*grad2*inm.kelem(i, j, k);
             },
             [&inr, &d2r](size_t i, size_t j, size_t k) -> ccomplex_t {
-                auto kk = inr.template get_k<real_t>(i, j, k);
-                return -kk[d2r[0]] * kk[d2r[1]] * inr.kelem(i, j, k);
+                auto grad1 = inr.gradient(d2r[0],{i,j,k});
+                auto grad2 = inr.gradient(d2r[1],{i,j,k});
+                return grad1*grad2*inr.kelem(i, j, k);
             },
             output_op);
     }
@@ -131,12 +136,16 @@ public:
         // perform convolution of Hessians
         static_cast<derived_t &>(*this).convolve2(
             [&inl, &d2l](size_t i, size_t j, size_t k) -> ccomplex_t {
-                auto kk = inl.template get_k<real_t>(i, j, k);
-                return -kk[d2l[0]] * kk[d2l[1]] * inl.kelem(i, j, k);
+                auto grad1 = inl.gradient(d2l[0],{i,j,k});
+                auto grad2 = inl.gradient(d2l[1],{i,j,k});
+                return grad1*grad2*inl.kelem(i, j, k);
             },
             [&inr, &d2r1, &d2r2](size_t i, size_t j, size_t k) -> ccomplex_t {
-                auto kk = inr.template get_k<real_t>(i, j, k);
-                return (-kk[d2r1[0]] * kk[d2r1[1]] - kk[d2r2[0]] * kk[d2r2[1]]) * inr.kelem(i, j, k);
+                auto grad11 = inr.gradient(d2r1[0],{i,j,k});
+                auto grad12 = inr.gradient(d2r1[1],{i,j,k});
+                auto grad21 = inr.gradient(d2r2[0],{i,j,k});
+                auto grad22 = inr.gradient(d2r2[1],{i,j,k});
+                return (grad11*grad12+grad21*grad22)*inr.kelem(i, j, k);
             },
             output_op);
     }
@@ -152,12 +161,16 @@ public:
         // perform convolution of Hessians
         static_cast<derived_t &>(*this).convolve2(
             [&inl, &d2l](size_t i, size_t j, size_t k) -> ccomplex_t {
-                auto kk = inl.template get_k<real_t>(i, j, k);
-                return -kk[d2l[0]] * kk[d2l[1]] * inl.kelem(i, j, k);
+                auto grad1 = inl.gradient(d2l[0],{i,j,k});
+                auto grad2 = inl.gradient(d2l[1],{i,j,k});
+                return grad1*grad2*inl.kelem(i, j, k);
             },
             [&inr, &d2r1, &d2r2](size_t i, size_t j, size_t k) -> ccomplex_t {
-                auto kk = inr.template get_k<real_t>(i, j, k);
-                return (-kk[d2r1[0]] * kk[d2r1[1]] + kk[d2r2[0]] * kk[d2r2[1]]) * inr.kelem(i, j, k);
+                auto grad11 = inr.gradient(d2r1[0],{i,j,k});
+                auto grad12 = inr.gradient(d2r1[1],{i,j,k});
+                auto grad21 = inr.gradient(d2r2[0],{i,j,k});
+                auto grad22 = inr.gradient(d2r2[1],{i,j,k});
+                return (grad11*grad12-grad21*grad22)*inr.kelem(i, j, k);
             },
             output_op);
     }

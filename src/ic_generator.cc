@@ -326,6 +326,7 @@ int Run( ConfigFile& the_config )
         const bool testing_compute_densities = false;
         if( testing_compute_densities )
         {
+            csoca::wlog << "you are running in testing mode. No ICs, only diagnostic output will be written out!" << std::endl;
             // testing::output_potentials_and_densities( the_config, ngrid, boxlen, phi, phi2, phi3a, phi3b, A3 );
             testing::output_velocity_displacement_symmetries( the_config, ngrid, boxlen, vfac, Dplus0, phi, phi2, phi3a, phi3b, A3 );
         }
@@ -468,11 +469,11 @@ int Run( ConfigFile& the_config )
                     for (size_t i = 0; i < phi.size(0); ++i) {
                         for (size_t j = 0; j < phi.size(1); ++j) {
                             for (size_t k = 0; k < phi.size(2); ++k) {
-                                auto kk = phi.get_k<real_t>(i,j,k);
                                 size_t idx = phi.get_idx(i,j,k);
                                 auto phitot = phi.kelem(idx) + phi2.kelem(idx) + phi3a.kelem(idx) + phi3b.kelem(idx);
                                 // divide by Lbox, because displacement is in box units for output plugin
-                                tmp.kelem(idx) = lunit * ccomplex_t(0.0,-1.0) * (kk[idim] * phitot + kk[idimp] * A3[idimpp]->kelem(idx) - kk[idimpp] * A3[idimp]->kelem(idx) ) / boxlen;
+                                tmp.kelem(idx) = lunit / boxlen * ( phi.gradient(idim,{i,j,k}) * phitot 
+                                    + phi.gradient(idimp,{i,j,k}) * A3[idimpp]->kelem(idx) - phi.gradient(idimpp,{i,j,k}) * A3[idimp]->kelem(idx) );
                             }
                         }
                     }
@@ -524,11 +525,12 @@ int Run( ConfigFile& the_config )
                     for (size_t i = 0; i < phi.size(0); ++i) {
                         for (size_t j = 0; j < phi.size(1); ++j) {
                             for (size_t k = 0; k < phi.size(2); ++k) {
-                                auto kk = phi.get_k<real_t>(i,j,k);
                                 size_t idx = phi.get_idx(i,j,k);
                                 // divide by Lbox, because displacement is in box units for output plugin
                                 auto phitot_v = vfac1 * phi.kelem(idx) + vfac2 * phi2.kelem(idx) + vfac3 * (phi3a.kelem(idx) + phi3b.kelem(idx));
-                                tmp.kelem(idx) = vunit*ccomplex_t(0.0,-1.0) * (kk[idim] * phitot_v + vfac3 * (kk[idimp] * A3[idimpp]->kelem(idx) - kk[idimpp] * A3[idimp]->kelem(idx)) ) / boxlen;
+
+                                tmp.kelem(idx) = vunit / boxlen * ( phi.gradient(idim,{i,j,k}) * phitot_v 
+                                        + vfac3 * (phi.gradient(idimp,{i,j,k}) * A3[idimpp]->kelem(idx) - phi.gradient(idimpp,{i,j,k}) * A3[idimp]->kelem(idx)) );
 
                                 if( bAddExternalTides ){
                                     // modify velocities with anisotropic expansion factor**2

@@ -149,14 +149,16 @@ void output_velocity_displacement_symmetries(
             {
                 for (size_t k = 0; k < phi.size(2); ++k)
                 {
-                    auto kk = phi.get_k<real_t>(i, j, k);
                     size_t idx = phi.get_idx(i, j, k);
                     auto phitot = phi.kelem(idx) + phi2.kelem(idx) + phi3a.kelem(idx) + phi3b.kelem(idx);
                     auto phitot_v = vfac1 * phi.kelem(idx) + vfac2 * phi2.kelem(idx) + vfac3 * (phi3a.kelem(idx) + phi3b.kelem(idx));
 
                     // divide by Lbox, because displacement is in box units for output plugin
-                    grid_x[idim]->kelem(idx) = ccomplex_t(0.0, -1.0) * (kk[idim] * phitot + kk[idimp] * A3[idimpp]->kelem(idx) - kk[idimpp] * A3[idimp]->kelem(idx));
-                    grid_v[idim]->kelem(idx) = ccomplex_t(0.0, -1.0) * (kk[idim] * phitot_v + vfac3 * (kk[idimp] * A3[idimpp]->kelem(idx) - kk[idimpp] * A3[idimp]->kelem(idx))) / boxlen;
+                    grid_x[idim]->kelem(idx) = ( phi.gradient(idim,{i,j,k}) * phitot 
+                                                + phi.gradient(idimp,{i,j,k}) * A3[idimpp]->kelem(idx) 
+                                                - phi.gradient(idimpp,{i,j,k}) * A3[idimp]->kelem(idx) );
+                    grid_v[idim]->kelem(idx) = ( phi.gradient(idim,{i,j,k}) * phitot_v 
+                            + vfac3 * (phi.gradient(idimp,{i,j,k}) * A3[idimpp]->kelem(idx) - phi.gradient(idimpp,{i,j,k}) * A3[idimp]->kelem(idx)) ) / boxlen;
                 }
             }
         }
@@ -203,11 +205,9 @@ void output_velocity_displacement_symmetries(
             {
                 for (size_t k = 0; k < invariant.size(2); ++k)
                 {
-                    auto kk = invariant.get_k<real_t>(i, j, k);
                     size_t idx = invariant.get_idx(i, j, k);
-                    invariant.kelem(idx) = ccomplex_t(0.0, -kk[idimp]) * grid_v[idim]->kelem(idx) - ccomplex_t(0.0, -kk[idim]) * grid_v[idimp]->kelem(idx);
-                    // invariant.kelem(idx) = ccomplex_t(0.0,kk[idim]) * grid_v[idimp]->kelem(idx)
-                    //                      - ccomplex_t(0.0,kk[idimp])  * grid_v[idim]->kelem(idx);
+                   invariant.kelem(idx) = invariant.gradient(idimp,{i,j,k}) * grid_v[idim]->kelem(idx) - invariant.gradient(idim,{i,j,k}) * grid_v[idimp]->kelem(idx);
+
                 }
             }
         }
