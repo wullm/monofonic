@@ -323,15 +323,23 @@ int Run( ConfigFile& the_config )
         ///////////////////////////////////////////////////////////////////////
         // we store the densities here if we compute them
         //======================================================================
-        const bool testing_compute_densities = false;
-        if( testing_compute_densities )
-        {
+
+        // Testing
+        const std::string testing = the_config.GetValueSafe<std::string>("testing", "test", "none");
+
+        if(testing != "none") {
             csoca::wlog << "you are running in testing mode. No ICs, only diagnostic output will be written out!" << std::endl;
-            // testing::output_potentials_and_densities( the_config, ngrid, boxlen, phi, phi2, phi3a, phi3b, A3 );
-            testing::output_velocity_displacement_symmetries( the_config, ngrid, boxlen, vfac, Dplus0, phi, phi2, phi3a, phi3b, A3 );
+            if(testing == "potentials_and_densities") {
+                testing::output_potentials_and_densities(the_config, ngrid, boxlen, phi, phi2, phi3a, phi3b, A3);
+            } else if(testing == "velocity_displacement_symmetries") {
+                testing::output_velocity_displacement_symmetries(the_config, ngrid, boxlen, vfac, Dplus0, phi, phi2, phi3a, phi3b, A3);
+            } else if(testing == "convergence") {
+                testing::output_convergence(the_config, ngrid, boxlen, vfac, Dplus0, phi, phi2, phi3a, phi3b, A3);
+            } else {
+                csoca::flog << "unknown test '" << testing << "'" << std::endl;
+                std::abort();
         }
-        else
-        {
+        } else {
             // temporary storage of data
             Grid_FFT<real_t> tmp({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
 

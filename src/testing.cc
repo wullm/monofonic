@@ -1,5 +1,6 @@
 #include <testing.hh>
 #include <unistd.h> // for unlink
+#include <memory>
 
 #include <operators.hh>
 #include <convolution.hh>
@@ -236,6 +237,126 @@ void output_velocity_displacement_symmetries(
                     << std::setw(16) << Icomp[0] << " "
                     << std::setw(16) << Icomp[1] << " "
                     << std::setw(16) << Icomp[2] << std::endl;
+
+}
+
+void output_convergence(
+    ConfigFile &the_config,
+    std::size_t ngrid, real_t boxlen, real_t vfac, real_t dplus,
+    Grid_FFT<real_t> &phi,
+    Grid_FFT<real_t> &phi2,
+    Grid_FFT<real_t> &phi3a,
+    Grid_FFT<real_t> &phi3b,
+    std::array<Grid_FFT<real_t> *, 3> &A3)
+{
+
+    // scale all potentials to remove dplus0
+    phi /= dplus;
+    phi2 /= dplus * dplus;
+    phi3a /= dplus * dplus * dplus;
+    phi3b /= dplus * dplus * dplus;
+    (*A3[0]) /= dplus * dplus * dplus;
+    (*A3[1]) /= dplus * dplus * dplus;
+    (*A3[2]) /= dplus * dplus * dplus;
+
+    // initialize grids to 0
+    Grid_FFT<real_t> psi_1({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
+    Grid_FFT<real_t> psi_2({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
+    Grid_FFT<real_t> psi_3({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
+#pragma omp parallel for collapse(3)
+    for (std::size_t i = 0; i < psi_1.size(0); ++i) {
+        for (std::size_t j = 0; j < psi_1.size(1); ++j) {
+            for (std::size_t k = 0; k < psi_1.size(2); ++k) {
+                std::size_t idx = psi_1.get_idx(i, j, k);
+                psi_1.relem(idx) = 0.0;
+                psi_2.relem(idx) = 0.0;
+                psi_3.relem(idx) = 0.0;
+            }
+        }
+    }
+
+
+    // temporaries
+    Grid_FFT<real_t> psi_1_tmp({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
+    Grid_FFT<real_t> psi_2_tmp({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
+    Grid_FFT<real_t> psi_3_tmp({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
+
+    // compute psi 1, 2 and 3
+    for (int idim = 0; idim < 3; ++idim) {
+        // cyclic rotations of indices
+        int idimp = (idim + 1) % 3, idimpp = (idim + 2) % 3;
+
+        psi_1_tmp.FourierTransformForward(false);
+        psi_2_tmp.FourierTransformForward(false);
+        psi_3_tmp.FourierTransformForward(false);
+
+#pragma omp parallel for collapse(3)
+        for (std::size_t i = 0; i < phi.size(0); ++i) {
+            for (std::size_t j = 0; j < phi.size(1); ++j) {
+                for (std::size_t k = 0; k < phi.size(2); ++k) {
+                    auto kk = phi.get_k<real_t>(i, j, k);
+                    std::size_t idx = phi.get_idx(i, j, k);
+                    psi_1_tmp.kelem(idx) = ccomplex_t(0.0, 1.0) * (kk[idim] * phi.kelem(idx));
+                    psi_2_tmp.kelem(idx) = ccomplex_t(0.0, 1.0) * (kk[idim] * phi2.kelem(idx));
+                    psi_3_tmp.kelem(idx) = ccomplex_t(0.0, 1.0) * (
+                        kk[idim] * (phi3a.kelem(idx) + phi3b.kelem(idx)) +
+                        kk[idimp] * A3[idimpp]->kelem(idx) -
+                        kk[idimpp] * A3[idimp]->kelem(idx)
+                    );
+                }
+            }
+        }
+        psi_1_tmp.FourierTransformBackward();
+        psi_2_tmp.FourierTransformBackward();
+        psi_3_tmp.FourierTransformBackward();
+
+        // sum of squares
+#pragma omp parallel for collapse(3)
+        for (std::size_t i = 0; i < psi_1.size(0); ++i) {
+            for (std::size_t j = 0; j < psi_1.size(1); ++j) {
+                for (std::size_t k = 0; k < psi_1.size(2); ++k) {
+                    std::size_t idx = psi_1.get_idx(i, j, k);
+                    psi_1.relem(idx) += psi_1_tmp.relem(idx) * psi_1_tmp.relem(idx);
+                    psi_2.relem(idx) += psi_2_tmp.relem(idx) * psi_2_tmp.relem(idx);
+                    psi_3.relem(idx) += psi_3_tmp.relem(idx) * psi_3_tmp.relem(idx);
+                }
+            }
+        }
+    } // loop on dimensions
+
+    // apply square root for the L2 norm
+#pragma omp parallel for collapse(3)
+    for (std::size_t i = 0; i < psi_1.size(0); ++i) {
+        for (std::size_t j = 0; j < psi_1.size(1); ++j) {
+            for (std::size_t k = 0; k < psi_1.size(2); ++k) {
+                std::size_t idx = psi_1.get_idx(i, j, k);
+                psi_1.relem(idx) = std::sqrt(psi_1.relem(idx));
+                psi_2.relem(idx) = std::sqrt(psi_2.relem(idx));
+                psi_3.relem(idx) = std::sqrt(psi_3.relem(idx));
+            }
+        }
+    }
+
+    // convergence radius
+    Grid_FFT<real_t> inv_convergence_radius({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
+#pragma omp parallel for collapse(3)
+    for (std::size_t i = 0; i < psi_1.size(0); ++i) {
+        for (std::size_t j = 0; j < psi_1.size(1); ++j) {
+            for (std::size_t k = 0; k < psi_1.size(2); ++k) {
+                std::size_t idx = psi_1.get_idx(i, j, k);
+                inv_convergence_radius.relem(idx) =
+                    3.0 * (std::abs(psi_3.relem(idx)) / std::abs(psi_2.relem(idx))) -
+                    2.0 * (std::abs(psi_2.relem(idx)) / std::abs(psi_1.relem(idx)));
+            }
+        }
+    }
+
+    // write results
+    unlink("convergence_test.hdf5");
+    inv_convergence_radius.Write_to_HDF5("convergence_test.hdf5", "inv_convergence_radius");
+    psi_1.Write_to_HDF5("convergence_test.hdf5", "psi_1_norm");
+    psi_2.Write_to_HDF5("convergence_test.hdf5", "psi_2_norm");
+    psi_3.Write_to_HDF5("convergence_test.hdf5", "psi_3_norm");
 
 }
 
