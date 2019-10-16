@@ -48,6 +48,8 @@ public:
         }
         free(arg);
         fclose(cpuinfo);
+	//remove newline characters from string
+	str.erase(std::remove(str.begin(), str.end(), '\n'),str.end());
         return str;
 #endif
     }

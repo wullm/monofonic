@@ -36,7 +36,7 @@ std::unique_ptr<TransferFunction_plugin> select_TransferFunction_plugin(ConfigFi
     }
     else
     {
-        csoca::ilog << "--------------------------------------------------------------------------------" << std::endl;
+        csoca::ilog << "-------------------------------------------------------------------------------" << std::endl;
         csoca::ilog << std::setw(32) << std::left << "Transfer function plugin" << " : " << tfname << std::endl;
     }
 
