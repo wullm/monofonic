@@ -37,7 +37,7 @@ std::unique_ptr<RNG_plugin> select_RNG_plugin(ConfigFile &cf)
     }
     else
     {
-        csoca::ilog << "--------------------------------------------------------------------------------" << std::endl;
+        csoca::ilog << "-------------------------------------------------------------------------------" << std::endl;
         csoca::ilog << std::setw(32) << std::left << "Random number generator plugin" << " : " << rngname << std::endl;
     }
 
