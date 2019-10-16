@@ -24,6 +24,7 @@ public:
         RandomSeed_ = cf.GetValue<long>("random", "seed");
         nres_ = cf.GetValue<size_t>("setup", "GridRes");
         pRandomGenerator_ = gsl_rng_alloc(gsl_rng_ranlxd1);
+        gsl_rng_set(pRandomGenerator_, RandomSeed_);
 
         SeedTable_.assign(nres_ * nres_, 0u);
 
