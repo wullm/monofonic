@@ -147,6 +147,11 @@ int main( int argc, char** argv )
 #endif
     csoca::ilog << std::setw(32) << std::left << "MPI supports multi-threading" << " : " << (CONFIG::MPI_threads_ok? "yes" : "no") << std::endl;
     
+    // Kernel related infos
+    SystemStat::Kernel kern;
+    auto kinfo = kern.get_kernel_info();
+    csoca::ilog << std::setw(32) << std::left << "OS/Kernel version" << " : " << kinfo.kernel << " version " << kinfo.major << "." << kinfo.minor << " build " << kinfo.build_number << std::endl;
+
     // FFTW related infos
     csoca::ilog << std::setw(32) << std::left << "FFTW version" << " : " << fftw_version << std::endl;
     csoca::ilog << std::setw(32) << std::left << "FFTW supports multi-threading" << " : " << (CONFIG::FFTW_threads_ok? "yes" : "no") << std::endl;
