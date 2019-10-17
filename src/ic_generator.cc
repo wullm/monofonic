@@ -55,8 +55,9 @@ int Run( ConfigFile& the_config )
     int LPTorder = the_config.GetValueSafe<double>("setup","LPTorder",100);
 
     //--------------------------------------------------------------------------------------------------------
-    //! initialice particles on a bcc lattice instead of a standard sc lattice (doubles number of particles) 
-    const bool initial_bcc_lattice = the_config.GetValueSafe<bool>("setup","BCClattice",false);
+    //! initialice particles on a bcc or fcc lattice instead of a standard sc lattice (doubles and quadruples the number of particles) 
+    std::string lattice_str = the_config.GetValueSafe<std::string>("setup","ParticleLoad","sc");
+    const particle_lattice lattice_type = (lattice_str=="bcc")? lattice_bcc : ((lattice_str=="fcc")? lattice_fcc : lattice_sc);
 
     //--------------------------------------------------------------------------------------------------------
     //! apply fixing of the complex mode amplitude following Angulo & Pontzen (2016) [https://arxiv.org/abs/1603.05253]
@@ -439,29 +440,50 @@ int Run( ConfigFile& the_config )
                 // if output plugin wants particles, then we need to store them, along with their IDs
                 if( the_output_plugin->write_species_as( this_species ) == output_type::particles )
                 {
-                    // if particles occupy a bcc lattice, then there are 2 x N^3 of them...
-                    // generate particle IDs
-                    if( !initial_bcc_lattice ){
-                        particles.allocate( num_p_in_load );
-                        for( size_t i=0,ipcount=0; i<tmp.size(0); ++i ){
-                            for( size_t j=0; j<tmp.size(1); ++j){
-                                for( size_t k=0; k<tmp.size(2); ++k){
-                                    particles.set_id( ipcount++, tmp.get_cell_idx_1d(i,j,k) );
+                    // allocate particle structure and generate particle IDs
+                    switch( lattice_type ){
+                        default:
+                        case lattice_sc:
+                            // if particles occupy a sc lattice, then there are 2 x N^3 of them...
+                            particles.allocate( num_p_in_load );
+                            for( size_t i=0,ipcount=0; i<tmp.size(0); ++i ){
+                                for( size_t j=0; j<tmp.size(1); ++j){
+                                    for( size_t k=0; k<tmp.size(2); ++k){
+                                        particles.set_id( ipcount++, tmp.get_cell_idx_1d(i,j,k) );
+                                    }
                                 }
                             }
-                        }
-                    }else{
-                        // if particles occupy a bcc lattice, then there are 2 x N^3 of them...
-                        particles.allocate( 2*num_p_in_load );
-                    for( size_t i=0,ipcount=0; i<tmp.size(0); ++i ){
-                        for( size_t j=0; j<tmp.size(1); ++j){
-                            for( size_t k=0; k<tmp.size(2); ++k){
-                                    particles.set_id( ipcount, 2*tmp.get_cell_idx_1d(i,j,k) );
-                                    particles.set_id( ipcount+num_p_in_load, 2*tmp.get_cell_idx_1d(i,j,k)+1 );
-                                    ++ipcount;    
+                            break;
+
+                        case lattice_bcc:
+                            // if particles occupy a bcc lattice, then there are 2 x N^3 of them...
+                            particles.allocate( 2*num_p_in_load );
+                            for( size_t i=0,ipcount=0; i<tmp.size(0); ++i ){
+                                for( size_t j=0; j<tmp.size(1); ++j){
+                                    for( size_t k=0; k<tmp.size(2); ++k){
+                                        particles.set_id( ipcount, 2*tmp.get_cell_idx_1d(i,j,k) );
+                                        particles.set_id( ipcount+num_p_in_load, 2*tmp.get_cell_idx_1d(i,j,k)+1 );
+                                        ++ipcount;    
+                                    }
                                 }
                             }
-                        }
+                            break;
+                        
+                        case lattice_fcc:
+                            // if particles occupy a fcc lattice, then there are 4 x N^3 of them...
+                            particles.allocate( 4*num_p_in_load );
+                            for( size_t i=0,ipcount=0; i<tmp.size(0); ++i ){
+                                for( size_t j=0; j<tmp.size(1); ++j){
+                                    for( size_t k=0; k<tmp.size(2); ++k){
+                                        particles.set_id( ipcount+0*num_p_in_load, 4*tmp.get_cell_idx_1d(i,j,k) );
+                                        particles.set_id( ipcount+1*num_p_in_load, 4*tmp.get_cell_idx_1d(i,j,k)+1 );
+                                        particles.set_id( ipcount+2*num_p_in_load, 4*tmp.get_cell_idx_1d(i,j,k)+2 );
+                                        particles.set_id( ipcount+3*num_p_in_load, 4*tmp.get_cell_idx_1d(i,j,k)+3 );
+                                        ++ipcount;    
+                                    }
+                                }
+                            }
+                            break;
                     }
                 }
             
@@ -499,13 +521,48 @@ int Run( ConfigFile& the_config )
                             }
                         }
 
-                        if( initial_bcc_lattice ){
-                            tmp.stagger_field();
+                        if( lattice_type == lattice_bcc ){
+                            tmp.shift_field( 0.5, 0.5, 0.5 );
                             auto ipcount0 = num_p_in_load;
                             for( size_t i=0,ipcount=ipcount0; i<tmp.size(0); ++i ){
                                 for( size_t j=0; j<tmp.size(1); ++j){
                                     for( size_t k=0; k<tmp.size(2); ++k){
-                                        auto pos = tmp.get_unit_r_staggered<float>(i,j,k);
+                                        auto pos = tmp.get_unit_r_shifted<float>(i,j,k,0.5,0.5,0.5);
+                                        particles.set_pos( ipcount++, idim, pos[idim]*lunit + tmp.relem(i,j,k) );
+                                    }
+                                }
+                            }
+                        }
+                        else if( lattice_type == lattice_fcc ){ 
+                            // 0.5 0.5 0.0
+                            tmp.shift_field( 0.5, 0.5, 0.0 );
+                            auto ipcount0 = num_p_in_load;
+                            for( size_t i=0,ipcount=ipcount0; i<tmp.size(0); ++i ){
+                                for( size_t j=0; j<tmp.size(1); ++j){
+                                    for( size_t k=0; k<tmp.size(2); ++k){
+                                        auto pos = tmp.get_unit_r_shifted<float>(i,j,k,0.5,0.5,0.0);
+                                        particles.set_pos( ipcount++, idim, pos[idim]*lunit + tmp.relem(i,j,k) );
+                                    }
+                                }
+                            }
+                            // 0.0 0.5 0.5
+                            tmp.shift_field( -0.5, 0.0, 0.5 );
+                            ipcount0 = 2*num_p_in_load;
+                            for( size_t i=0,ipcount=ipcount0; i<tmp.size(0); ++i ){
+                                for( size_t j=0; j<tmp.size(1); ++j){
+                                    for( size_t k=0; k<tmp.size(2); ++k){
+                                        auto pos = tmp.get_unit_r_shifted<float>(i,j,k,0.0,0.5,0.5);
+                                        particles.set_pos( ipcount++, idim, pos[idim]*lunit + tmp.relem(i,j,k) );
+                                    }
+                                }
+                            }
+                            // 0.5 0.0 0.5
+                            tmp.shift_field( 0.5, -0.5, 0.0 );
+                            ipcount0 = 3*num_p_in_load;
+                            for( size_t i=0,ipcount=ipcount0; i<tmp.size(0); ++i ){
+                                for( size_t j=0; j<tmp.size(1); ++j){
+                                    for( size_t k=0; k<tmp.size(2); ++k){
+                                        auto pos = tmp.get_unit_r_shifted<float>(i,j,k,0.5,0.0,0.5);
                                         particles.set_pos( ipcount++, idim, pos[idim]*lunit + tmp.relem(i,j,k) );
                                     }
                                 }
@@ -563,8 +620,8 @@ int Run( ConfigFile& the_config )
                             }
                         }
 
-                        if( initial_bcc_lattice ){
-                            tmp.stagger_field();
+                        if( lattice_type == lattice_bcc ){
+                            tmp.shift_field( 0.5, 0.5, 0.5 );
                             auto ipcount0 = num_p_in_load;
                             for( size_t i=0,ipcount=ipcount0; i<tmp.size(0); ++i ){
                                 for( size_t j=0; j<tmp.size(1); ++j){
@@ -574,6 +631,39 @@ int Run( ConfigFile& the_config )
                                 }
                             }
                         }
+                        else if( lattice_type == lattice_fcc ){ 
+                            // 0.5 0.5 0.0
+                            tmp.shift_field( 0.5, 0.5, 0.0 );
+                            auto ipcount0 = num_p_in_load;
+                            for( size_t i=0,ipcount=ipcount0; i<tmp.size(0); ++i ){
+                                for( size_t j=0; j<tmp.size(1); ++j){
+                                    for( size_t k=0; k<tmp.size(2); ++k){
+                                        particles.set_vel( ipcount++, idim, tmp.relem(i,j,k) );
+                                    }
+                                }
+                            }
+                            // 0.0 0.5 0.5
+                            tmp.shift_field( -0.5, 0.0, 0.5 );
+                            ipcount0 = 2*num_p_in_load;
+                            for( size_t i=0,ipcount=ipcount0; i<tmp.size(0); ++i ){
+                                for( size_t j=0; j<tmp.size(1); ++j){
+                                    for( size_t k=0; k<tmp.size(2); ++k){
+                                        particles.set_vel( ipcount++, idim, tmp.relem(i,j,k) );
+                                    }
+                                }
+                            }
+                            // 0.5 0.0 0.5
+                            tmp.shift_field( 0.5, -0.5, 0.0 );
+                            ipcount0 = 3*num_p_in_load;
+                            for( size_t i=0,ipcount=ipcount0; i<tmp.size(0); ++i ){
+                                for( size_t j=0; j<tmp.size(1); ++j){
+                                    for( size_t k=0; k<tmp.size(2); ++k){
+                                        particles.set_vel( ipcount++, idim, tmp.relem(i,j,k) );
+                                    }
+                                }
+                            }
+                        }
+
                     }// otherwise write out the grid data directly to the output plugin
                     else if( the_output_plugin->write_species_as( this_species ) == output_type::field_lagrangian )
                     {

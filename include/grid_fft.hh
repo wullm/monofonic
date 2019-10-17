@@ -188,6 +188,18 @@ public:
         return rr;
     }
 
+    template <typename ft>
+    vec3<ft> get_unit_r_shifted(const size_t i, const size_t j, const size_t k, double sx, double sy, double sz) const
+    {
+        vec3<ft> rr;
+
+        rr[0] = (real_t(i + local_0_start_) + sx) / real_t(n_[0]);
+        rr[1] = (real_t(j) + sy) / real_t(n_[1]);
+        rr[2] = (real_t(k) + sz) / real_t(n_[2]);
+
+        return rr;
+    }
+
     void cell_pos(int ilevel, size_t i, size_t j, size_t k, double *x) const
     {
         x[0] = double(i + local_0_start_) / size(0);
@@ -643,14 +655,33 @@ public:
 
     void Write_PDF(std::string ofname, int nbins = 1000, double scale = 1.0, double rhomin = 1e-3, double rhomax = 1e3);
 
-    void stagger_field(void)
+    // void stagger_field(void)
+    // {
+    //     FourierTransformForward();
+    //     apply_function_k_dep([&](auto x, auto k) -> ccomplex_t {
+    //         real_t shift = k[0] * get_dx()[0] + k[1] * get_dx()[1] + k[2] * get_dx()[2];
+    //         return x * std::exp(ccomplex_t(0.0, 0.5 * shift));
+    //     });
+    //     FourierTransformBackward();
+    // }
+
+    void shift_field( double sx, double sy, double sz )
     {
         FourierTransformForward();
         apply_function_k_dep([&](auto x, auto k) -> ccomplex_t {
-            real_t shift = k[0] * get_dx()[0] + k[1] * get_dx()[1] + k[2] * get_dx()[2];
-            return x * std::exp(ccomplex_t(0.0, 0.5 * shift));
+#ifdef WITH_MPI
+            real_t shift = sy * k[0] * get_dx()[0] + sx * k[1] * get_dx()[1] + sz * k[2] * get_dx()[2];
+#else
+            real_t shift = sx * k[0] * get_dx()[0] + sy * k[1] * get_dx()[1] + sz * k[2] * get_dx()[2];
+#endif
+            return x * std::exp(ccomplex_t(0.0, shift));
         });
         FourierTransformBackward();
+    }
+
+    void stagger_field(void)
+    {
+        this->shift_field( 0.5, 0.5, 0.5 );
     }
 
     void zero_DC_mode(void)

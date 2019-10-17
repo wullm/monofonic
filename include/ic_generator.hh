@@ -9,11 +9,16 @@
 
 namespace ic_generator{
 
-int Run( ConfigFile& the_config );
-int Initialise( ConfigFile& the_config );
+    enum particle_lattice{
+        lattice_sc, lattice_bcc, lattice_fcc
+    };
 
-extern std::unique_ptr<RNG_plugin> the_random_number_generator;
-extern std::unique_ptr<output_plugin> the_output_plugin;
-extern std::unique_ptr<CosmologyCalculator>  the_cosmo_calc;
+    int Run( ConfigFile& the_config );
+    
+    int Initialise( ConfigFile& the_config );
+
+    extern std::unique_ptr<RNG_plugin> the_random_number_generator;
+    extern std::unique_ptr<output_plugin> the_output_plugin;
+    extern std::unique_ptr<CosmologyCalculator>  the_cosmo_calc;
 
 }
