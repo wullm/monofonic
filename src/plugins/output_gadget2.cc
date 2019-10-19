@@ -55,7 +55,7 @@ public:
 
 	real_t velocity_unit() const { return vunit_; }
 
-	void write_particle_data(const particle_container &pc, const cosmo_species &s )
+	void write_particle_data(const particle::container &pc, const cosmo_species &s )
 	{
 			// fill the Gadget-2 header
 		memset(reinterpret_cast<void*>(&this_header_),0,sizeof(header));

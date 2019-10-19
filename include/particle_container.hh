@@ -8,17 +8,19 @@
 #include <vector>
 #include <general.hh>
 
-class particle_container
+namespace particle{
+	
+class container
 {
 public:
 	std::vector<float> positions_, velocities_;
 	std::vector<int> ids_;
 
-	particle_container()
+	container()
 	{
 	}
 
-	particle_container(const particle_container &) = delete;
+	container(const container &) = delete;
 
 	const void* get_pos_ptr() const{
 		return reinterpret_cast<const void*>( &positions_[0] );
@@ -82,9 +84,6 @@ public:
 			
 			std::vector<size_t> nump_p_task(mpi_size,0), off_p_task;
 			size_t num_p_this_task = this->get_local_num_particles();
-			// MPI_Allgather(const void *sendbuf, int sendcount, MPI_Datatype sendtype,
-					//   void *recvbuf, int recvcount, MPI_Datatype recvtype,
-					//   MPI_Comm comm)
 			MPI_Allgather( reinterpret_cast<const void*>(&num_p_this_task), 1, MPI_UNSIGNED_LONG_LONG,
 				reinterpret_cast<void*>(&nump_p_task[0]), 1, MPI_UNSIGNED_LONG_LONG, MPI_COMM_WORLD );
 
@@ -106,3 +105,4 @@ public:
 	}
 };
 
+}
