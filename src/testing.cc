@@ -264,7 +264,7 @@ void output_convergence(
     // compute phi_code
     Grid_FFT<real_t> phi_code({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
     phi_code.FourierTransformForward(false);
-    #pragma omp parallel for collapse(3)
+    #pragma omp parallel for //collapse(3)
     for (std::size_t i = 0; i < phi_code.size(0); ++i) {
         for (std::size_t j = 0; j < phi_code.size(1); ++j) {
             for (std::size_t k = 0; k < phi_code.size(2); ++k) {
@@ -276,7 +276,7 @@ void output_convergence(
 
     // initialize norm to 0
     Grid_FFT<real_t> nabla_vini_norm({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
-    #pragma omp parallel for collapse(3)
+    #pragma omp parallel for //collapse(3)
     for (std::size_t i = 0; i < nabla_vini_norm.size(0); ++i) {
         for (std::size_t j = 0; j < nabla_vini_norm.size(1); ++j) {
             for (std::size_t k = 0; k < nabla_vini_norm.size(2); ++k) {
@@ -290,7 +290,7 @@ void output_convergence(
     for(std::size_t m = 0; m < 3; m++) {
         for(std::size_t n = m; n < 3; n++) {
             nabla_vini_mn.FourierTransformForward(false);
-            #pragma omp parallel for collapse(3)
+            #pragma omp parallel for //collapse(3)
             for (std::size_t i = 0; i < phi_code.size(0); ++i) {
                 for (std::size_t j = 0; j < phi_code.size(1); ++j) {
                     for (std::size_t k = 0; k < phi_code.size(2); ++k) {
@@ -303,7 +303,7 @@ void output_convergence(
             nabla_vini_mn.FourierTransformBackward();
             nabla_vini_mn *= (3.2144004915 / the_cosmo_calc->CalcGrowthFactor(1.0));
             // sum of squares
-            #pragma omp parallel for collapse(3)
+            #pragma omp parallel for //collapse(3)
             for (std::size_t i = 0; i < nabla_vini_norm.size(0); ++i) {
                 for (std::size_t j = 0; j < nabla_vini_norm.size(1); ++j) {
                     for (std::size_t k = 0; k < nabla_vini_norm.size(2); ++k) {
@@ -319,7 +319,7 @@ void output_convergence(
         }
     }
     // square root
-    #pragma omp parallel for collapse(3)
+    #pragma omp parallel for //collapse(3)
     for (std::size_t i = 0; i < nabla_vini_norm.size(0); ++i) {
         for (std::size_t j = 0; j < nabla_vini_norm.size(1); ++j) {
             for (std::size_t k = 0; k < nabla_vini_norm.size(2); ++k) {
@@ -331,7 +331,7 @@ void output_convergence(
 
     // get t_eds
     Grid_FFT<real_t> t_eds({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
-    #pragma omp parallel for collapse(3)
+    #pragma omp parallel for //collapse(3)
     for (std::size_t i = 0; i < t_eds.size(0); ++i) {
         for (std::size_t j = 0; j < t_eds.size(1); ++j) {
             for (std::size_t k = 0; k < t_eds.size(2); ++k) {
@@ -347,7 +347,7 @@ void output_convergence(
     Grid_FFT<real_t> psi_1({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
     Grid_FFT<real_t> psi_2({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
     Grid_FFT<real_t> psi_3({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
-#pragma omp parallel for collapse(3)
+    #pragma omp parallel for //collapse(3)
     for (std::size_t i = 0; i < psi_1.size(0); ++i) {
         for (std::size_t j = 0; j < psi_1.size(1); ++j) {
             for (std::size_t k = 0; k < psi_1.size(2); ++k) {
@@ -374,7 +374,7 @@ void output_convergence(
         psi_2_tmp.FourierTransformForward(false);
         psi_3_tmp.FourierTransformForward(false);
 
-#pragma omp parallel for collapse(3)
+        #pragma omp parallel for //collapse(3)
         for (std::size_t i = 0; i < phi.size(0); ++i) {
             for (std::size_t j = 0; j < phi.size(1); ++j) {
                 for (std::size_t k = 0; k < phi.size(2); ++k) {
@@ -395,7 +395,7 @@ void output_convergence(
         psi_3_tmp.FourierTransformBackward();
 
         // sum of squares
-#pragma omp parallel for collapse(3)
+        #pragma omp parallel for //collapse(3)
         for (std::size_t i = 0; i < psi_1.size(0); ++i) {
             for (std::size_t j = 0; j < psi_1.size(1); ++j) {
                 for (std::size_t k = 0; k < psi_1.size(2); ++k) {
@@ -409,7 +409,7 @@ void output_convergence(
     } // loop on dimensions
 
     // apply square root for the L2 norm
-#pragma omp parallel for collapse(3)
+#pragma omp parallel for //collapse(3)
     for (std::size_t i = 0; i < psi_1.size(0); ++i) {
         for (std::size_t j = 0; j < psi_1.size(1); ++j) {
             for (std::size_t k = 0; k < psi_1.size(2); ++k) {
@@ -423,7 +423,7 @@ void output_convergence(
 
     // convergence radius
     Grid_FFT<real_t> inv_convergence_radius({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
-#pragma omp parallel for collapse(3)
+    #pragma omp parallel for //collapse(3)
     for (std::size_t i = 0; i < psi_1.size(0); ++i) {
         for (std::size_t j = 0; j < psi_1.size(1); ++j) {
             for (std::size_t k = 0; k < psi_1.size(2); ++k) {
