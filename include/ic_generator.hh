@@ -9,10 +9,6 @@
 
 namespace ic_generator{
 
-    enum particle_lattice{
-        lattice_sc, lattice_bcc, lattice_fcc
-    };
-
     int Run( ConfigFile& the_config );
     
     int Initialise( ConfigFile& the_config );
