@@ -84,7 +84,7 @@ file( GLOB PLUGINS
 add_executable(${PRGNAME} ${SOURCES} ${PLUGINS})
 target_setup_class(${PRGNAME})
 
-set_target_properties(${PRGNAME} PROPERTIES CXX_STANDARD 17)
+set_target_properties(${PRGNAME} PROPERTIES CXX_STANDARD 14)
 
 # mpi flags
 if(MPI_CXX_FOUND)
