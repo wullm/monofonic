@@ -335,7 +335,7 @@ int Run( ConfigFile& the_config )
             } else if(testing == "velocity_displacement_symmetries") {
                 testing::output_velocity_displacement_symmetries(the_config, ngrid, boxlen, vfac, Dplus0, phi, phi2, phi3a, phi3b, A3);
             } else if(testing == "convergence") {
-                testing::output_convergence(the_config, ngrid, boxlen, vfac, Dplus0, phi, phi2, phi3a, phi3b, A3);
+                testing::output_convergence(the_config, the_cosmo_calc.get(), ngrid, boxlen, vfac, Dplus0, phi, phi2, phi3a, phi3b, A3);
             } else {
                 csoca::flog << "unknown test '" << testing << "'" << std::endl;
                 std::abort();

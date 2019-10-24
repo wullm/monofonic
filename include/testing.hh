@@ -4,6 +4,7 @@
 #include <general.hh>
 #include <config_file.hh>
 #include <grid_fft.hh>
+#include <cosmology_calculator.hh>
 
 namespace testing{
     void output_potentials_and_densities( 
@@ -27,6 +28,7 @@ namespace testing{
 
     void output_convergence(
         ConfigFile &the_config,
+        CosmologyCalculator* the_cosmo_calc,
         std::size_t ngrid, real_t boxlen, real_t vfac, real_t dplus,
         Grid_FFT<real_t> &phi,
         Grid_FFT<real_t> &phi2,
