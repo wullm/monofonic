@@ -340,7 +340,7 @@ int Run( ConfigFile& the_config )
             } else {
                 csoca::flog << "unknown test '" << testing << "'" << std::endl;
                 std::abort();
-        }
+            }
         } else {
             // temporary storage of data
             Grid_FFT<real_t> tmp({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
