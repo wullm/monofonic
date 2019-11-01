@@ -1,3 +1,10 @@
+/*******************************************************************\
+ vec3.hh - This file is part of MUSIC2 -
+ a code to generate initial conditions for cosmological simulations 
+ 
+ CHANGELOG (only majors, for details see repo):
+    06/2019 - Oliver Hahn - first implementation
+\*******************************************************************/
 #pragma once
 
 template< typename T >
