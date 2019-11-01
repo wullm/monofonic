@@ -444,7 +444,7 @@ int Run( ConfigFile& the_config )
                 if( the_output_plugin->write_species_as( this_species ) == output_type::particles )
                 {
                     // allocate particle structure and generate particle IDs
-                    particle::initialize_lattice( particles, lattice_type, tmp );
+                    particle::initialize_lattice( particles, lattice_type, the_output_plugin->has_64bit_reals(), the_output_plugin->has_64bit_ids(), tmp );
                 }
             
                 // write out positions
@@ -472,7 +472,7 @@ int Run( ConfigFile& the_config )
                     // if we write particle data, store particle data in particle structure
                     if( the_output_plugin->write_species_as( this_species ) == output_type::particles )
                     {
-                        particle::set_positions( particles, lattice_type, idim, lunit, tmp );
+                        particle::set_positions( particles, lattice_type, idim, lunit, the_output_plugin->has_64bit_reals(), tmp );
                     } 
                     // otherwise write out the grid data directly to the output plugin
                     // else if( the_output_plugin->write_species_as( cosmo_species::dm ) == output_type::field_lagrangian )
@@ -518,7 +518,7 @@ int Run( ConfigFile& the_config )
                     // if we write particle data, store particle data in particle structure
                     if( the_output_plugin->write_species_as( this_species ) == output_type::particles )
                     {
-                        particle::set_velocities( particles, lattice_type, idim, tmp );
+                        particle::set_velocities( particles, lattice_type, idim, the_output_plugin->has_64bit_reals(), tmp );
                     }
                     // otherwise write out the grid data directly to the output plugin
                     else if( the_output_plugin->write_species_as( this_species ) == output_type::field_lagrangian )

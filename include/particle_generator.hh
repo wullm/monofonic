@@ -1,3 +1,10 @@
+/*******************************************************************\
+ particle_generator.hh - This file is part of MUSIC2 -
+ a code to generate initial conditions for cosmological simulations 
+ 
+ CHANGELOG (only majors, for details see repo):
+    10/2019 - Oliver Hahn - first implementation
+\*******************************************************************/
 #pragma once
 
 #include <vec3.hh>
@@ -21,17 +28,23 @@ const std::vector< std::vector<vec3<real_t>> > lattice_shifts =
 };
 
 template<typename field_t>
-void initialize_lattice( container& particles, lattice lattice_type, const field_t& field ){
+void initialize_lattice( container& particles, lattice lattice_type, const bool b64reals, const bool b64ids, const field_t& field ){
+    // number of modes present in the field
     const size_t num_p_in_load = field.local_size();
+    // unless SC lattice is used, particle number is a multiple of the number of modes (=num_p_in_load):
     const size_t overload = 1ull<<lattice_type; // 1 for sc, 2 for bcc, 4 for fcc, 8 for rsc
-
-    particles.allocate( overload * num_p_in_load );
-
+    // allocate memory for all local particles
+    particles.allocate( overload * num_p_in_load, b64reals, b64ids );
+    // set particle IDs to the Lagrangian coordinate (1D encoded) with additionally the field shift encoded as well
     for( size_t i=0,ipcount=0; i<field.size(0); ++i ){
         for( size_t j=0; j<field.size(1); ++j){
             for( size_t k=0; k<field.size(2); ++k,++ipcount){
                 for( size_t iload=0; iload<overload; ++iload ){
-                    particles.set_id( ipcount+iload*num_p_in_load, overload*field.get_cell_idx_1d(i,j,k)+iload );
+                    if( b64ids ){
+                        particles.set_id64( ipcount+iload*num_p_in_load, overload*field.get_cell_idx_1d(i,j,k)+iload );
+                    }else{
+                        particles.set_id32( ipcount+iload*num_p_in_load, overload*field.get_cell_idx_1d(i,j,k)+iload );
+                    }
                 }
             }
         }
@@ -40,21 +53,25 @@ void initialize_lattice( container& particles, lattice lattice_type, const field
 
 // invalidates field, phase shifted to unspecified position after return
 template<typename field_t>
-void set_positions( container& particles, const lattice lattice_type, int idim, real_t lunit, field_t& field )
+void set_positions( container& particles, const lattice lattice_type, int idim, real_t lunit, const bool b64reals, field_t& field )
 {
     const size_t num_p_in_load = field.local_size();
     for( int ishift=0; ishift<(1<<lattice_type); ++ishift ){
-        // can omit first shift since zero by convention, otherwise apply phase shift
+        // can omit first shift since zero by convention, otherwise apply relative phase shift
         if( ishift>0 ){
-            vec3<real_t> shift = lattice_shifts[lattice_type][ishift]-lattice_shifts[lattice_type][ishift-1];
-            field.shift_field( shift.x, shift.y, shift.z );
+            field.shift_field( lattice_shifts[lattice_type][ishift] - lattice_shifts[lattice_type][ishift-1] );
         }
-        auto ipcount0 = ishift * num_p_in_load;
+        // read out values from phase shifted field and set assoc. particle's value
+        const auto ipcount0 = ishift * num_p_in_load;
         for( size_t i=0,ipcount=ipcount0; i<field.size(0); ++i ){
             for( size_t j=0; j<field.size(1); ++j){
                 for( size_t k=0; k<field.size(2); ++k){
                     auto pos = field.template get_unit_r_shifted<real_t>(i,j,k,lattice_shifts[lattice_type][ishift]);
-                    particles.set_pos( ipcount++, idim, pos[idim]*lunit + field.relem(i,j,k) );
+                    if( b64reals ){
+                        particles.set_pos64( ipcount++, idim, pos[idim]*lunit + field.relem(i,j,k) );
+                    }else{
+                        particles.set_pos32( ipcount++, idim, pos[idim]*lunit + field.relem(i,j,k) );
+                    }
                 }
             }
         }
@@ -62,20 +79,24 @@ void set_positions( container& particles, const lattice lattice_type, int idim, 
 }
 
 template<typename field_t>
-void set_velocities( container& particles, lattice lattice_type, int idim, field_t& field )
+void set_velocities( container& particles, lattice lattice_type, int idim, const bool b64reals, field_t& field )
 {
     const size_t num_p_in_load = field.local_size();
     for( int ishift=0; ishift<(1<<lattice_type); ++ishift ){
-        // can omit first shift since zero by convention, otherwise apply phase shift
+        // can omit first shift since zero by convention, otherwise apply relative phase shift
         if( ishift>0 ){
-            vec3<real_t> shift = lattice_shifts[lattice_type][ishift]-lattice_shifts[lattice_type][ishift-1];
-            field.shift_field( shift.x, shift.y, shift.z );
+            field.shift_field( lattice_shifts[lattice_type][ishift]-lattice_shifts[lattice_type][ishift-1] );
         }
-        auto ipcount0 = ishift * num_p_in_load;
+        // read out values from phase shifted field and set assoc. particle's value
+        const auto ipcount0 = ishift * num_p_in_load;
         for( size_t i=0,ipcount=ipcount0; i<field.size(0); ++i ){
             for( size_t j=0; j<field.size(1); ++j){
                 for( size_t k=0; k<field.size(2); ++k){
-                    particles.set_vel( ipcount++, idim, field.relem(i,j,k) );
+                    if( b64reals ){
+                        particles.set_vel64( ipcount++, idim, field.relem(i,j,k) );
+                    }else{
+                        particles.set_vel32( ipcount++, idim, field.relem(i,j,k) );
+                    }
                 }
             }
         }

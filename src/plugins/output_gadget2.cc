@@ -3,6 +3,7 @@
 
 constexpr int empty_fill_bytes{56};
 
+template<typename write_real_t>
 class gadget2_output_plugin : public output_plugin
 {
 public:
@@ -33,6 +34,7 @@ protected:
 	int num_files_;
 	header this_header_;
 	real_t lunit_, vunit_;
+	bool blongids_;
 
 public:
 	//! constructor
@@ -47,6 +49,7 @@ public:
 		real_t astart = 1.0/(1.0+cf_.GetValue<double>("setup", "zstart"));
 		lunit_ = cf_.GetValue<double>("setup", "BoxLength");
 		vunit_ = lunit_ / std::sqrt(astart);
+		blongids_ = cf_.GetValueSafe<bool>("output","UseLongids",false);
 	}
 
     output_type write_species_as( const cosmo_species & ) const { return output_type::particles; }
@@ -54,6 +57,16 @@ public:
 	real_t position_unit() const { return lunit_; }
 
 	real_t velocity_unit() const { return vunit_; }
+
+	bool has_64bit_reals() const{
+		if( typeid(write_real_t)==typeid(double) ) return true;
+		return false;
+	}
+
+	bool has_64bit_ids() const{
+		if( blongids_ ) return true;
+		return false;
+	}
 
 	void write_particle_data(const particle::container &pc, const cosmo_species &s )
 	{
@@ -121,19 +134,39 @@ public:
 		ofs.write( reinterpret_cast<char*>(&this_header_), sizeof(header) );
 		ofs.write( reinterpret_cast<char*>(&blocksz), sizeof(uint32_t) );
 		
-		blocksz = 3 * sizeof(float) * pc.get_local_num_particles();
-		ofs.write( reinterpret_cast<char*>(&blocksz), sizeof(uint32_t) );
-		ofs.write( reinterpret_cast<const char*>(pc.get_pos_ptr()), blocksz );
-		ofs.write( reinterpret_cast<char*>(&blocksz), sizeof(uint32_t) );
+		// we write double precision 
+		if( this->has_64bit_reals() ){
+			blocksz = 3 * sizeof(double) * pc.get_local_num_particles();
+			ofs.write( reinterpret_cast<char*>(&blocksz), sizeof(uint32_t) );
+			ofs.write( reinterpret_cast<const char*>(pc.get_pos64_ptr()), blocksz );
+			ofs.write( reinterpret_cast<char*>(&blocksz), sizeof(uint32_t) );
+
+			ofs.write( reinterpret_cast<char*>(&blocksz), sizeof(uint32_t) );
+			ofs.write( reinterpret_cast<const char*>(pc.get_vel64_ptr()), blocksz );
+			ofs.write( reinterpret_cast<char*>(&blocksz), sizeof(uint32_t) );
+		}else{
+			blocksz = 3 * sizeof(float) * pc.get_local_num_particles();
+			ofs.write( reinterpret_cast<char*>(&blocksz), sizeof(uint32_t) );
+			ofs.write( reinterpret_cast<const char*>(pc.get_pos32_ptr()), blocksz );
+			ofs.write( reinterpret_cast<char*>(&blocksz), sizeof(uint32_t) );
+
+			ofs.write( reinterpret_cast<char*>(&blocksz), sizeof(uint32_t) );
+			ofs.write( reinterpret_cast<const char*>(pc.get_vel32_ptr()), blocksz );
+			ofs.write( reinterpret_cast<char*>(&blocksz), sizeof(uint32_t) );
+		}
 		
-		ofs.write( reinterpret_cast<char*>(&blocksz), sizeof(uint32_t) );
-		ofs.write( reinterpret_cast<const char*>(pc.get_vel_ptr()), blocksz );
-		ofs.write( reinterpret_cast<char*>(&blocksz), sizeof(uint32_t) );
-		
-		blocksz = sizeof(float) * pc.get_local_num_particles();
-		ofs.write( reinterpret_cast<char*>(&blocksz), sizeof(uint32_t) );
-		ofs.write( reinterpret_cast<const char*>(pc.get_ids_ptr()), blocksz );
-		ofs.write( reinterpret_cast<char*>(&blocksz), sizeof(uint32_t) );
+		// we write long IDs
+		if( this->has_64bit_ids() ){
+			blocksz = sizeof(uint64_t) * pc.get_local_num_particles();
+			ofs.write( reinterpret_cast<char*>(&blocksz), sizeof(uint32_t) );
+			ofs.write( reinterpret_cast<const char*>(pc.get_ids64_ptr()), blocksz );
+			ofs.write( reinterpret_cast<char*>(&blocksz), sizeof(uint32_t) );
+		}else{
+			blocksz = sizeof(uint32_t) * pc.get_local_num_particles();
+			ofs.write( reinterpret_cast<char*>(&blocksz), sizeof(uint32_t) );
+			ofs.write( reinterpret_cast<const char*>(pc.get_ids32_ptr()), blocksz );
+			ofs.write( reinterpret_cast<char*>(&blocksz), sizeof(uint32_t) );
+		}
 		
 	}
 };
@@ -141,9 +174,8 @@ public:
 
 namespace
 {
-   output_plugin_creator_concrete<gadget2_output_plugin> creator1("gadget2"); 
-// output_plugin_creator_concrete<gadget2_output_plugin<float>> creator1("gadget2");
-// #ifndef SINGLE_PRECISION
-// output_plugin_creator_concrete<gadget2_output_plugin<double>> creator2("gadget2_double");
-// #endif
+	output_plugin_creator_concrete<gadget2_output_plugin<float>> creator1("gadget2"); 
+#if !defined(USE_SINGLEPRECISION)
+	output_plugin_creator_concrete<gadget2_output_plugin<double>> creator3("gadget2_double"); 
+#endif
 } // namespace

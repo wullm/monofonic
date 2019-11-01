@@ -21,6 +21,7 @@
 
 enum class output_type {particles,field_lagrangian,field_eulerian};
 
+
 class output_plugin
 {
 protected:
@@ -57,6 +58,12 @@ public:
 
 	//! routine to query whether species is written as particle data
 	// virtual bool write_species_as_particles( const cosmo_species &s ){ return !write_species_as_grid(s); }
+
+	//! query if output wants 64bit precision for real values
+	virtual bool has_64bit_reals() const = 0;
+
+	//! query if output wants 64bit precision for integer values
+	virtual bool has_64bit_ids() const = 0;
 	
 	//! routine to return a multiplicative factor that contains the desired position units for the output
 	virtual real_t position_unit() const = 0;

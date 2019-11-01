@@ -50,6 +50,10 @@ public:
 		return output_type::field_lagrangian;
 	}
 
+	bool has_64bit_reals() const{ return true; }
+
+	bool has_64bit_ids() const{ return true; }
+
 	real_t position_unit() const { return 1.0; }
 	
 	real_t velocity_unit() const { return 1.0; }
