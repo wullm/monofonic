@@ -636,16 +636,6 @@ public:
 
     void Write_PDF(std::string ofname, int nbins = 1000, double scale = 1.0, double rhomin = 1e-3, double rhomax = 1e3);
 
-    // void stagger_field(void)
-    // {
-    //     FourierTransformForward();
-    //     apply_function_k_dep([&](auto x, auto k) -> ccomplex_t {
-    //         real_t shift = k[0] * get_dx()[0] + k[1] * get_dx()[1] + k[2] * get_dx()[2];
-    //         return x * std::exp(ccomplex_t(0.0, 0.5 * shift));
-    //     });
-    //     FourierTransformBackward();
-    // }
-
     void shift_field( double sx, double sy, double sz )
     {
         FourierTransformForward();
