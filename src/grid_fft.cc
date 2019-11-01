@@ -550,7 +550,6 @@ void Grid_FFT<data_t>::Write_PowerSpectrum(std::string ofname)
 {
     std::vector<double> bin_k, bin_P, bin_eP;
     std::vector<size_t> bin_count;
-    int nbins = 4 * std::max(nhalf_[0], std::max(nhalf_[1], nhalf_[2]));
     this->Compute_PowerSpectrum(bin_k, bin_P, bin_eP, bin_count );
 #if defined(USE_MPI)
     if (CONFIG::MPI_task_rank == 0)

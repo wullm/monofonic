@@ -57,8 +57,11 @@ int Run( ConfigFile& the_config )
     //--------------------------------------------------------------------------------------------------------
     //! initialice particles on a bcc or fcc lattice instead of a standard sc lattice (doubles and quadruples the number of particles) 
     std::string lattice_str = the_config.GetValueSafe<std::string>("setup","ParticleLoad","sc");
-    const particle::lattice lattice_type = (lattice_str=="bcc")? particle::lattice_bcc 
-        : ((lattice_str=="fcc")? particle::lattice_fcc : particle::lattice_sc);
+    const particle::lattice lattice_type = 
+          ((lattice_str=="bcc")? particle::lattice_bcc 
+        : ((lattice_str=="fcc")? particle::lattice_fcc 
+        : ((lattice_str=="rsc")? particle::lattice_rsc 
+        : particle::lattice_sc)));
 
     //--------------------------------------------------------------------------------------------------------
     //! apply fixing of the complex mode amplitude following Angulo & Pontzen (2016) [https://arxiv.org/abs/1603.05253]

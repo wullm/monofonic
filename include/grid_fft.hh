@@ -177,34 +177,15 @@ public:
     }
 
     template <typename ft>
-    vec3<ft> get_unit_r_staggered(const size_t i, const size_t j, const size_t k) const
+    vec3<ft> get_unit_r_shifted(const size_t i, const size_t j, const size_t k, const vec3<real_t> s) const
     {
         vec3<ft> rr;
 
-        rr[0] = (real_t(i + local_0_start_) + 0.5) / real_t(n_[0]);
-        rr[1] = (real_t(j) + 0.5) / real_t(n_[1]);
-        rr[2] = (real_t(k) + 0.5) / real_t(n_[2]);
+        rr[0] = (real_t(i + local_0_start_) + s.x) / real_t(n_[0]);
+        rr[1] = (real_t(j) + s.y) / real_t(n_[1]);
+        rr[2] = (real_t(k) + s.z) / real_t(n_[2]);
 
         return rr;
-    }
-
-    template <typename ft>
-    vec3<ft> get_unit_r_shifted(const size_t i, const size_t j, const size_t k, double sx, double sy, double sz) const
-    {
-        vec3<ft> rr;
-
-        rr[0] = (real_t(i + local_0_start_) + sx) / real_t(n_[0]);
-        rr[1] = (real_t(j) + sy) / real_t(n_[1]);
-        rr[2] = (real_t(k) + sz) / real_t(n_[2]);
-
-        return rr;
-    }
-
-    void cell_pos(int ilevel, size_t i, size_t j, size_t k, double *x) const
-    {
-        x[0] = double(i + local_0_start_) / size(0);
-        x[1] = double(j) / size(1);
-        x[2] = double(k) / size(2);
     }
 
     vec3<size_t> get_cell_idx_3d(const size_t i, const size_t j, const size_t k) const
