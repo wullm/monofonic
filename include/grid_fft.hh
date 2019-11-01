@@ -636,23 +636,18 @@ public:
 
     void Write_PDF(std::string ofname, int nbins = 1000, double scale = 1.0, double rhomin = 1e-3, double rhomax = 1e3);
 
-    void shift_field( double sx, double sy, double sz )
+    void shift_field( const vec3<real_t>& s )
     {
         FourierTransformForward();
         apply_function_k_dep([&](auto x, auto k) -> ccomplex_t {
 #ifdef WITH_MPI
-            real_t shift = sy * k[0] * get_dx()[0] + sx * k[1] * get_dx()[1] + sz * k[2] * get_dx()[2];
+            real_t shift = s.y * k[0] * get_dx()[0] + s.x * k[1] * get_dx()[1] + s.z * k[2] * get_dx()[2];
 #else
-            real_t shift = sx * k[0] * get_dx()[0] + sy * k[1] * get_dx()[1] + sz * k[2] * get_dx()[2];
+            real_t shift = s.x * k[0] * get_dx()[0] + s.y * k[1] * get_dx()[1] + s.z * k[2] * get_dx()[2];
 #endif
             return x * std::exp(ccomplex_t(0.0, shift));
         });
         FourierTransformBackward();
-    }
-
-    void stagger_field(void)
-    {
-        this->shift_field( 0.5, 0.5, 0.5 );
     }
 
     void zero_DC_mode(void)
