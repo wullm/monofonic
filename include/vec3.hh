@@ -7,6 +7,7 @@
 \*******************************************************************/
 #pragma once
 
+//! implements a simple class of 3-vectors of arbitrary scalar type
 template< typename T >
 class vec3{
 private:
@@ -29,41 +30,50 @@ public:
     vec3( vec3<T> &&v)
     : data_(std::move(v.data_)), x(data_[0]), y(data_[1]), z(data_[2]){}
 
-    //! construct from initialiser list
+    //! construct vec3 from initializer list
     template<typename ...E>
     vec3(E&&...e) 
     : data_{{std::forward<E>(e)...}}, x(data_[0]), y(data_[1]), z(data_[2]){}
     
+    //! braket index access to vector components
     T &operator[](size_t i){ return data_[i];}
     
+    //! const braket index access to vector components
     const T &operator[](size_t i) const { return data_[i]; }
 
-    vec3<T> operator+( const vec3<T>& v ) const{ return vec3({x+v.x,y+v.y,z+v.z}); }
+    //! implementation of summation of vec3
+    vec3<T> operator+( const vec3<T>& v ) const{ return vec3<T>({x+v.x,y+v.y,z+v.z}); }
 
-    vec3<T> operator-( const vec3<T>& v ) const{ return vec3({x-v.x,y-v.y,z-v.z}); }
+    //! implementation of difference of vec3
+    vec3<T> operator-( const vec3<T>& v ) const{ return vec3<T>({x-v.x,y-v.y,z-v.z}); }
 
-    vec3<T> operator*( T s ) const{ return vec3({x*s,y*s,z*s}); }
+    //! implementation of scalar multiplication
+    vec3<T> operator*( T s ) const{ return vec3<T>({x*s,y*s,z*s}); }
 
+    //! implementation of += operator
     vec3<T>& operator+=( const vec3<T>& v ) const{ x+=v.x; y+=v.y; z+=v.z; return *this; }
 
+    //! implementation of -= operator
     vec3<T>& operator-=( const vec3<T>& v ) const{ x-=v.x; y-=v.y; z-=v.z; return *this; }
 
+    //! multiply with scalar
     vec3<T>& operator*=( T s ) const{ x*=s; y*=s; z*=s; return *this; }
     
+    //! compute dot product with another vector
     T dot(const vec3<T> &a) const 
     {
         return data_[0] * a.data_[0] + data_[1] * a.data_[1] + data_[2] * a.data_[2];
     }
     
-    T norm_squared(void) const
-    {
-        return this->dot(*this);
-    }
+    //! returns 2-norm squared of vector
+    T norm_squared(void) const { return this->dot(*this); }
 
-    T norm(void) const
-    {
-        return std::sqrt( this->norm_squared() );
-    }
-
-    
+    //! returns 2-norm of vector
+    T norm(void) const { return std::sqrt( this->norm_squared() ); }
 };
+
+//! multiplication with scalar
+template<typename T>
+vec3<T> operator*( T s, const vec3<T>& v ){
+    return vec3<T>({v.x*s,v.y*s,v.z*s});
+}

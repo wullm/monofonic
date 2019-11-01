@@ -20,6 +20,7 @@ void print_TransferFunction_plugins()
             csoca::ilog << "\t\'" << (*it).first << "\'" << std::endl;
         ++it;
     }
+    csoca::ilog << std::endl;
 }
 
 std::unique_ptr<TransferFunction_plugin> select_TransferFunction_plugin(ConfigFile &cf)

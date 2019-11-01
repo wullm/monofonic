@@ -49,16 +49,17 @@ int main( int argc, char** argv )
     }
 #endif
 
+    // Ascii ART logo. generated via http://patorjk.com/software/taag/#p=display&f=Nancyj&t=monofonIC
     csoca::ilog << "\n"
-                << " unigrid MUSIC                          .8888b                   dP  a88888b. \n"
-                << "                                        88   \"                   88 d8\'   `88 \n"
-                << "  88d8b.d8b. .d8888b. 88d888b. .d8888b. 88aaa  .d8888b. 88d888b. 88 88        \n"
-                << "  88\'`88\'`88 88\'  `88 88\'  `88 88\'  `88 88     88\'  `88 88\'  `88 88 88        \n"
-                << "  88  88  88 88.  .88 88    88 88.  .88 88     88.  .88 88    88 88 Y8.   .88 \n"
-                << "  dP  dP  dP `88888P\' dP    dP `88888P\' dP     `88888P\' dP    dP dP  Y88888P\' \n" << std::endl
-                << "version  : v0.1a, git rev. : " << GIT_REV << ", tag: " << GIT_TAG << ", branch: " << GIT_BRANCH << std::endl
-                << "-------------------------------------------------------------------------------" << std::endl;
-    
+                << " The unigrid version of MUSIC-2        .8888b                   dP  a88888b. \n"
+                << "                                       88   \"                   88 d8\'   `88 \n"
+                << " 88d8b.d8b. .d8888b. 88d888b. .d8888b. 88aaa  .d8888b. 88d888b. 88 88        \n"
+                << " 88\'`88\'`88 88\'  `88 88\'  `88 88\'  `88 88     88\'  `88 88\'  `88 88 88        \n"
+                << " 88  88  88 88.  .88 88    88 88.  .88 88     88.  .88 88    88 88 Y8.   .88 \n"
+                << " dP  dP  dP `88888P\' dP    dP `88888P\' dP     `88888P\' dP    dP dP  Y88888P\' \n" << std::endl
+                << "Build was compiled on " <<  __DATE__ << " at " <<  __TIME__ << std::endl
+                << "Version: v0.1a, git rev.: " << GIT_REV << ", tag: " << GIT_TAG << ", branch: " << GIT_BRANCH << std::endl
+                << "-------------------------------------------------------------------------------\n" << std::endl;
 
     //------------------------------------------------------------------------------
     // Parse command line options
@@ -71,7 +72,7 @@ int main( int argc, char** argv )
         print_RNG_plugins();
         print_output_plugins();
 
-        csoca::elog << "In order to run, you need to specify a parameter file!" << std::endl;
+        csoca::elog << "In order to run, you need to specify a parameter file!\n" << std::endl;
         exit(0);
     }
 
@@ -189,7 +190,7 @@ int main( int argc, char** argv )
 #endif
 
     csoca::ilog << "-------------------------------------------------------------------------------" << std::endl;
-    csoca::ilog << "Done." << std::endl;
+    csoca::ilog << "Done.\n" << std::endl;
 
     return 0;
 }

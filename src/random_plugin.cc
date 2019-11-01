@@ -13,7 +13,7 @@ void print_RNG_plugins()
     std::map<std::string, RNG_plugin_creator *> &m = get_RNG_plugin_map();
     std::map<std::string, RNG_plugin_creator *>::iterator it;
     it = m.begin();
-    csoca::ilog << "- Available random number generator plug-ins:" << std::endl;
+    csoca::ilog << "Available random number generator plug-ins:" << std::endl;
     while (it != m.end())
     {
         if ((*it).second){
@@ -21,6 +21,7 @@ void print_RNG_plugins()
         }
         ++it;
     }
+    csoca::ilog << std::endl;
 }
 
 std::unique_ptr<RNG_plugin> select_RNG_plugin(ConfigFile &cf)
