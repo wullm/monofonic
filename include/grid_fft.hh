@@ -613,15 +613,15 @@ public:
     template <typename functional, typename grid1_t, typename grid2_t>
     void assign_function_of_grids_kdep(const functional &f, const grid1_t &g1, const grid2_t &g2)
     {
-        assert(g1.size(0) == size(0) && g1.size(1) == size(1)); // && g.size(2) == size(2) );
-        assert(g2.size(0) == size(0) && g2.size(1) == size(1)); // && g.size(2) == size(2) );
+        assert(g1.size(0) == size(0) && g1.size(1) == size(1) && g1.size(2) == size(2) );
+        assert(g2.size(0) == size(0) && g2.size(1) == size(1) && g2.size(2) == size(2) );
 
 #pragma omp parallel for
-        for (size_t i = 0; i < sizes_[0]; ++i)
+        for (size_t i = 0; i < size(0); ++i)
         {
-            for (size_t j = 0; j < sizes_[1]; ++j)
+            for (size_t j = 0; j < size(1); ++j)
             {
-                for (size_t k = 0; k < sizes_[2]; ++k)
+                for (size_t k = 0; k < size(2); ++k)
                 {
                     auto &elem = this->kelem(i, j, k);
                     const auto &elemg1 = g1.kelem(i, j, k);
@@ -683,7 +683,7 @@ public:
 
     void Write_PDF(std::string ofname, int nbins = 1000, double scale = 1.0, double rhomin = 1e-3, double rhomax = 1e3);
 
-    void shift_field( const vec3<real_t>& s )
+    void shift_field( const vec3<real_t>& s, bool transform_back=true )
     {
         FourierTransformForward();
         apply_function_k_dep([&](auto x, auto k) -> ccomplex_t {
@@ -694,7 +694,9 @@ public:
 #endif
             return x * std::exp(ccomplex_t(0.0, shift));
         });
-        FourierTransformBackward();
+        if( transform_back ){
+            FourierTransformBackward();
+        }
     }
 
     void zero_DC_mode(void)

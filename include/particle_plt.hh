@@ -8,6 +8,7 @@
 
 #include <random>
 
+#include <grid_fft.hh>
 #include <mat3.hh>
 
 namespace particle{
@@ -20,7 +21,7 @@ inline void test_plt( void ){
 
     real_t boxlen = 1.0;
     
-    size_t ngrid  = 128;
+    size_t ngrid  = 64;
     size_t npgrid = 1;
     size_t dpg    = ngrid/npgrid;
     size_t nump   = npgrid*npgrid*npgrid;
@@ -36,40 +37,26 @@ inline void test_plt( void ){
 
     const real_t dV( std::pow( boxlen/ngrid, 3 ) );
     Grid_FFT<real_t> rho({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
-    std::vector< vec3<real_t> > gpos ;
 
     auto kronecker = []( int i, int j ) -> real_t { return (i==j)? 1.0 : 0.0; };
 
     auto greensftide_sr = [&]( int mu, int nu, const vec3<real_t>& vR, const vec3<real_t>& vP ) -> real_t {
         auto d = vR-vP;
-        d.x = (d.x>0.5)? d.x-1.0 : (d.x<-0.5)? d.x+1.0 : d.x;
-        d.y = (d.y>0.5)? d.y-1.0 : (d.y<-0.5)? d.y+1.0 : d.y;
-        d.z = (d.z>0.5)? d.z-1.0 : (d.z<-0.5)? d.z+1.0 : d.z;
         auto r = d.norm();
 
         if( r< 1e-14 ) return 0.0;
 
         real_t val = 0.0;
-
         val -= d[mu]*d[nu]/(r*r) * alpha3/pi3halfs * std::exp(-alpha*alpha*r*r);
         val += 1.0/(4.0*M_PI)*(kronecker(mu,nu)/std::pow(r,3) - 3.0 * (d[mu]*d[nu])/std::pow(r,5)) * 
             (std::erfc(alpha*r) + 2.0*alpha/sqrtpi*std::exp(-alpha*alpha*r*r)*r);
-
         return pweight * val;
     };
 
-    gpos.reserve(nump);
-
     // sc
-    for( size_t i=0; i<npgrid; ++i ){
-        for( size_t j=0; j<npgrid; ++j ){
-            for( size_t k=0; k<npgrid; ++k ){
-                rho.relem(i*dpg,j*dpg,k*dpg) = pweight/dV;
-                gpos.push_back({real_t(i)/npgrid,real_t(j)/npgrid,real_t(k)/npgrid});
-            }
-        }    
-    }
-
+    rho.zero();
+    rho.relem(0,0,0) = pweight/dV;
+    
     rho.FourierTransformForward();
     rho.apply_function_k_dep([&](auto x, auto k) -> ccomplex_t {
         real_t kmod = k.norm();
@@ -79,11 +66,16 @@ inline void test_plt( void ){
 
     auto evaluate_D = [&]( int mu, int nu, const vec3<real_t>& v ) -> real_t{
         real_t sr = 0.0;
-        for( auto& p : gpos ){
-            sr += greensftide_sr( mu, nu, v, p);
+        int N = 3;
+        for( int i=-N; i<=N; ++i ){
+            for( int j=-N; j<=N; ++j ){
+                for( int k=-N; k<=N; ++k ){
+                    if( std::abs(i)+std::abs(j)+std::abs(k) <= N ){
+                        sr += greensftide_sr( mu, nu, v, {real_t(i),real_t(j),real_t(k)} );
+                    }
+                }
+            }
         }
-        if( v.norm()<1e-14 ) return 0.0;
-
         return sr;
     };
 
@@ -108,21 +100,16 @@ inline void test_plt( void ){
                 D_yy.relem(i,j,k) = evaluate_D(1,1,p);
                 D_yz.relem(i,j,k) = evaluate_D(1,2,p);
                 D_zz.relem(i,j,k) = evaluate_D(2,2,p);
-
-                //D = {evaluate_D(0,0,p),evaluate_D(0,1,p),evaluate_D(0,2,p),evaluate_D(1,0,p),evaluate_D(1,1,p),evaluate_D(2,2,p)};
-                //D.eigen(eval, evec1, evec2, evec3);
-                //rho.relem(i,j,k) = eval[2];
             }   
         }    
     }
+
     D_xx.relem(0,0,0) = 0.0;
     D_xy.relem(0,0,0) = 0.0;
     D_xz.relem(0,0,0) = 0.0;
     D_yy.relem(0,0,0) = 0.0;
     D_yz.relem(0,0,0) = 0.0;
     D_zz.relem(0,0,0) = 0.0;
-    
-    
 
     D_xx.FourierTransformForward();
     D_xy.FourierTransformForward();
@@ -131,13 +118,13 @@ inline void test_plt( void ){
     D_yz.FourierTransformForward();
     D_zz.FourierTransformForward();
 
-    // std::ofstream ofs("test_ewald.txt");
+    std::ofstream ofs("test_ewald.txt");
 
     real_t nfac = 1.0/std::pow(real_t(ngrid),1.5);
 
     real_t kNyquist = M_PI/boxlen * ngrid;
 
-    #pragma omp parallel for
+    // #pragma omp parallel for
     for( size_t i=0; i<D_xx.size(0); i++ ){
         mat3s<real_t> D;
         vec3<real_t> eval, evec1, evec2, evec3;
@@ -165,14 +152,14 @@ inline void test_plt( void ){
                 D_xz.kelem(i,j,k) = evec3[1];
                 D_yz.kelem(i,j,k) = evec3[2];
 
-                // ofs << std::setw(16) << kv.norm() / kNyquist
-                //     << std::setw(16) << eval[0] // *nfac + 1.0/3.0
-                //     << std::setw(16) << eval[1] // *nfac + 1.0/3.0
-                //     << std::setw(16) << eval[2] // *nfac + 1.0/3.0
-                //     << std::setw(16) << kv[0]
-                //     << std::setw(16) << kv[1]
-                //     << std::setw(16) << kv[2]
-                //     << std::endl;
+                ofs << std::setw(16) << kv.norm() / kNyquist
+                    << std::setw(16) << eval[0]
+                    << std::setw(16) << eval[1]
+                    << std::setw(16) << eval[2]
+                    << std::setw(16) << kv[0]
+                    << std::setw(16) << kv[1]
+                    << std::setw(16) << kv[2]
+                    << std::endl;
             }
         }
     }
