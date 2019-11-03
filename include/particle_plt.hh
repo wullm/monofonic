@@ -20,7 +20,7 @@ inline void test_plt( void ){
 
     real_t boxlen = 1.0;
     
-    size_t ngrid  = 64;
+    size_t ngrid  = 128;
     size_t npgrid = 1;
     size_t dpg    = ngrid/npgrid;
     size_t nump   = npgrid*npgrid*npgrid;
@@ -87,11 +87,6 @@ inline void test_plt( void ){
         return sr;
     };
 
-
-    // std::random_device rd;  //Will be used to obtain a seed for the random number engine
-    // std::mt19937 gen(rd()); //Standard mersenne_twister_engine seeded with rd()
-    // std::uniform_real_distribution<> dis(-0.25,0.25);
-
     Grid_FFT<real_t> D_xx({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
     Grid_FFT<real_t> D_xy({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
     Grid_FFT<real_t> D_xz({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
@@ -136,13 +131,13 @@ inline void test_plt( void ){
     D_yz.FourierTransformForward();
     D_zz.FourierTransformForward();
 
-    std::ofstream ofs("test_ewald.txt");
+    // std::ofstream ofs("test_ewald.txt");
 
     real_t nfac = 1.0/std::pow(real_t(ngrid),1.5);
 
     real_t kNyquist = M_PI/boxlen * ngrid;
 
-    //#pragma omp parallel for
+    #pragma omp parallel for
     for( size_t i=0; i<D_xx.size(0); i++ ){
         mat3s<real_t> D;
         vec3<real_t> eval, evec1, evec2, evec3;
@@ -150,33 +145,50 @@ inline void test_plt( void ){
             for( size_t k=0; k<D_xx.size(2); k++ ){
                 vec3<real_t> kv = D_xx.get_k<real_t>(i,j,k);
 
-                D = { std::real(D_xx.kelem(i,j,k) - kv[0]*kv[0] * rho.kelem(i,j,k) ),
-                      std::real(D_xy.kelem(i,j,k) - kv[0]*kv[1] * rho.kelem(i,j,k) ),
-                      std::real(D_xz.kelem(i,j,k) - kv[0]*kv[2] * rho.kelem(i,j,k) ),
-                      std::real(D_yy.kelem(i,j,k) - kv[1]*kv[1] * rho.kelem(i,j,k) ),
-                      std::real(D_yz.kelem(i,j,k) - kv[1]*kv[2] * rho.kelem(i,j,k) ),
-                      std::real(D_zz.kelem(i,j,k) - kv[2]*kv[2] * rho.kelem(i,j,k) ) };
-                D.eigen(eval, evec1, evec2, evec3);
-                
+                D_xx.kelem(i,j,k) = (D_xx.kelem(i,j,k) - kv[0]*kv[0] * rho.kelem(i,j,k))*nfac + 1.0/3.0;
+                D_xy.kelem(i,j,k) = (D_xy.kelem(i,j,k) - kv[0]*kv[1] * rho.kelem(i,j,k))*nfac;
+                D_xz.kelem(i,j,k) = (D_xz.kelem(i,j,k) - kv[0]*kv[2] * rho.kelem(i,j,k))*nfac;
+                D_yy.kelem(i,j,k) = (D_yy.kelem(i,j,k) - kv[1]*kv[1] * rho.kelem(i,j,k))*nfac + 1.0/3.0;;
+                D_yz.kelem(i,j,k) = (D_yz.kelem(i,j,k) - kv[1]*kv[2] * rho.kelem(i,j,k))*nfac;
+                D_zz.kelem(i,j,k) = (D_zz.kelem(i,j,k) - kv[2]*kv[2] * rho.kelem(i,j,k))*nfac + 1.0/3.0;;
 
-                ofs << std::setw(16) << kv.norm() / kNyquist
-                    << std::setw(16) << eval[0] *nfac + 1.0/3.0
-                    << std::setw(16) << eval[1] *nfac + 1.0/3.0
-                    << std::setw(16) << eval[2] *nfac + 1.0/3.0
-                    << std::setw(16) << kv[0]
-                    << std::setw(16) << kv[1]
-                    << std::setw(16) << kv[2]
-                    << std::endl;
+                D = { std::real(D_xx.kelem(i,j,k)), std::real(D_xy.kelem(i,j,k)), std::real(D_xz.kelem(i,j,k)),
+                      std::real(D_yy.kelem(i,j,k)), std::real(D_yz.kelem(i,j,k)), std::real(D_zz.kelem(i,j,k)) };
+                
+                D.eigen(eval, evec1, evec2, evec3);
+
+                D_xx.kelem(i,j,k) = eval[2];
+                D_yy.kelem(i,j,k) = eval[1];
+                D_zz.kelem(i,j,k) = eval[0];
+
+                D_xy.kelem(i,j,k) = evec3[0];
+                D_xz.kelem(i,j,k) = evec3[1];
+                D_yz.kelem(i,j,k) = evec3[2];
+
+                // ofs << std::setw(16) << kv.norm() / kNyquist
+                //     << std::setw(16) << eval[0] // *nfac + 1.0/3.0
+                //     << std::setw(16) << eval[1] // *nfac + 1.0/3.0
+                //     << std::setw(16) << eval[2] // *nfac + 1.0/3.0
+                //     << std::setw(16) << kv[0]
+                //     << std::setw(16) << kv[1]
+                //     << std::setw(16) << kv[2]
+                //     << std::endl;
             }
         }
     }
 
-//     std::string filename("plt_test.hdf5");
-//     unlink(filename.c_str());
-// #if defined(USE_MPI)
-//     MPI_Barrier(MPI_COMM_WORLD);
-// #endif
+    std::string filename("plt_test.hdf5");
+    unlink(filename.c_str());
+#if defined(USE_MPI)
+    MPI_Barrier(MPI_COMM_WORLD);
+#endif
 //     rho.Write_to_HDF5(filename, "rho");
+    D_xx.Write_to_HDF5(filename, "omega1");
+    D_yy.Write_to_HDF5(filename, "omega2");
+    D_zz.Write_to_HDF5(filename, "omega3");
+    D_xy.Write_to_HDF5(filename, "e1_x");
+    D_xz.Write_to_HDF5(filename, "e1_y");
+    D_yz.Write_to_HDF5(filename, "e1_z");
 
 }
 
