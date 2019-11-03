@@ -391,7 +391,10 @@ void Grid_FFT<data_t>::Write_to_HDF5(std::string fname, std::string datasetname)
             {
                 for (size_t k = 0; k < size(2); ++k)
                 {
-                    buf[j * size(2) + k] = std::real(relem(i, j, k));
+                    if( this->space_ == rspace_id )
+                        buf[j * size(2) + k] = std::real(relem(i, j, k));
+                    else
+                        buf[j * size(2) + k] = std::real(kelem(i, j, k));
                 }
             }
 
@@ -410,7 +413,8 @@ void Grid_FFT<data_t>::Write_to_HDF5(std::string fname, std::string datasetname)
         H5Dclose(dset_id);
 
         if (typeid(data_t) == typeid(std::complex<float>) ||
-            typeid(data_t) == typeid(std::complex<double>))
+            typeid(data_t) == typeid(std::complex<double>) ||
+            this->space_ == kspace_id )
         {
             datasetname += std::string(".im");
 
@@ -460,7 +464,10 @@ void Grid_FFT<data_t>::Write_to_HDF5(std::string fname, std::string datasetname)
                 for (size_t j = 0; j < size(1); ++j)
                     for (size_t k = 0; k < size(2); ++k)
                     {
-                        buf[j * size(2) + k] = std::imag(relem(i, j, k));
+                        if( this->space_ == rspace_id )
+                            buf[j * size(2) + k] = std::imag(relem(i, j, k));
+                        else
+                            buf[j * size(2) + k] = std::imag(kelem(i, j, k));
                     }
 
                 memspace = H5Screate_simple(3, count, NULL);
