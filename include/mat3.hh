@@ -90,9 +90,9 @@ public:
 
         for( int i=0; i<3; ++i ){
             evals[i] = gsl_vector_get( eval_, i );
-            evec1[i] = gsl_matrix_get( evec_, 0, i );
-            evec2[i] = gsl_matrix_get( evec_, 1, i );
-            evec3[i] = gsl_matrix_get( evec_, 2, i );
+            evec1[i] = gsl_matrix_get( evec_, i, 0 );
+            evec2[i] = gsl_matrix_get( evec_, i, 1 );
+            evec3[i] = gsl_matrix_get( evec_, i, 2 );
         }
     }
 };
