@@ -152,6 +152,32 @@ public:
         return (i * sizes_[1] + j) * sizes_[3] + k;
     }
 
+    data_t get_cic( const vec3<real_t>& v ) const{
+        // warning! this doesn't work with MPI
+        vec3<real_t> x({std::fmod(v.x/length_[0]+1.0,1.0)*n_[0],
+                        std::fmod(v.y/length_[1]+1.0,1.0)*n_[1],
+                        std::fmod(v.z/length_[2]+1.0,1.0)*n_[2] });
+        size_t ix = static_cast<size_t>(x.x);
+        size_t iy = static_cast<size_t>(x.y);
+        size_t iz = static_cast<size_t>(x.z);
+        real_t dx = x.x-real_t(ix), tx = 1.0-dx;
+        real_t dy = x.y-real_t(iy), ty = 1.0-dy;
+        real_t dz = x.z-real_t(iz), tz = 1.0-dz;
+        size_t ix1 = (ix+1)%n_[0];
+        size_t iy1 = (iy+1)%n_[1];
+        size_t iz1 = (iz+1)%n_[2];
+        data_t val = 0.0;
+        val += this->relem(ix ,iy ,iz ) * tx * ty * tz;
+        val += this->relem(ix ,iy ,iz1) * tx * ty * dz;
+        val += this->relem(ix ,iy1,iz ) * tx * dy * tz;
+        val += this->relem(ix ,iy1,iz1) * tx * dy * dz;
+        val += this->relem(ix1,iy ,iz ) * dx * ty * tz;
+        val += this->relem(ix1,iy ,iz1) * dx * ty * dz;
+        val += this->relem(ix1,iy1,iz ) * dx * dy * tz;
+        val += this->relem(ix1,iy1,iz1) * dx * dy * dz;
+        return val;
+    }
+
     template <typename ft>
     vec3<ft> get_r(const size_t i, const size_t j, const size_t k) const
     {
@@ -558,6 +584,27 @@ public:
                     const auto &elemg2 = g2.kelem(i, j, k);
 
                     elem = f(elemg1, elemg2);
+                }
+            }
+        }
+    }
+
+    template <typename functional, typename grid_t>
+    void assign_function_of_grids_kdep(const functional &f, const grid_t &g)
+    {
+        assert(g.size(0) == size(0) && g.size(1) == size(1)); // && g.size(2) == size(2) );
+
+#pragma omp parallel for
+        for (size_t i = 0; i < sizes_[0]; ++i)
+        {
+            for (size_t j = 0; j < sizes_[1]; ++j)
+            {
+                for (size_t k = 0; k < sizes_[2]; ++k)
+                {
+                    auto &elem = this->kelem(i, j, k);
+                    const auto &elemg = g.kelem(i, j, k);
+
+                    elem = f(this->get_k<real_t>(i, j, k), elemg);
                 }
             }
         }

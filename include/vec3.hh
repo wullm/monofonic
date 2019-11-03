@@ -35,10 +35,10 @@ public:
     vec3(E&&...e) 
     : data_{{std::forward<E>(e)...}}, x(data_[0]), y(data_[1]), z(data_[2]){}
     
-    //! braket index access to vector components
+    //! bracket index access to vector components
     T &operator[](size_t i){ return data_[i];}
     
-    //! const braket index access to vector components
+    //! const bracket index access to vector components
     const T &operator[](size_t i) const { return data_[i]; }
 
     //! implementation of summation of vec3
