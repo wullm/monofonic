@@ -41,6 +41,12 @@ public:
     //! const bracket index access to vector components
     const T &operator[](size_t i) const { return data_[i]; }
 
+    // assignment operator
+    vec3<T>& operator=( const vec3<T>& v ) { data_=v.data_; return *this; }
+
+    // assignment operator
+    const vec3<T>& operator=( const vec3<T>& v ) const { data_=v.data_; return *this; }
+
     //! implementation of summation of vec3
     vec3<T> operator+( const vec3<T>& v ) const{ return vec3<T>({x+v.x,y+v.y,z+v.z}); }
 
@@ -49,6 +55,9 @@ public:
 
     //! implementation of scalar multiplication
     vec3<T> operator*( T s ) const{ return vec3<T>({x*s,y*s,z*s}); }
+
+    //! implementation of scalar division
+    vec3<T> operator/( T s ) const{ return vec3<T>({x/s,y/s,z/s}); }
 
     //! implementation of += operator
     vec3<T>& operator+=( const vec3<T>& v ) const{ x+=v.x; y+=v.y; z+=v.z; return *this; }
