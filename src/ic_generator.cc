@@ -7,6 +7,7 @@
 
 #include <ic_generator.hh>
 #include <particle_generator.hh>
+#include <particle_plt.hh>
 
 #include <unistd.h> // for unlink
 
@@ -164,6 +165,12 @@ int Run( ConfigFile& the_config )
     // NaiveConvolver<real_t> Conv({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
     //--------------------------------------------------------------------
 
+    //--------------------------------------------------------------------
+    // Create PLT gradient operator
+    //--------------------------------------------------------------------
+    particle::lattice_gradient lg( boxlen, ngrid );
+
+    //--------------------------------------------------------------------
     std::vector<cosmo_species> species_list;
     species_list.push_back( cosmo_species::dm );
     if( bDoBaryons ) species_list.push_back( cosmo_species::baryon );
@@ -455,6 +462,7 @@ int Run( ConfigFile& the_config )
                     tmp.FourierTransformForward(false);
 
                     // combine the various LPT potentials into one and take gradient
+                    #if 0 // non PLT corrected version
                     #pragma omp parallel for
                     for (size_t i = 0; i < phi.size(0); ++i) {
                         for (size_t j = 0; j < phi.size(1); ++j) {
@@ -467,6 +475,21 @@ int Run( ConfigFile& the_config )
                             }
                         }
                     }
+                    #else // non PLT corrected version
+                    #pragma omp parallel for
+                    for (size_t i = 0; i < phi.size(0); ++i) {
+                        for (size_t j = 0; j < phi.size(1); ++j) {
+                            for (size_t k = 0; k < phi.size(2); ++k) {
+                                // std::cerr << i << " " << j << " " << k << " " << phi.gradient(idim,{i,j,k}) << " " << lg.gradient(idim,{i,j,k}) << std::endl;
+                                size_t idx = phi.get_idx(i,j,k);
+                                auto phitot = phi.kelem(idx) + phi2.kelem(idx) + phi3a.kelem(idx) + phi3b.kelem(idx);
+                                // divide by Lbox, because displacement is in box units for output plugin
+                                tmp.kelem(idx) = lunit / boxlen * ( lg.gradient(idim,{i,j,k}) * phitot 
+                                    + lg.gradient(idimp,{i,j,k}) * A3[idimpp]->kelem(idx) - lg.gradient(idimpp,{i,j,k}) * A3[idimp]->kelem(idx) );
+                            }
+                        }
+                    }
+                    #endif
                     tmp.FourierTransformBackward();
 
                     // if we write particle data, store particle data in particle structure
@@ -491,6 +514,7 @@ int Run( ConfigFile& the_config )
                     
                     tmp.FourierTransformForward(false);
 
+                    #if 0 // non PLT corrected version
                     #pragma omp parallel for
                     for (size_t i = 0; i < phi.size(0); ++i) {
                         for (size_t j = 0; j < phi.size(1); ++j) {
@@ -513,6 +537,30 @@ int Run( ConfigFile& the_config )
                             }
                         }
                     }
+                    #else // PLT corrected version
+                    #pragma omp parallel for
+                    for (size_t i = 0; i < phi.size(0); ++i) {
+                        for (size_t j = 0; j < phi.size(1); ++j) {
+                            for (size_t k = 0; k < phi.size(2); ++k) {
+                                size_t idx = phi.get_idx(i,j,k);
+                                // divide by Lbox, because displacement is in box units for output plugin
+                                auto phitot_v = vfac1 * phi.kelem(idx) + vfac2 * phi2.kelem(idx) + vfac3 * (phi3a.kelem(idx) + phi3b.kelem(idx));
+
+                                tmp.kelem(idx) = vunit / boxlen * ( lg.gradient(idim,{i,j,k}) * phitot_v 
+                                        + vfac3 * (lg.gradient(idimp,{i,j,k}) * A3[idimpp]->kelem(idx) - lg.gradient(idimpp,{i,j,k}) * A3[idimp]->kelem(idx)) );
+
+                                if( bAddExternalTides ){
+                                    // modify velocities with anisotropic expansion factor**2
+                                    tmp.kelem(idx) *= std::pow(lss_aniso_alpha[idim],2.0);
+                                }
+                                // if( bSymplecticPT){
+                                //     auto phitot_v = vfac1 * phi.kelem(idx) + vfac2 * phi2.kelem(idx);
+                                //     tmp.kelem(idx) = vunit*ccomplex_t(0.0,1.0) * (kk[idim] * phitot_v) + vfac1 * A3[idim]->kelem(idx);
+                                // }
+                            }
+                        }
+                    }
+                    #endif
                     tmp.FourierTransformBackward();
 
                     // if we write particle data, store particle data in particle structure

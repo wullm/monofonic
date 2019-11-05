@@ -14,10 +14,216 @@
 namespace particle{
 //! implement Marcos et al. PLT calculation
 
+class lattice_gradient{
+private:
+    const real_t boxlen_;
+    const size_t ngmapto_, ngrid_, ngrid32_;
+    const real_t mapratio_;
+    Grid_FFT<real_t> D_xx_, D_xy_, D_xz_, D_yy_, D_yz_, D_zz_;
+    Grid_FFT<real_t> grad_x_, grad_y_, grad_z_;
+
+    void init_D()
+    {
+        const real_t eta = 2.0/ngrid_; // Ewald cutoff shall be 2 cells
+        const real_t alpha = 1.0/std::sqrt(2)/eta;
+        const real_t alpha2 = alpha*alpha;
+        const real_t alpha3 = alpha2*alpha;
+        const real_t sqrtpi = std::sqrt(M_PI);
+        const real_t pi32   = std::pow(M_PI,1.5);
+
+        //! just a Kronecker \delta_ij
+        auto kronecker = []( int i, int j ) -> real_t { return (i==j)? 1.0 : 0.0; };
+
+        //! just a sign function
+        auto sign = []( real_t x ) -> real_t { return (x<0.0)? -1.0 : 1.0; };
+
+        //! short range component of Ewald sum, eq. (A2) of Marcos (2008)
+        auto greensftide_sr = [&]( int mu, int nu, const vec3<real_t>& vR, const vec3<real_t>& vP ) -> real_t {
+            auto d = vR-vP;
+            auto r = d.norm();
+            // if( r< 1e-14 ) return 0.0; // let's return nonsense for r=0, and fix it later!
+            real_t val{0.0};
+            val -= d[mu]*d[nu]/(r*r) * alpha3/pi32 * std::exp(-alpha*alpha*r*r);
+            val += 1.0/(4.0*M_PI)*(kronecker(mu,nu)/std::pow(r,3) - 3.0 * (d[mu]*d[nu])/std::pow(r,5)) * 
+                (std::erfc(alpha*r) + 2.0*alpha/sqrtpi*std::exp(-alpha*alpha*r*r)*r);
+            return val;
+        };
+
+        //! sums mirrored copies of short-range component of Ewald sum
+        auto evaluate_D = [&]( int mu, int nu, const vec3<real_t>& v ) -> real_t{
+            real_t sr = 0.0;
+            constexpr int N = 3; // number of repeated copies ±N per dimension
+            for( int i=-N; i<=N; ++i ){
+                for( int j=-N; j<=N; ++j ){
+                    for( int k=-N; k<=N; ++k ){
+                        if( std::abs(i)+std::abs(j)+std::abs(k) <= N ){
+                            sr += greensftide_sr( mu, nu, v, {real_t(i),real_t(j),real_t(k)} );
+                        }
+                    }
+                }
+            }
+            return sr;
+        };
+
+        //! fill D_ij array with short range evaluated function
+        #pragma omp parallel for
+        for( size_t i=0; i<ngrid_; i++ ){
+            vec3<real_t>  p;
+            p.x = real_t(i)/ngrid_;
+            for( size_t j=0; j<ngrid_; j++ ){
+                p.y = real_t(j)/ngrid_;
+                for( size_t k=0; k<ngrid_; k++ ){
+                    p.z = real_t(k)/ngrid_;
+                    D_xx_.relem(i,j,k) = evaluate_D(0,0,p);
+                    D_xy_.relem(i,j,k) = evaluate_D(0,1,p);
+                    D_xz_.relem(i,j,k) = evaluate_D(0,2,p);
+                    D_yy_.relem(i,j,k) = evaluate_D(1,1,p);
+                    D_yz_.relem(i,j,k) = evaluate_D(1,2,p);
+                    D_zz_.relem(i,j,k) = evaluate_D(2,2,p);
+                }   
+            }    
+        }
+        // fix r=0 with background density (added later in Fourier space)
+        D_xx_.relem(0,0,0) = 0.0;
+        D_xy_.relem(0,0,0) = 0.0;
+        D_xz_.relem(0,0,0) = 0.0;
+        D_yy_.relem(0,0,0) = 0.0;
+        D_yz_.relem(0,0,0) = 0.0;
+        D_zz_.relem(0,0,0) = 0.0;
+
+        // Fourier transform all six components
+        D_xx_.FourierTransformForward();
+        D_xy_.FourierTransformForward();
+        D_xz_.FourierTransformForward();
+        D_yy_.FourierTransformForward();
+        D_yz_.FourierTransformForward();
+        D_zz_.FourierTransformForward();
+
+        const real_t rho0 = std::pow(real_t(ngrid_),1.5); //mass of one particle in Fourier space
+        const real_t nfac = 1.0/std::pow(real_t(ngrid_),1.5);
+
+        #pragma omp parallel
+        {
+            // thread private matrix representation
+            mat3s<real_t> D;
+            vec3<real_t> eval, evec1, evec2, evec3;
+        
+            #pragma omp for
+            for( size_t i=0; i<D_xx_.size(0); i++ )
+            {
+                for( size_t j=0; j<D_xx_.size(1); j++ )
+                {
+                    for( size_t k=0; k<D_xx_.size(2); k++ )
+                    {
+                        vec3<real_t> kv = D_xx_.get_k<real_t>(i,j,k);
+                        const real_t kmod2 = kv.norm_squared();
+
+                        // long range component of Ewald sum
+                        real_t phi0 = -rho0 * std::exp(-0.5*eta*eta*kmod2) / kmod2;
+                        phi0 = (phi0==phi0)? phi0 : 0.0; // catch NaN from division by zero when kmod2=0
+
+                        // assemble short-range + long_range of Ewald sum and add DC component to trace
+                        D_xx_.kelem(i,j,k) = (D_xx_.kelem(i,j,k) - kv[0]*kv[0] * phi0)*nfac + 1.0/3.0;
+                        D_xy_.kelem(i,j,k) = (D_xy_.kelem(i,j,k) - kv[0]*kv[1] * phi0)*nfac;
+                        D_xz_.kelem(i,j,k) = (D_xz_.kelem(i,j,k) - kv[0]*kv[2] * phi0)*nfac;
+                        D_yy_.kelem(i,j,k) = (D_yy_.kelem(i,j,k) - kv[1]*kv[1] * phi0)*nfac + 1.0/3.0;
+                        D_yz_.kelem(i,j,k) = (D_yz_.kelem(i,j,k) - kv[1]*kv[2] * phi0)*nfac;
+                        D_zz_.kelem(i,j,k) = (D_zz_.kelem(i,j,k) - kv[2]*kv[2] * phi0)*nfac + 1.0/3.0;
+
+                    }
+                }
+            }
+
+            D_xx_.kelem(0,0,0) = 1.0/3.0;
+            D_xy_.kelem(0,0,0) = 0.0;
+            D_xz_.kelem(0,0,0) = 0.0;
+            D_yy_.kelem(0,0,0) = 1.0/3.0;
+            D_yz_.kelem(0,0,0) = 0.0;
+            D_zz_.kelem(0,0,0) = 1.0/3.0;
+
+            #pragma omp for
+            for( size_t i=0; i<D_xx_.size(0); i++ )
+            {
+                for( size_t j=0; j<D_xx_.size(1); j++ )
+                {
+                    for( size_t k=0; k<D_xx_.size(2); k++ )
+                    {
+                        vec3<real_t> kv = D_xx_.get_k<real_t>(i,j,k);
+                        const real_t kmod  = kv.norm()/mapratio_/boxlen_;
+
+                            // put matrix elements into actual matrix
+                        D = { std::real(D_xx_.kelem(i,j,k)), std::real(D_xy_.kelem(i,j,k)), std::real(D_xz_.kelem(i,j,k)),
+                            std::real(D_yy_.kelem(i,j,k)), std::real(D_yz_.kelem(i,j,k)), std::real(D_zz_.kelem(i,j,k)) };
+                        
+                        // compute eigenstructure of matrix
+                        D.eigen(eval, evec1, evec2, evec3);
+
+                        // store in diagonal components of D_ij
+                        // D_xx_.kelem(i,j,k) = (i!=D_xx_.size(0)/2)? ccomplex_t(0.0,kv.x/mapratio_/boxlen_) : 0.0;
+                        // D_yy_.kelem(i,j,k) = (j!=D_yy_.size(1)/2)? ccomplex_t(0.0,kv.y/mapratio_/boxlen_) : 0.0;
+                        // D_zz_.kelem(i,j,k) = (k!=D_zz_.size(2)-1)? ccomplex_t(0.0,kv.z/mapratio_/boxlen_) : 0.0;
+                        // D_xx_.kelem(i,j,k) = ccomplex_t(0.0,kv.x/mapratio_/boxlen_);
+                        // D_yy_.kelem(i,j,k) = ccomplex_t(0.0,kv.y/mapratio_/boxlen_);
+                        // D_zz_.kelem(i,j,k) = ccomplex_t(0.0,kv.z/mapratio_/boxlen_);
+
+                        D_xx_.kelem(i,j,k) = sign(kv.dot(evec3)) * ccomplex_t(0.0,kmod) * evec3.x;
+                        D_yy_.kelem(i,j,k) = sign(kv.dot(evec3)) * ccomplex_t(0.0,kmod) * evec3.y;
+                        D_zz_.kelem(i,j,k) = sign(kv.dot(evec3)) * ccomplex_t(0.0,kmod) * evec3.z;
+
+                        if(std::fabs(kv.dot(evec3))>1e-16){
+                            D_xx_.kelem(i,j,k) /= (std::fabs(kv.dot(evec3))/kv.norm());
+                            D_yy_.kelem(i,j,k) /= (std::fabs(kv.dot(evec3))/kv.norm());
+                            D_zz_.kelem(i,j,k) /= (std::fabs(kv.dot(evec3))/kv.norm());
+                        }
+                    }
+                }
+            }
+        }
+
+    }
+
+public:
+    explicit lattice_gradient( real_t boxlen, size_t ngridother, size_t ngridself=64 )
+    : boxlen_(boxlen), ngmapto_(ngridother), ngrid_( ngridself ), ngrid32_( std::pow(ngrid_, 1.5) ), mapratio_(real_t(ngrid_)/real_t(ngmapto_)),
+      D_xx_({ngrid_, ngrid_, ngrid_}, {1.0,1.0,1.0}), D_xy_({ngrid_, ngrid_, ngrid_}, {1.0,1.0,1.0}),
+      D_xz_({ngrid_, ngrid_, ngrid_}, {1.0,1.0,1.0}), D_yy_({ngrid_, ngrid_, ngrid_}, {1.0,1.0,1.0}),
+      D_yz_({ngrid_, ngrid_, ngrid_}, {1.0,1.0,1.0}), D_zz_({ngrid_, ngrid_, ngrid_}, {1.0,1.0,1.0}),
+      grad_x_({ngrid_, ngrid_, ngrid_}, {1.0,1.0,1.0}), grad_y_({ngrid_, ngrid_, ngrid_}, {1.0,1.0,1.0}),
+      grad_z_({ngrid_, ngrid_, ngrid_}, {1.0,1.0,1.0})
+    { 
+        csoca::ilog << "-------------------------------------------------------------------------------" << std::endl;
+        double wtime = get_wtime();
+        csoca::ilog << std::setw(40) << std::setfill('.') << std::left << "Computing PLT lattice eigenmodes "<< std::flush;
+        
+        init_D();
+
+        csoca::ilog << std::setw(20) << std::setfill(' ') << std::right << "took " << get_wtime()-wtime << "s" << std::endl;
+    }
+
+    inline ccomplex_t gradient( const int idim, std::array<size_t,3> ijk ) const
+    {
+        real_t ix = ijk[0]*mapratio_, iy = ijk[1]*mapratio_, iz = ijk[2]*mapratio_;
+        // std::cerr << ix << " " << ijk[0] << std::endl;
+        if( idim== 0 ){
+            return D_xx_.get_cic_kspace({ix,iy,iz});
+        }
+        else if( idim==1){
+            return D_yy_.get_cic_kspace({ix,iy,iz});
+        }
+        return D_zz_.get_cic_kspace({ix,iy,iz});
+    }
+
+};
+
+#if 0
 inline void test_plt( void ){
 
     csoca::ilog << "-------------------------------------------------------------------------------" << std::endl;
     csoca::ilog << "Testing PLT implementation..." << std::endl;
+
+    lattice_gradient lg( 64 );
+
+    return;
 
     constexpr real_t pi = M_PI, twopi = 2.0*M_PI;
 
@@ -29,7 +235,7 @@ inline void test_plt( void ){
 
     const std::vector<vec3<real_t>> bcc_reciprocal{
         {twopi,0.,-twopi}, {0.,twopi,-twopi}, {0.,0.,2*twopi}
-    };
+    };    
 
     /*const std::vector<vec3<real_t>> fcc_reciprocal{
         {-2.,0.,2.}, {2.,0.,0.}, {1.,1.,-1.}
@@ -78,6 +284,7 @@ inline void test_plt( void ){
     rho.FourierTransformForward();
     rho.apply_function_k_dep([&](auto x, auto k) -> ccomplex_t {
         real_t kmod = k.norm();
+        std::cerr << x << std::endl;
         return -x * std::exp(-0.5*eta*eta*kmod*kmod) / (kmod*kmod);
     });
     rho.zero_DC_mode();
@@ -246,36 +453,47 @@ inline void test_plt( void ){
                                 if( scalar > 1.01 * amod2 ){ btest=false; break; }
                             }
                             if( btest ){
+                                // int is = (i>ngrid/2)? i-ngrid : i;
+                                // int js = (j>ngrid/2)? j-ngrid : j;
+                                // int ks = (k>ngrid/2)? k-ngrid : k;
+                                
                                 vecitk[idx][0] = std::round(vectk[idx][0]*(ngrid)/twopi);
                                 vecitk[idx][1] = std::round(vectk[idx][1]*(ngrid)/twopi);
                                 vecitk[idx][2] = std::round(vectk[idx][2]*(ngrid)/twopi);
 
-                                ico[idx][0] = int((ar[0]+l1) * ngrid+0.5);
-                                ico[idx][1] = int((ar[1]+l2) * ngrid+0.5);
-                                ico[idx][2] = int((ar[2]+l3) * ngrid+0.5);
-                                if( ico[idx][2] < 0 ){
-                                    ico[idx][0] = -ico[idx][0];
-                                    ico[idx][1] = -ico[idx][1];
-                                    ico[idx][2] = -ico[idx][2];
-                                }
+                                ico[idx][0] = std::round((ar[0]+l1) * ngrid);
+                                ico[idx][1] = std::round((ar[1]+l2) * ngrid);
+                                ico[idx][2] = std::round((ar[2]+l3) * ngrid);
 
-                                ico[idx][0] = (ico[idx][0]+ngrid)%ngrid;
-                                ico[idx][1] = (ico[idx][1]+ngrid)%ngrid;
+                                assert( std::fabs(real_t(ico[idx][0])/ngrid * bcc_reciprocal[0][0]+real_t(ico[idx][1])/ngrid * bcc_reciprocal[1][0]+real_t(ico[idx][2])/ngrid * bcc_reciprocal[2][0] - vectk[idx][0] ) < 1e-12 );
+                                assert( std::fabs(real_t(ico[idx][0])/ngrid * bcc_reciprocal[0][1]+real_t(ico[idx][1])/ngrid * bcc_reciprocal[1][1]+real_t(ico[idx][2])/ngrid * bcc_reciprocal[2][1] - vectk[idx][1] ) < 1e-12 );
+                                assert( std::fabs(real_t(ico[idx][0])/ngrid * bcc_reciprocal[0][2]+real_t(ico[idx][1])/ngrid * bcc_reciprocal[1][2]+real_t(ico[idx][2])/ngrid * bcc_reciprocal[2][2] - vectk[idx][2] ) < 1e-12 );
+                                
 
-                                if( vectk[idx][2] < 0 ){
-                                    vectk[idx][0] = - vectk[idx][0];
-                                    vectk[idx][1] = - vectk[idx][1];
-                                    vectk[idx][2] = - vectk[idx][2];
-                                }
+                                
+                                // if( ico[idx][2] < 0 ){
+                                //     ico[idx][0] = -ico[idx][0];
+                                //     ico[idx][1] = -ico[idx][1];
+                                //     ico[idx][2] = -ico[idx][2];
+                                // }
 
-                                if( vecitk[idx][2] < 0 ){
-                                    vecitk[idx][0] = -vecitk[idx][0];
-                                    vecitk[idx][1] = -vecitk[idx][1];
-                                    vecitk[idx][2] = -vecitk[idx][2];
-                                }
-                                vecitk[idx][0] = (vecitk[idx][0]+ngrid)%ngrid;
-                                vecitk[idx][1] = (vecitk[idx][1]+ngrid)%ngrid;
-                                vecitk[idx][2] = (vecitk[idx][2]+ngrid)%ngrid;
+                                // ico[idx][0] = (ico[idx][0]+ngrid)%ngrid;
+                                // ico[idx][1] = (ico[idx][1]+ngrid)%ngrid;
+
+                                // if( vectk[idx][2] < 0 ){
+                                //     vectk[idx][0] = - vectk[idx][0];
+                                //     vectk[idx][1] = - vectk[idx][1];
+                                //     vectk[idx][2] = - vectk[idx][2];
+                                // }
+
+                                // if( vecitk[idx][2] < 0 ){
+                                //     vecitk[idx][0] = -vecitk[idx][0];
+                                //     vecitk[idx][1] = -vecitk[idx][1];
+                                //     vecitk[idx][2] = -vecitk[idx][2];
+                                // }
+                                //vecitk[idx][0] = (vecitk[idx][0]+ngrid)%ngrid;
+                                //vecitk[idx][1] = (vecitk[idx][1]+ngrid)%ngrid;
+                                //vecitk[idx][2] = (vecitk[idx][2]+ngrid)%ngrid;
                                 
                                 
 
@@ -285,8 +503,14 @@ inline void test_plt( void ){
 
 
                                 //ofs2 << kv.x << ", " << kv.y << ", " << kv.z << ", " << vectk[idx].x*(ngrid)/twopi << ", " << vectk[idx].y*(ngrid)/twopi << ", " << vectk[idx].z*(ngrid)/twopi << ", " << ico[idx][0] << ", " << ico[idx][1] << ", " << ico[idx][2] << std::endl;
-                                ofs2 << kv.x << ", " << kv.y << ", " << kv.z << ", " << vecitk[idx].x << ", " << vecitk[idx].y << ", " << vecitk[idx].z << ", " << ico[idx][0] << ", " << ico[idx][1] << ", " << ico[idx][2] << std::endl;
-                                //std::cout << real_t(ico[idx][0])/ngrid * bcc_reciprocal[0][1]+real_t(ico[idx][1])/ngrid * bcc_reciprocal[1][1]+real_t(ico[idx][2])/ngrid * bcc_reciprocal[2][1] << " " << vectk[idx][1] << std::endl;
+                                ofs2 << kv.x/twopi << ", " << kv.y/twopi << ", " << kv.z/twopi << ", " << vecitk[idx].x << ", " << vecitk[idx].y << ", " << vecitk[idx].z << ", " << ico[idx][0] << ", " << ico[idx][1] << ", " << ico[idx][2] << std::endl;
+                                ofs2 << kv.x/twopi << ", " << kv.y/twopi << ", " << kv.z/twopi << ", " << -vecitk[idx].x << ", " << -vecitk[idx].y << ", " << -vecitk[idx].z << ", " << ico[idx][0] << ", " << ico[idx][1] << ", " << ico[idx][2] << std::endl;
+                                
+                                // std::cerr << real_t(ico[idx][0])/ngrid * bcc_reciprocal[0][0]+real_t(ico[idx][1])/ngrid * bcc_reciprocal[1][0]+real_t(ico[idx][2])/ngrid * bcc_reciprocal[2][0] << " " <<  vectk[idx][0] << std::endl;
+                                
+                                // std::cerr << real_t(ico[idx][0])/ngrid * bcc_reciprocal[0][0]+real_t(ico[idx][1])/ngrid * bcc_reciprocal[1][0]+real_t(ico[idx][2])/ngrid * bcc_reciprocal[2][0] << " " <<  vectk[idx][0] << std::endl;
+                                //std::cerr << real_t(ico[idx][0])/ngrid * bcc_reciprocal[0][1]+real_t(ico[idx][1])/ngrid * bcc_reciprocal[1][1]+real_t(ico[idx][2])/ngrid * bcc_reciprocal[2][1] << " " <<  vectk[idx][1] << std::endl;
+                                // assert( std::fabs(real_t(ico[idx][0])/ngrid * bcc_reciprocal[0][1]+real_t(ico[idx][1])/ngrid * bcc_reciprocal[1][1]+real_t(ico[idx][2])/ngrid * bcc_reciprocal[2][1] - vectk[idx][1] ) < 1e-12 );
                                 goto endloop;
                             }
                         }
@@ -294,9 +518,9 @@ inline void test_plt( void ){
                 }
                 endloop: ;
 
-                D_xx.kelem(i,j,k) = D_xx.kelem(ico[idx][0],ico[idx][1],ico[idx][2]);
+                //D_xx.kelem(i,j,k) = D_xx.kelem(ico[idx][0],ico[idx][1],ico[idx][2]);
                 // D_xx.kelem(ico[idx][0],ico[idx][1],ico[idx][2]) = D_xx.kelem(i,j,k);
-                // D_xx.kelem(i,j,k) = D_xx.kelem(i+vecitk[idx][0],j+vecitk[idx][1],k+vecitk[idx][2]);
+                //D_xx.kelem(i,j,k) = D_xx.kelem(i+vecitk[idx][0],j+vecitk[idx][1],k+vecitk[idx][2]);
             }
         }
             
@@ -336,6 +560,6 @@ inline void test_plt( void ){
     D_yz.Write_to_HDF5(filename, "e1_z");
 
 }
-
+#endif
 
 }

@@ -152,32 +152,6 @@ public:
         return (i * sizes_[1] + j) * sizes_[3] + k;
     }
 
-    data_t get_cic( const vec3<real_t>& v ) const{
-        // warning! this doesn't work with MPI
-        vec3<real_t> x({std::fmod(v.x/length_[0]+1.0,1.0)*n_[0],
-                        std::fmod(v.y/length_[1]+1.0,1.0)*n_[1],
-                        std::fmod(v.z/length_[2]+1.0,1.0)*n_[2] });
-        size_t ix = static_cast<size_t>(x.x);
-        size_t iy = static_cast<size_t>(x.y);
-        size_t iz = static_cast<size_t>(x.z);
-        real_t dx = x.x-real_t(ix), tx = 1.0-dx;
-        real_t dy = x.y-real_t(iy), ty = 1.0-dy;
-        real_t dz = x.z-real_t(iz), tz = 1.0-dz;
-        size_t ix1 = (ix+1)%n_[0];
-        size_t iy1 = (iy+1)%n_[1];
-        size_t iz1 = (iz+1)%n_[2];
-        data_t val = 0.0;
-        val += this->relem(ix ,iy ,iz ) * tx * ty * tz;
-        val += this->relem(ix ,iy ,iz1) * tx * ty * dz;
-        val += this->relem(ix ,iy1,iz ) * tx * dy * tz;
-        val += this->relem(ix ,iy1,iz1) * tx * dy * dz;
-        val += this->relem(ix1,iy ,iz ) * dx * ty * tz;
-        val += this->relem(ix1,iy ,iz1) * dx * ty * dz;
-        val += this->relem(ix1,iy1,iz ) * dx * dy * tz;
-        val += this->relem(ix1,iy1,iz1) * dx * dy * dz;
-        return val;
-    }
-
     template <typename ft>
     vec3<ft> get_r(const size_t i, const size_t j, const size_t k) const
     {
@@ -255,6 +229,59 @@ public:
         kk[2] = (real_t(k) - real_t(k > nhalf_[2]) * n_[2]) * kfac_[2];
 
         return kk;
+    }
+
+    data_t get_cic( const vec3<real_t>& v ) const{
+        // warning! this doesn't work with MPI
+        vec3<real_t> x({std::fmod(v.x/length_[0]+1.0,1.0)*n_[0],
+                        std::fmod(v.y/length_[1]+1.0,1.0)*n_[1],
+                        std::fmod(v.z/length_[2]+1.0,1.0)*n_[2] });
+        size_t ix = static_cast<size_t>(x.x);
+        size_t iy = static_cast<size_t>(x.y);
+        size_t iz = static_cast<size_t>(x.z);
+        real_t dx = x.x-real_t(ix), tx = 1.0-dx;
+        real_t dy = x.y-real_t(iy), ty = 1.0-dy;
+        real_t dz = x.z-real_t(iz), tz = 1.0-dz;
+        size_t ix1 = (ix+1)%n_[0];
+        size_t iy1 = (iy+1)%n_[1];
+        size_t iz1 = (iz+1)%n_[2];
+        data_t val = 0.0;
+        val += this->relem(ix ,iy ,iz ) * tx * ty * tz;
+        val += this->relem(ix ,iy ,iz1) * tx * ty * dz;
+        val += this->relem(ix ,iy1,iz ) * tx * dy * tz;
+        val += this->relem(ix ,iy1,iz1) * tx * dy * dz;
+        val += this->relem(ix1,iy ,iz ) * dx * ty * tz;
+        val += this->relem(ix1,iy ,iz1) * dx * ty * dz;
+        val += this->relem(ix1,iy1,iz ) * dx * dy * tz;
+        val += this->relem(ix1,iy1,iz1) * dx * dy * dz;
+        return val;
+    }
+
+    ccomplex_t get_cic_kspace( const vec3<real_t>& x ) const{
+        // warning! this doesn't work with MPI
+        size_t ix = static_cast<size_t>(x.x);
+        size_t iy = static_cast<size_t>(x.y);
+        size_t iz = std::min(static_cast<size_t>(x.z),size(2)-1); //static_cast<size_t>(x.z);
+        real_t dx = x.x-real_t(ix), tx = 1.0-dx;
+        real_t dy = x.y-real_t(iy), ty = 1.0-dy;
+        real_t dz = x.z-real_t(iz), tz = 1.0-dz;
+        size_t ix1 = (ix+1)%size(0);
+        size_t iy1 = (iy+1)%size(1);
+        size_t iz1 = std::min((iz+1),size(2)-1);
+        ccomplex_t val = 0.0;
+        val += this->kelem(ix ,iy ,iz ) * tx * ty * tz;
+        val += this->kelem(ix ,iy ,iz1) * tx * ty * dz;
+        val += this->kelem(ix ,iy1,iz ) * tx * dy * tz;
+        val += this->kelem(ix ,iy1,iz1) * tx * dy * dz;
+        val += this->kelem(ix1,iy ,iz ) * dx * ty * tz;
+        val += this->kelem(ix1,iy ,iz1) * dx * ty * dz;
+        val += this->kelem(ix1,iy1,iz ) * dx * dy * tz;
+        val += this->kelem(ix1,iy1,iz1) * dx * dy * dz;
+        // if( val != val ){
+           //auto k = this->get_k<real_t>(ix,iy,iz);
+           //std::cerr << ix << " " << iy << " " << iz << " " << val << " " <<  this->gradient(0,{ix,iy,iz}) << " " <<  this->gradient(1,{ix,iy,iz}) << " " <<  this->gradient(2,{ix,iy,iz}) << std::endl;
+        // }
+        return val;
     }
 
     inline ccomplex_t gradient( const int idim, std::array<size_t,3> ijk ) const
