@@ -8,6 +8,7 @@
 
 #include <random>
 
+#include <particle_generator.hh>
 #include <grid_fft.hh>
 #include <mat3.hh>
 
@@ -33,9 +34,6 @@ private:
 
         //! just a Kronecker \delta_ij
         auto kronecker = []( int i, int j ) -> real_t { return (i==j)? 1.0 : 0.0; };
-
-        //! just a sign function
-        auto sign = []( real_t x ) -> real_t { return (x<0.0)? -1.0 : 1.0; };
 
         //! short range component of Ewald sum, eq. (A2) of Marcos (2008)
         auto greensftide_sr = [&]( int mu, int nu, const vec3<real_t>& vR, const vec3<real_t>& vP ) -> real_t {
@@ -182,8 +180,11 @@ private:
     }
 
 public:
-    explicit lattice_gradient( real_t boxlen, size_t ngridother, size_t ngridself=64 )
-    : boxlen_(boxlen), ngmapto_(ngridother), ngrid_( ngridself ), ngrid32_( std::pow(ngrid_, 1.5) ), mapratio_(real_t(ngrid_)/real_t(ngmapto_)),
+    // real_t boxlen, size_t ngridother
+    explicit lattice_gradient( ConfigFile& the_config, size_t ngridself=64 )
+    : boxlen_( the_config.GetValue<double>("setup", "BoxLength") ), 
+      ngmapto_( the_config.GetValue<size_t>("setup", "GridRes") ), 
+      ngrid_( ngridself ), ngrid32_( std::pow(ngrid_, 1.5) ), mapratio_(real_t(ngrid_)/real_t(ngmapto_)),
       D_xx_({ngrid_, ngrid_, ngrid_}, {1.0,1.0,1.0}), D_xy_({ngrid_, ngrid_, ngrid_}, {1.0,1.0,1.0}),
       D_xz_({ngrid_, ngrid_, ngrid_}, {1.0,1.0,1.0}), D_yy_({ngrid_, ngrid_, ngrid_}, {1.0,1.0,1.0}),
       D_yz_({ngrid_, ngrid_, ngrid_}, {1.0,1.0,1.0}), D_zz_({ngrid_, ngrid_, ngrid_}, {1.0,1.0,1.0}),
@@ -191,8 +192,30 @@ public:
       grad_z_({ngrid_, ngrid_, ngrid_}, {1.0,1.0,1.0})
     { 
         csoca::ilog << "-------------------------------------------------------------------------------" << std::endl;
+        std::string lattice_str = the_config.GetValueSafe<std::string>("setup","ParticleLoad","sc");
+        const lattice lattice_type = 
+            ((lattice_str=="bcc")? lattice_bcc 
+            : ((lattice_str=="fcc")? lattice_fcc 
+            : ((lattice_str=="rsc")? lattice_rsc 
+            : lattice_sc)));
+
+        if( lattice_type != lattice_sc){
+            csoca::elog << "PLT not implemented for chosen lattice type! Currently only SC." << std::endl;
+            abort();
+        }
+
+        csoca::ilog << "PLT corrections for SC lattice will be computed on " << ngrid_ << "**3 mesh" << std::endl;
+
+#if defined(USE_MPI)
+        if( CONFIG::MPI_task_size>1 )
+        {
+            csoca::elog << "PLT not implemented for MPI, cannot run with more than 1 task currently!" << std::endl;
+            abort();
+        }
+#endif 
+
         double wtime = get_wtime();
-        csoca::ilog << std::setw(40) << std::setfill('.') << std::left << "Computing PLT lattice eigenmodes "<< std::flush;
+        csoca::ilog << std::setw(40) << std::setfill('.') << std::left << "Computing PLT eigenmodes "<< std::flush;
         
         init_D();
 
@@ -202,13 +225,8 @@ public:
     inline ccomplex_t gradient( const int idim, std::array<size_t,3> ijk ) const
     {
         real_t ix = ijk[0]*mapratio_, iy = ijk[1]*mapratio_, iz = ijk[2]*mapratio_;
-        // std::cerr << ix << " " << ijk[0] << std::endl;
-        if( idim== 0 ){
-            return D_xx_.get_cic_kspace({ix,iy,iz});
-        }
-        else if( idim==1){
-            return D_yy_.get_cic_kspace({ix,iy,iz});
-        }
+        if( idim == 0 )    return D_xx_.get_cic_kspace({ix,iy,iz});
+        else if( idim == 1 ) return D_yy_.get_cic_kspace({ix,iy,iz});
         return D_zz_.get_cic_kspace({ix,iy,iz});
     }
 
