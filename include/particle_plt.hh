@@ -151,30 +151,24 @@ private:
                         vec3<real_t> kv = D_xx_.get_k<real_t>(i,j,k);
                         const real_t kmod  = kv.norm()/mapratio_/boxlen_;
 
-                            // put matrix elements into actual matrix
+                        // put matrix elements into actual matrix
                         D = { std::real(D_xx_.kelem(i,j,k)), std::real(D_xy_.kelem(i,j,k)), std::real(D_xz_.kelem(i,j,k)),
-                            std::real(D_yy_.kelem(i,j,k)), std::real(D_yz_.kelem(i,j,k)), std::real(D_zz_.kelem(i,j,k)) };
+                              std::real(D_yy_.kelem(i,j,k)), std::real(D_yz_.kelem(i,j,k)), std::real(D_zz_.kelem(i,j,k)) };
                         
                         // compute eigenstructure of matrix
                         D.eigen(eval, evec1, evec2, evec3);
 
                         // store in diagonal components of D_ij
-                        // D_xx_.kelem(i,j,k) = (i!=D_xx_.size(0)/2)? ccomplex_t(0.0,kv.x/mapratio_/boxlen_) : 0.0;
-                        // D_yy_.kelem(i,j,k) = (j!=D_yy_.size(1)/2)? ccomplex_t(0.0,kv.y/mapratio_/boxlen_) : 0.0;
-                        // D_zz_.kelem(i,j,k) = (k!=D_zz_.size(2)-1)? ccomplex_t(0.0,kv.z/mapratio_/boxlen_) : 0.0;
-                        // D_xx_.kelem(i,j,k) = ccomplex_t(0.0,kv.x/mapratio_/boxlen_);
-                        // D_yy_.kelem(i,j,k) = ccomplex_t(0.0,kv.y/mapratio_/boxlen_);
-                        // D_zz_.kelem(i,j,k) = ccomplex_t(0.0,kv.z/mapratio_/boxlen_);
+                        D_xx_.kelem(i,j,k) =  ccomplex_t(0.0,kmod) * evec3.x;
+                        D_yy_.kelem(i,j,k) =  ccomplex_t(0.0,kmod) * evec3.y;
+                        D_zz_.kelem(i,j,k) =  ccomplex_t(0.0,kmod) * evec3.z;
 
-                        D_xx_.kelem(i,j,k) = sign(kv.dot(evec3)) * ccomplex_t(0.0,kmod) * evec3.x;
-                        D_yy_.kelem(i,j,k) = sign(kv.dot(evec3)) * ccomplex_t(0.0,kmod) * evec3.y;
-                        D_zz_.kelem(i,j,k) = sign(kv.dot(evec3)) * ccomplex_t(0.0,kmod) * evec3.z;
+                        auto norm = (kv.norm()/kv.dot(evec3));
+                        if ( std::abs(kv.dot(evec3)) < 1e-10 || kv.norm() < 1e-10 ) norm = 0.0; 
 
-                        if(std::fabs(kv.dot(evec3))>1e-16){
-                            D_xx_.kelem(i,j,k) /= (std::fabs(kv.dot(evec3))/kv.norm());
-                            D_yy_.kelem(i,j,k) /= (std::fabs(kv.dot(evec3))/kv.norm());
-                            D_zz_.kelem(i,j,k) /= (std::fabs(kv.dot(evec3))/kv.norm());
-                        }
+                        D_xx_.kelem(i,j,k) *= norm;
+                        D_yy_.kelem(i,j,k) *= norm;
+                        D_zz_.kelem(i,j,k) *= norm;
                     }
                 }
             }
