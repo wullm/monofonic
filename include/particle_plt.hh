@@ -169,10 +169,15 @@ private:
                         D_xx_.kelem(i,j,k) *= norm;
                         D_yy_.kelem(i,j,k) *= norm;
                         D_zz_.kelem(i,j,k) *= norm;
+
+                        // spatially dependent correction to vfact = \dot{D_+}/D_+
+                        D_xy_.kelem(i,j,k) = 1.0/(0.25*(std::sqrt(1.+24*eval[2])-1.));
                     }
                 }
             }
         }
+
+        D_xy_.kelem(0,0,0) = 1.0;
 
     }
 
@@ -205,6 +210,12 @@ public:
             return D_yy_.get_cic_kspace({ix,iy,iz});
         }
         return D_zz_.get_cic_kspace({ix,iy,iz});
+    }
+
+    inline ccomplex_t vfac_corr( std::array<size_t,3> ijk ) const
+    {
+        real_t ix = ijk[0]*mapratio_, iy = ijk[1]*mapratio_, iz = ijk[2]*mapratio_;
+        return D_xy_.get_cic_kspace({ix,iy,iz});
     }
 
 };

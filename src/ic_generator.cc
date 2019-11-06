@@ -549,6 +549,9 @@ int Run( ConfigFile& the_config )
                                 tmp.kelem(idx) = vunit / boxlen * ( lg.gradient(idim,{i,j,k}) * phitot_v 
                                         + vfac3 * (lg.gradient(idimp,{i,j,k}) * A3[idimpp]->kelem(idx) - lg.gradient(idimpp,{i,j,k}) * A3[idimp]->kelem(idx)) );
 
+                                // correct velocity with PLT mode growth rate
+                                tmp.kelem(idx) *= lg.vfac_corr({i,j,k});
+
                                 if( bAddExternalTides ){
                                     // modify velocities with anisotropic expansion factor**2
                                     tmp.kelem(idx) *= std::pow(lss_aniso_alpha[idim],2.0);
