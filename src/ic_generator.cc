@@ -469,8 +469,8 @@ int Run( ConfigFile& the_config )
                                 size_t idx = phi.get_idx(i,j,k);
                                 auto phitot = phi.kelem(idx) + phi2.kelem(idx) + phi3a.kelem(idx) + phi3b.kelem(idx);
                                 // divide by Lbox, because displacement is in box units for output plugin
-                                tmp.kelem(idx) = lunit / boxlen * ( lg.gradient(idim,{i,j,k}) * phitot 
-                                    + lg.gradient(idimp,{i,j,k}) * A3[idimpp]->kelem(idx) - lg.gradient(idimpp,{i,j,k}) * A3[idimp]->kelem(idx) );
+                                tmp.kelem(idx) = lunit / boxlen * ( lg.gradient(idim,tmp.get_k3(i,j,k)) * phitot 
+                                    + lg.gradient(idimp,tmp.get_k3(i,j,k)) * A3[idimpp]->kelem(idx) - lg.gradient(idimpp,tmp.get_k3(i,j,k)) * A3[idimp]->kelem(idx) );
                             }
                         }
                     }
@@ -506,11 +506,11 @@ int Run( ConfigFile& the_config )
                                 // divide by Lbox, because displacement is in box units for output plugin
                                 auto phitot_v = vfac1 * phi.kelem(idx) + vfac2 * phi2.kelem(idx) + vfac3 * (phi3a.kelem(idx) + phi3b.kelem(idx));
 
-                                tmp.kelem(idx) = vunit / boxlen * ( lg.gradient(idim,{i,j,k}) * phitot_v 
-                                        + vfac3 * (lg.gradient(idimp,{i,j,k}) * A3[idimpp]->kelem(idx) - lg.gradient(idimpp,{i,j,k}) * A3[idimp]->kelem(idx)) );
+                                tmp.kelem(idx) = vunit / boxlen * ( lg.gradient(idim,tmp.get_k3(i,j,k)) * phitot_v 
+                                        + vfac3 * (lg.gradient(idimp,tmp.get_k3(i,j,k)) * A3[idimpp]->kelem(idx) - lg.gradient(idimpp,tmp.get_k3(i,j,k)) * A3[idimp]->kelem(idx)) );
 
                                 // correct velocity with PLT mode growth rate
-                                tmp.kelem(idx) *= lg.vfac_corr({i,j,k});
+                                tmp.kelem(idx) *= lg.vfac_corr(tmp.get_k3(i,j,k));
 
                                 if( bAddExternalTides ){
                                     // modify velocities with anisotropic expansion factor**2

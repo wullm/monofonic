@@ -16,16 +16,23 @@ enum space_t
 };
 
 
-template <typename data_t>
+#ifdef USE_MPI
+template <typename data_t, bool bdistributed=true>
+#else
+template <typename data_t, bool bdistributed=false>
+#endif
 class Grid_FFT
 {
 protected:
 #if defined(USE_MPI)
-    const MPI_Datatype MPI_data_t_type = (typeid(data_t) == typeid(double)) ? MPI_DOUBLE
-                                                                            : (typeid(data_t) == typeid(float)) ? MPI_FLOAT
-                                                                                                                : (typeid(data_t) == typeid(std::complex<float>)) ? MPI_COMPLEX
-                                                                                                                                                                  : (typeid(data_t) == typeid(std::complex<double>)) ? MPI_DOUBLE_COMPLEX : MPI_INT;
+    const MPI_Datatype MPI_data_t_type = 
+        (typeid(data_t) == typeid(double)) ? MPI_DOUBLE
+        : (typeid(data_t) == typeid(float)) ? MPI_FLOAT
+        : (typeid(data_t) == typeid(std::complex<float>)) ? MPI_COMPLEX
+        : (typeid(data_t) == typeid(std::complex<double>)) ? MPI_DOUBLE_COMPLEX 
+        : MPI_INT;
 #endif
+    using grid_fft_t = Grid_FFT<data_t,bdistributed>;
 public:
     std::array<size_t, 3> n_, nhalf_;
     std::array<size_t, 4> sizes_;
@@ -54,7 +61,7 @@ public:
     }
 
     // avoid implicit copying of data
-    Grid_FFT(const Grid_FFT<data_t> &g) = delete;
+    Grid_FFT(const grid_fft_t &g) = delete;
 
     ~Grid_FFT()
     {
@@ -64,7 +71,7 @@ public:
         }
     }
 
-    const Grid_FFT<data_t> *get_grid(size_t ilevel) const { return this; }
+    const grid_fft_t *get_grid(size_t ilevel) const { return this; }
 
     void Setup();
 
@@ -91,7 +98,7 @@ public:
             data_[i] = 0.0;
     }
 
-    void copy_from(const Grid_FFT<data_t> &g)
+    void copy_from(const grid_fft_t &g)
     {
         // make sure the two fields are in the same space
         if (g.space_ != this->space_)
@@ -217,18 +224,32 @@ public:
     vec3<ft> get_k(const size_t i, const size_t j, const size_t k) const
     {
         vec3<ft> kk;
-
-#if defined(USE_MPI)
-        auto ip = i + local_1_start_;
-        kk[0] = (real_t(j) - real_t(j > nhalf_[0]) * n_[0]) * kfac_[0];
-        kk[1] = (real_t(ip) - real_t(ip > nhalf_[1]) * n_[1]) * kfac_[1];
-#else
-        kk[0] = (real_t(i) - real_t(i > nhalf_[0]) * n_[0]) * kfac_[0];
-        kk[1] = (real_t(j) - real_t(j > nhalf_[1]) * n_[1]) * kfac_[1];
-#endif
+        if( bdistributed ){
+            auto ip = i + local_1_start_;
+            kk[0] = (real_t(j) - real_t(j > nhalf_[0]) * n_[0]) * kfac_[0];
+            kk[1] = (real_t(ip) - real_t(ip > nhalf_[1]) * n_[1]) * kfac_[1];
+        }else{
+            kk[0] = (real_t(i) - real_t(i > nhalf_[0]) * n_[0]) * kfac_[0];
+            kk[1] = (real_t(j) - real_t(j > nhalf_[1]) * n_[1]) * kfac_[1];
+        }
         kk[2] = (real_t(k) - real_t(k > nhalf_[2]) * n_[2]) * kfac_[2];
 
         return kk;
+    }
+
+    std::array<size_t,3> get_k3(const size_t i, const size_t j, const size_t k) const
+    {
+        return bdistributed? std::array<size_t,3>({j,i+local_1_start_,k}) : std::array<size_t,3>({i,j,k});
+        // vec3<size_t> kk;
+        // if( bdistributed ){
+        //     kk[0] = j;
+        //     kk[1] = i + local_1_start_;
+        // }else{
+        //     kk[0] = i;
+        //     kk[1] = j;
+        // }
+        // kk[2] = k;
+        // return kk;
     }
 
     data_t get_cic( const vec3<real_t>& v ) const{
@@ -286,16 +307,16 @@ public:
 
     inline ccomplex_t gradient( const int idim, std::array<size_t,3> ijk ) const
     {
-#if defined(USE_MPI)
-        ijk[0] += local_1_start_;
-        std::swap(ijk[0],ijk[1]);
-#endif
+        if( bdistributed ){
+            ijk[0] += local_1_start_;
+            std::swap(ijk[0],ijk[1]);
+        }
         real_t rgrad = 
             (ijk[idim]!=nhalf_[idim])? (real_t(ijk[idim]) - real_t(ijk[idim] > nhalf_[idim]) * n_[idim]) * kfac_[idim] : 0.0; 
         return ccomplex_t(0.0,rgrad);
     }
 
-    Grid_FFT<data_t> &operator*=(data_t x)
+    grid_fft_t &operator*=(data_t x)
     {
         if (space_ == kspace_id)
         {
@@ -308,7 +329,7 @@ public:
         return *this;
     }
 
-    Grid_FFT<data_t> &operator/=(data_t x)
+    grid_fft_t &operator/=(data_t x)
     {
         if (space_ == kspace_id)
         {
@@ -321,7 +342,7 @@ public:
         return *this;
     }
 
-    Grid_FFT<data_t> &apply_Laplacian(void)
+    grid_fft_t &apply_Laplacian(void)
     {
         this->FourierTransformForward();
         this->apply_function_k_dep([&](auto x, auto k) {
@@ -332,7 +353,7 @@ public:
         return *this;
     }
 
-    Grid_FFT<data_t> &apply_negative_Laplacian(void)
+    grid_fft_t &apply_negative_Laplacian(void)
     {
         this->FourierTransformForward();
         this->apply_function_k_dep([&](auto x, auto k) {
@@ -343,7 +364,7 @@ public:
         return *this;
     }
 
-    Grid_FFT<data_t> &apply_InverseLaplacian(void)
+    grid_fft_t &apply_InverseLaplacian(void)
     {
         this->FourierTransformForward();
         this->apply_function_k_dep([&](auto x, auto k) {
@@ -391,8 +412,7 @@ public:
     double compute_2norm(void)
     {
         real_t sum1{0.0};
-#pragma omp parallel for reduction(+ \
-                                   : sum1)
+        #pragma omp parallel for reduction(+ : sum1)
         for (size_t i = 0; i < sizes_[0]; ++i)
         {
             for (size_t j = 0; j < sizes_[1]; ++j)
@@ -416,8 +436,7 @@ public:
         double sum1{0.0}, sum2{0.0};
         size_t count{0};
 
-#pragma omp parallel for reduction(+ \
-                                   : sum1, sum2)
+        #pragma omp parallel for reduction(+ : sum1, sum2)
         for (size_t i = 0; i < sizes_[0]; ++i)
         {
             for (size_t j = 0; j < sizes_[1]; ++j)
@@ -433,24 +452,26 @@ public:
         count = sizes_[0] * sizes_[1] * sizes_[2];
 
 #ifdef USE_MPI
-        double globsum1{0.0}, globsum2{0.0};
-        size_t globcount{0};
+        if( bdistributed ){
+            double globsum1{0.0}, globsum2{0.0};
+            size_t globcount{0};
 
-        MPI_Allreduce(reinterpret_cast<const void *>(&sum1),
-                      reinterpret_cast<void *>(&globsum1),
-                      1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+            MPI_Allreduce(reinterpret_cast<const void *>(&sum1),
+                        reinterpret_cast<void *>(&globsum1),
+                        1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
-        MPI_Allreduce(reinterpret_cast<const void *>(&sum2),
-                      reinterpret_cast<void *>(&globsum2),
-                      1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+            MPI_Allreduce(reinterpret_cast<const void *>(&sum2),
+                        reinterpret_cast<void *>(&globsum2),
+                        1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
-        MPI_Allreduce(reinterpret_cast<const void *>(&count),
-                      reinterpret_cast<void *>(&globcount),
-                      1, MPI_UNSIGNED_LONG_LONG, MPI_SUM, MPI_COMM_WORLD);
+            MPI_Allreduce(reinterpret_cast<const void *>(&count),
+                        reinterpret_cast<void *>(&globcount),
+                        1, MPI_UNSIGNED_LONG_LONG, MPI_SUM, MPI_COMM_WORLD);
 
-        sum1 = globsum1;
-        sum2 = globsum2;
-        count = globcount;
+            sum1 = globsum1;
+            sum2 = globsum2;
+            count = globcount;
+        }
 #endif
         sum1 /= count;
         sum2 /= count;
@@ -463,8 +484,7 @@ public:
         double sum1{0.0};
         size_t count{0};
 
-#pragma omp parallel for reduction(+ \
-                                   : sum1)
+        #pragma omp parallel for reduction(+ : sum1)
         for (size_t i = 0; i < sizes_[0]; ++i)
         {
             for (size_t j = 0; j < sizes_[1]; ++j)
@@ -479,19 +499,21 @@ public:
         count = sizes_[0] * sizes_[1] * sizes_[2];
 
 #ifdef USE_MPI
-        double globsum1{0.0};
-        size_t globcount{0};
+        if( bdistributed ){
+            double globsum1{0.0};
+            size_t globcount{0};
 
-        MPI_Allreduce(reinterpret_cast<const void *>(&sum1),
-                      reinterpret_cast<void *>(&globsum1),
-                      1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+            MPI_Allreduce(reinterpret_cast<const void *>(&sum1),
+                        reinterpret_cast<void *>(&globsum1),
+                        1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
-        MPI_Allreduce(reinterpret_cast<const void *>(&count),
-                      reinterpret_cast<void *>(&globcount),
-                      1, MPI_UNSIGNED_LONG_LONG, MPI_SUM, MPI_COMM_WORLD);
+            MPI_Allreduce(reinterpret_cast<const void *>(&count),
+                        reinterpret_cast<void *>(&globcount),
+                        1, MPI_UNSIGNED_LONG_LONG, MPI_SUM, MPI_COMM_WORLD);
 
-        sum1 = globsum1;
-        count = globcount;
+            sum1 = globsum1;
+            count = globcount;
+        }
 #endif
 
         sum1 /= count;
@@ -502,9 +524,9 @@ public:
     template <typename functional, typename grid_t>
     void assign_function_of_grids_r(const functional &f, const grid_t &g)
     {
-        assert(g.size(0) == size(0) && g.size(1) == size(1)); // && g.size(2) == size(2) );
+        assert(g.size(0) == size(0) && g.size(1) == size(1)); 
 
-#pragma omp parallel for
+        #pragma omp parallel for
         for (size_t i = 0; i < sizes_[0]; ++i)
         {
             for (size_t j = 0; j < sizes_[1]; ++j)
@@ -523,10 +545,10 @@ public:
     template <typename functional, typename grid1_t, typename grid2_t>
     void assign_function_of_grids_r(const functional &f, const grid1_t &g1, const grid2_t &g2)
     {
-        assert(g1.size(0) == size(0) && g1.size(1) == size(1)); // && g1.size(2) == size(2));
-        assert(g2.size(0) == size(0) && g2.size(1) == size(1)); // && g2.size(2) == size(2));
+        assert(g1.size(0) == size(0) && g1.size(1) == size(1)); 
+        assert(g2.size(0) == size(0) && g2.size(1) == size(1)); 
 
-#pragma omp parallel for
+        #pragma omp parallel for
         for (size_t i = 0; i < sizes_[0]; ++i)
         {
             for (size_t j = 0; j < sizes_[1]; ++j)
@@ -552,7 +574,7 @@ public:
         assert(g2.size(0) == size(0) && g2.size(1) == size(1)); // && g2.size(2) == size(2));
         assert(g3.size(0) == size(0) && g3.size(1) == size(1)); // && g3.size(2) == size(2));
 
-#pragma omp parallel for
+        #pragma omp parallel for
         for (size_t i = 0; i < sizes_[0]; ++i)
         {
             for (size_t j = 0; j < sizes_[1]; ++j)
@@ -577,7 +599,7 @@ public:
     {
         assert(g.size(0) == size(0) && g.size(1) == size(1)); // && g.size(2) == size(2) );
 
-#pragma omp parallel for
+        #pragma omp parallel for
         for (size_t i = 0; i < sizes_[0]; ++i)
         {
             for (size_t j = 0; j < sizes_[1]; ++j)
@@ -599,7 +621,7 @@ public:
         assert(g1.size(0) == size(0) && g1.size(1) == size(1)); // && g.size(2) == size(2) );
         assert(g2.size(0) == size(0) && g2.size(1) == size(1)); // && g.size(2) == size(2) );
 
-#pragma omp parallel for
+        #pragma omp parallel for
         for (size_t i = 0; i < sizes_[0]; ++i)
         {
             for (size_t j = 0; j < sizes_[1]; ++j)
@@ -621,7 +643,7 @@ public:
     {
         assert(g.size(0) == size(0) && g.size(1) == size(1)); // && g.size(2) == size(2) );
 
-#pragma omp parallel for
+        #pragma omp parallel for
         for (size_t i = 0; i < sizes_[0]; ++i)
         {
             for (size_t j = 0; j < sizes_[1]; ++j)
@@ -643,7 +665,7 @@ public:
         assert(g1.size(0) == size(0) && g1.size(1) == size(1) && g1.size(2) == size(2) );
         assert(g2.size(0) == size(0) && g2.size(1) == size(1) && g2.size(2) == size(2) );
 
-#pragma omp parallel for
+        #pragma omp parallel for
         for (size_t i = 0; i < size(0); ++i)
         {
             for (size_t j = 0; j < size(1); ++j)
@@ -663,7 +685,7 @@ public:
     template <typename functional>
     void apply_function_k_dep(const functional &f)
     {
-#pragma omp parallel for
+        #pragma omp parallel for
         for (size_t i = 0; i < sizes_[0]; ++i)
         {
             for (size_t j = 0; j < sizes_[1]; ++j)
@@ -680,7 +702,7 @@ public:
     template <typename functional>
     void apply_function_r_dep(const functional &f)
     {
-#pragma omp parallel for
+        #pragma omp parallel for
         for (size_t i = 0; i < sizes_[0]; ++i)
         {
             for (size_t j = 0; j < sizes_[1]; ++j)
@@ -714,11 +736,12 @@ public:
     {
         FourierTransformForward();
         apply_function_k_dep([&](auto x, auto k) -> ccomplex_t {
-#ifdef WITH_MPI
-            real_t shift = s.y * k[0] * get_dx()[0] + s.x * k[1] * get_dx()[1] + s.z * k[2] * get_dx()[2];
-#else
-            real_t shift = s.x * k[0] * get_dx()[0] + s.y * k[1] * get_dx()[1] + s.z * k[2] * get_dx()[2];
-#endif
+        real_t shift;
+        if( bdistributed ){
+            shift = s.y * k[0] * get_dx()[0] + s.x * k[1] * get_dx()[1] + s.z * k[2] * get_dx()[2];
+        }else{
+            shift = s.x * k[0] * get_dx()[0] + s.y * k[1] * get_dx()[1] + s.z * k[2] * get_dx()[2];
+        }
             return x * std::exp(ccomplex_t(0.0, shift));
         });
         if( transform_back ){
@@ -730,9 +753,7 @@ public:
     {
         if (space_ == kspace_id)
         {
-#ifdef USE_MPI
-            if (CONFIG::MPI_task_rank == 0)
-#endif
+            if (CONFIG::MPI_task_rank == 0 || !bdistributed )
                 cdata_[0] = (data_t)0.0;
         }
         else
@@ -749,12 +770,14 @@ public:
                     }
                 }
             }
+            if( bdistributed ){
 #if defined(USE_MPI)
-            data_t glob_sum = 0.0;
-            MPI_Allreduce(reinterpret_cast<void *>(&sum), reinterpret_cast<void *>(&glob_sum),
-                          1, GetMPIDatatype<data_t>(), MPI_SUM, MPI_COMM_WORLD);
-            sum = glob_sum;
+                data_t glob_sum = 0.0;
+                MPI_Allreduce(reinterpret_cast<void *>(&sum), reinterpret_cast<void *>(&glob_sum),
+                            1, GetMPIDatatype<data_t>(), MPI_SUM, MPI_COMM_WORLD);
+                sum = glob_sum;
 #endif
+            }
             sum /= sizes_[0] * sizes_[1] * sizes_[2];
 
 #pragma omp parallel for

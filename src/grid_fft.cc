@@ -5,13 +5,13 @@
 #include <gsl/gsl_rng.h>
 #include <gsl/gsl_randist.h>
 
-template <typename data_t>
-void Grid_FFT<data_t>::FillRandomReal(unsigned long int seed)
+template <typename data_t,bool bdistributed>
+void Grid_FFT<data_t,bdistributed>::FillRandomReal(unsigned long int seed)
 {
     gsl_rng *RNG = gsl_rng_alloc(gsl_rng_mt19937);
-#if defined(USE_MPI)
-    seed += 17321 * CONFIG::MPI_task_rank;
-#endif
+    if( bdistributed ){
+        seed += 17321 * CONFIG::MPI_task_rank;
+    }
     gsl_rng_set(RNG, seed);
 
     for (size_t i = 0; i < sizes_[0]; ++i)
@@ -28,166 +28,169 @@ void Grid_FFT<data_t>::FillRandomReal(unsigned long int seed)
     gsl_rng_free(RNG);
 }
 
-template <typename data_t>
-void Grid_FFT<data_t>::Setup(void)
+template <typename data_t,bool bdistributed>
+void Grid_FFT<data_t,bdistributed>::Setup(void)
 {
-#if !defined(USE_MPI) ////////////////////////////////////////////////////////////////////////////////////////////
+    if( !bdistributed ){
+        ntot_ = (n_[2] + 2) * n_[1] * n_[0];
 
-    ntot_ = (n_[2] + 2) * n_[1] * n_[0];
+        csoca::dlog.Print("[FFT] Setting up a shared memory field %lux%lux%lu\n", n_[0], n_[1], n_[2]);
+        if (typeid(data_t) == typeid(real_t))
+        {
+            data_ = reinterpret_cast<data_t *>(fftw_malloc(ntot_ * sizeof(real_t)));
+            cdata_ = reinterpret_cast<ccomplex_t *>(data_);
 
-    csoca::dlog.Print("[FFT] Setting up a shared memory field %lux%lux%lu\n", n_[0], n_[1], n_[2]);
-    if (typeid(data_t) == typeid(real_t))
-    {
-        data_ = reinterpret_cast<data_t *>(fftw_malloc(ntot_ * sizeof(real_t)));
-        cdata_ = reinterpret_cast<ccomplex_t *>(data_);
+            plan_ = FFTW_API(plan_dft_r2c_3d)(n_[0], n_[1], n_[2], (real_t *)data_, (complex_t *)data_, FFTW_RUNMODE);
+            iplan_ = FFTW_API(plan_dft_c2r_3d)(n_[0], n_[1], n_[2], (complex_t *)data_, (real_t *)data_, FFTW_RUNMODE);
+        }
+        else if (typeid(data_t) == typeid(ccomplex_t))
+        {
+            data_ = reinterpret_cast<data_t *>(fftw_malloc(ntot_ * sizeof(ccomplex_t)));
+            cdata_ = reinterpret_cast<ccomplex_t *>(data_);
 
-        plan_ = FFTW_API(plan_dft_r2c_3d)(n_[0], n_[1], n_[2], (real_t *)data_, (complex_t *)data_, FFTW_RUNMODE);
-        iplan_ = FFTW_API(plan_dft_c2r_3d)(n_[0], n_[1], n_[2], (complex_t *)data_, (real_t *)data_, FFTW_RUNMODE);
-    }
-    else if (typeid(data_t) == typeid(ccomplex_t))
-    {
-        data_ = reinterpret_cast<data_t *>(fftw_malloc(ntot_ * sizeof(ccomplex_t)));
-        cdata_ = reinterpret_cast<ccomplex_t *>(data_);
+            plan_ = FFTW_API(plan_dft_3d)(n_[0], n_[1], n_[2], (complex_t *)data_, (complex_t *)data_, FFTW_FORWARD, FFTW_RUNMODE);
+            iplan_ = FFTW_API(plan_dft_3d)(n_[0], n_[1], n_[2], (complex_t *)data_, (complex_t *)data_, FFTW_BACKWARD, FFTW_RUNMODE);
+        }
+        else
+        {
+            csoca::elog.Print("invalid data type in Grid_FFT<data_t>::setup_fft_interface\n");
+        }
 
-        plan_ = FFTW_API(plan_dft_3d)(n_[0], n_[1], n_[2], (complex_t *)data_, (complex_t *)data_, FFTW_FORWARD, FFTW_RUNMODE);
-        iplan_ = FFTW_API(plan_dft_3d)(n_[0], n_[1], n_[2], (complex_t *)data_, (complex_t *)data_, FFTW_BACKWARD, FFTW_RUNMODE);
-    }
-    else
-    {
-        csoca::elog.Print("invalid data type in Grid_FFT<data_t>::setup_fft_interface\n");
-    }
+        fft_norm_fac_ = 1.0 / std::sqrt((double)((size_t)n_[0] * (double)n_[1] * (double)n_[2]));
 
-    fft_norm_fac_ = 1.0 / std::sqrt((double)((size_t)n_[0] * (double)n_[1] * (double)n_[2]));
+        if (typeid(data_t) == typeid(real_t))
+        {
+            npr_ = n_[2] + 2;
+            npc_ = n_[2] / 2 + 1;
+        }
+        else
+        {
+            npr_ = n_[2];
+            npc_ = n_[2];
+        }
 
-    if (typeid(data_t) == typeid(real_t))
-    {
-        npr_ = n_[2] + 2;
-        npc_ = n_[2] / 2 + 1;
-    }
-    else
-    {
-        npr_ = n_[2];
-        npc_ = n_[2];
-    }
+        for (int i = 0; i < 3; ++i)
+        {
+            nhalf_[i] = n_[i] / 2;
+            kfac_[i] = 2.0 * M_PI / length_[i];
+            dx_[i] = length_[i] / n_[i];
 
-    for (int i = 0; i < 3; ++i)
-    {
-        nhalf_[i] = n_[i] / 2;
-        kfac_[i] = 2.0 * M_PI / length_[i];
-        dx_[i] = length_[i] / n_[i];
+            global_range_.x1_[i] = 0;
+            global_range_.x2_[i] = n_[i];
+        }
 
-        global_range_.x1_[i] = 0;
-        global_range_.x2_[i] = n_[i];
-    }
+        local_0_size_ = n_[0];
+        local_1_size_ = n_[1];
+        local_0_start_ = 0;
+        local_1_start_ = 0;
 
-    local_0_size_ = n_[0];
-    local_1_size_ = n_[1];
-    local_0_start_ = 0;
-    local_1_start_ = 0;
-
-    if (space_ == rspace_id)
-    {
-        sizes_[0] = n_[0];
-        sizes_[1] = n_[1];
-        sizes_[2] = n_[2];
-        sizes_[3] = npr_;
-    }
-    else
-    {
-        sizes_[0] = n_[1];
-        sizes_[1] = n_[0];
-        sizes_[2] = npc_;
-        sizes_[3] = npc_;
-    }
-
-#else //// i.e. ifdef USE_MPI ////////////////////////////////////////////////////////////////////////////////////
-
-    size_t cmplxsz;
-
-    if (typeid(data_t) == typeid(real_t))
-    {
-        cmplxsz = FFTW_API(mpi_local_size_3d_transposed)(n_[0], n_[1], n_[2] / 2 + 1, MPI_COMM_WORLD,
-                                                         &local_0_size_, &local_0_start_, &local_1_size_, &local_1_start_);
-        ntot_ = 2 * cmplxsz;
-        data_ = (data_t *)fftw_malloc(ntot_ * sizeof(real_t));
-        cdata_ = reinterpret_cast<ccomplex_t *>(data_);
-        plan_ = FFTW_API(mpi_plan_dft_r2c_3d)(n_[0], n_[1], n_[2], (real_t *)data_, (complex_t *)data_,
-                                              MPI_COMM_WORLD, FFTW_RUNMODE | FFTW_MPI_TRANSPOSED_OUT);
-        iplan_ = FFTW_API(mpi_plan_dft_c2r_3d)(n_[0], n_[1], n_[2], (complex_t *)data_, (real_t *)data_,
-                                               MPI_COMM_WORLD, FFTW_RUNMODE | FFTW_MPI_TRANSPOSED_IN);
-    }
-    else if (typeid(data_t) == typeid(ccomplex_t))
-    {
-        cmplxsz = FFTW_API(mpi_local_size_3d_transposed)(n_[0], n_[1], n_[2], MPI_COMM_WORLD,
-                                                         &local_0_size_, &local_0_start_, &local_1_size_, &local_1_start_);
-        ntot_ = cmplxsz;
-        data_ = (data_t *)fftw_malloc(ntot_ * sizeof(ccomplex_t));
-        cdata_ = reinterpret_cast<ccomplex_t *>(data_);
-        plan_ = FFTW_API(mpi_plan_dft_3d)(n_[0], n_[1], n_[2], (complex_t *)data_, (complex_t *)data_,
-                                          MPI_COMM_WORLD, FFTW_FORWARD, FFTW_RUNMODE | FFTW_MPI_TRANSPOSED_OUT);
-        iplan_ = FFTW_API(mpi_plan_dft_3d)(n_[0], n_[1], n_[2], (complex_t *)data_, (complex_t *)data_,
-                                           MPI_COMM_WORLD, FFTW_BACKWARD, FFTW_RUNMODE | FFTW_MPI_TRANSPOSED_IN);
+        if (space_ == rspace_id)
+        {
+            sizes_[0] = n_[0];
+            sizes_[1] = n_[1];
+            sizes_[2] = n_[2];
+            sizes_[3] = npr_;
+        }
+        else
+        {
+            sizes_[0] = n_[1];
+            sizes_[1] = n_[0];
+            sizes_[2] = npc_;
+            sizes_[3] = npc_;
+        }
     }
     else
     {
-        csoca::elog.Print("unknown data type in Grid_FFT<data_t>::setup_fft_interface\n");
-        abort();
-    }
+#ifdef USE_MPI //// i.e. ifdef USE_MPI ////////////////////////////////////////////////////////////////////////////////////
+        size_t cmplxsz;
 
-    csoca::dlog.Print("[FFT] Setting up a distributed memory field %lux%lux%lu\n", n_[0], n_[1], n_[2]);
-    fft_norm_fac_ = 1.0 / sqrt((double)n_[0] * (double)n_[1] * (double)n_[2]);
+        if (typeid(data_t) == typeid(real_t))
+        {
+            cmplxsz = FFTW_API(mpi_local_size_3d_transposed)(n_[0], n_[1], n_[2] / 2 + 1, MPI_COMM_WORLD,
+                                                            &local_0_size_, &local_0_start_, &local_1_size_, &local_1_start_);
+            ntot_ = 2 * cmplxsz;
+            data_ = (data_t *)fftw_malloc(ntot_ * sizeof(real_t));
+            cdata_ = reinterpret_cast<ccomplex_t *>(data_);
+            plan_ = FFTW_API(mpi_plan_dft_r2c_3d)(n_[0], n_[1], n_[2], (real_t *)data_, (complex_t *)data_,
+                                                MPI_COMM_WORLD, FFTW_RUNMODE | FFTW_MPI_TRANSPOSED_OUT);
+            iplan_ = FFTW_API(mpi_plan_dft_c2r_3d)(n_[0], n_[1], n_[2], (complex_t *)data_, (real_t *)data_,
+                                                MPI_COMM_WORLD, FFTW_RUNMODE | FFTW_MPI_TRANSPOSED_IN);
+        }
+        else if (typeid(data_t) == typeid(ccomplex_t))
+        {
+            cmplxsz = FFTW_API(mpi_local_size_3d_transposed)(n_[0], n_[1], n_[2], MPI_COMM_WORLD,
+                                                            &local_0_size_, &local_0_start_, &local_1_size_, &local_1_start_);
+            ntot_ = cmplxsz;
+            data_ = (data_t *)fftw_malloc(ntot_ * sizeof(ccomplex_t));
+            cdata_ = reinterpret_cast<ccomplex_t *>(data_);
+            plan_ = FFTW_API(mpi_plan_dft_3d)(n_[0], n_[1], n_[2], (complex_t *)data_, (complex_t *)data_,
+                                            MPI_COMM_WORLD, FFTW_FORWARD, FFTW_RUNMODE | FFTW_MPI_TRANSPOSED_OUT);
+            iplan_ = FFTW_API(mpi_plan_dft_3d)(n_[0], n_[1], n_[2], (complex_t *)data_, (complex_t *)data_,
+                                            MPI_COMM_WORLD, FFTW_BACKWARD, FFTW_RUNMODE | FFTW_MPI_TRANSPOSED_IN);
+        }
+        else
+        {
+            csoca::elog.Print("unknown data type in Grid_FFT<data_t>::setup_fft_interface\n");
+            abort();
+        }
 
-    if (typeid(data_t) == typeid(real_t))
-    {
-        npr_ = n_[2] + 2;
-        npc_ = n_[2] / 2 + 1;
-    }
-    else
-    {
-        npr_ = n_[2];
-        npc_ = n_[2];
-    }
+        csoca::dlog.Print("[FFT] Setting up a distributed memory field %lux%lux%lu\n", n_[0], n_[1], n_[2]);
+        fft_norm_fac_ = 1.0 / sqrt((double)n_[0] * (double)n_[1] * (double)n_[2]);
 
-    for (int i = 0; i < 3; ++i)
-    {
-        nhalf_[i] = n_[i] / 2;
-        kfac_[i] = 2.0 * M_PI / length_[i];
-        dx_[i] = length_[i] / n_[i];
+        if (typeid(data_t) == typeid(real_t))
+        {
+            npr_ = n_[2] + 2;
+            npc_ = n_[2] / 2 + 1;
+        }
+        else
+        {
+            npr_ = n_[2];
+            npc_ = n_[2];
+        }
 
-        global_range_.x1_[i] = 0;
-        global_range_.x2_[i] = n_[i];
-    }
-    global_range_.x1_[0] = (int)local_0_start_;
-    global_range_.x2_[0] = (int)(local_0_start_ + local_0_size_);
+        for (int i = 0; i < 3; ++i)
+        {
+            nhalf_[i] = n_[i] / 2;
+            kfac_[i] = 2.0 * M_PI / length_[i];
+            dx_[i] = length_[i] / n_[i];
 
-    if (space_ == rspace_id)
-    {
-        sizes_[0] = (int)local_0_size_;
-        sizes_[1] = n_[1];
-        sizes_[2] = n_[2];
-        sizes_[3] = npr_; // holds the physical memory size along the 3rd dimension
-    }
-    else
-    {
-        sizes_[0] = (int)local_1_size_;
-        sizes_[1] = n_[0];
-        sizes_[2] = npc_;
-        sizes_[3] = npc_; // holds the physical memory size along the 3rd dimension
-    }
+            global_range_.x1_[i] = 0;
+            global_range_.x2_[i] = n_[i];
+        }
+        global_range_.x1_[0] = (int)local_0_start_;
+        global_range_.x2_[0] = (int)(local_0_start_ + local_0_size_);
 
+        if (space_ == rspace_id)
+        {
+            sizes_[0] = (int)local_0_size_;
+            sizes_[1] = n_[1];
+            sizes_[2] = n_[2];
+            sizes_[3] = npr_; // holds the physical memory size along the 3rd dimension
+        }
+        else
+        {
+            sizes_[0] = (int)local_1_size_;
+            sizes_[1] = n_[0];
+            sizes_[2] = npc_;
+            sizes_[3] = npc_; // holds the physical memory size along the 3rd dimension
+        }
+#else
+        csoca::flog << "MPI is required for distributed FFT arrays!" << std::endl;
+        throw std::runtime_error("MPI is required for distributed FFT arrays!");
 #endif //// of #ifdef #else USE_MPI ////////////////////////////////////////////////////////////////////////////////////
+    }
 }
 
-template <typename data_t>
-void Grid_FFT<data_t>::ApplyNorm(void)
+template <typename data_t,bool bdistributed>
+void Grid_FFT<data_t,bdistributed>::ApplyNorm(void)
 {
 #pragma omp parallel for
     for (size_t i = 0; i < ntot_; ++i)
         data_[i] *= fft_norm_fac_;
 }
 
-template <typename data_t>
-void Grid_FFT<data_t>::FourierTransformForward(bool do_transform)
+template <typename data_t,bool bdistributed>
+void Grid_FFT<data_t,bdistributed>::FourierTransformForward(bool do_transform)
 {
 #if defined(USE_MPI)
     MPI_Barrier(MPI_COMM_WORLD);
@@ -217,8 +220,8 @@ void Grid_FFT<data_t>::FourierTransformForward(bool do_transform)
     }
 }
 
-template <typename data_t>
-void Grid_FFT<data_t>::FourierTransformBackward(bool do_transform)
+template <typename data_t,bool bdistributed>
+void Grid_FFT<data_t,bdistributed>::FourierTransformBackward(bool do_transform)
 {
 #if defined(USE_MPI)
     MPI_Barrier(MPI_COMM_WORLD);
@@ -269,14 +272,16 @@ void create_hdf5(std::string Filename)
     H5Fclose(HDF_FileID);
 }
 
-template <typename data_t>
-void Grid_FFT<data_t>::Write_to_HDF5(std::string fname, std::string datasetname) const
+template <typename data_t,bool bdistributed>
+void Grid_FFT<data_t,bdistributed>::Write_to_HDF5(std::string fname, std::string datasetname) const
 {
     hid_t file_id, dset_id;    /* file and dataset identifiers */
     hid_t filespace, memspace; /* file and memory dataspace identifiers */
     hsize_t offset[3], count[3];
     hid_t dtype_id = H5T_NATIVE_FLOAT;
     hid_t plist_id;
+
+    #warning "check if this works for non-distributed fft arrays with MPI"
 
 #if defined(USE_MPI)
 
@@ -500,8 +505,8 @@ void Grid_FFT<data_t>::Write_to_HDF5(std::string fname, std::string datasetname)
 
 #include <iomanip>
 
-template <typename data_t>
-void Grid_FFT<data_t>::Write_PDF(std::string ofname, int nbins, double scale, double vmin, double vmax)
+template <typename data_t,bool bdistributed>
+void Grid_FFT<data_t,bdistributed>::Write_PDF(std::string ofname, int nbins, double scale, double vmin, double vmax)
 {
     double logvmin = std::log10(vmin);
     double logvmax = std::log10(vmax);
@@ -552,8 +557,8 @@ void Grid_FFT<data_t>::Write_PDF(std::string ofname, int nbins, double scale, do
 #endif
 }
 
-template <typename data_t>
-void Grid_FFT<data_t>::Write_PowerSpectrum(std::string ofname)
+template <typename data_t,bool bdistributed>
+void Grid_FFT<data_t,bdistributed>::Write_PowerSpectrum(std::string ofname)
 {
     std::vector<double> bin_k, bin_P, bin_eP;
     std::vector<size_t> bin_count;
@@ -582,8 +587,8 @@ void Grid_FFT<data_t>::Write_PowerSpectrum(std::string ofname)
 #endif
 }
 
-template <typename data_t>
-void Grid_FFT<data_t>::Compute_PowerSpectrum(std::vector<double> &bin_k, std::vector<double> &bin_P, std::vector<double> &bin_eP, std::vector<size_t> &bin_count )
+template <typename data_t,bool bdistributed>
+void Grid_FFT<data_t,bdistributed>::Compute_PowerSpectrum(std::vector<double> &bin_k, std::vector<double> &bin_P, std::vector<double> &bin_eP, std::vector<size_t> &bin_count )
 {
     this->FourierTransformForward();
 
@@ -663,5 +668,7 @@ void Grid_FFT<data_t>::Compute_PowerSpectrum(std::vector<double> &bin_k, std::ve
 
 /********************************************************************************************/
 
-template class Grid_FFT<real_t>;
-template class Grid_FFT<ccomplex_t>;
+template class Grid_FFT<real_t,true>;
+template class Grid_FFT<real_t,false>;
+template class Grid_FFT<ccomplex_t,true>;
+template class Grid_FFT<ccomplex_t,false>;

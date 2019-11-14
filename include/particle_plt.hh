@@ -12,6 +12,8 @@
 #include <grid_fft.hh>
 #include <mat3.hh>
 
+#define PRODUCTION
+
 namespace particle{
 //! implement Marcos et al. PLT calculation
 
@@ -20,8 +22,8 @@ private:
     const real_t boxlen_;
     const size_t ngmapto_, ngrid_, ngrid32_;
     const real_t mapratio_;
-    Grid_FFT<real_t> D_xx_, D_xy_, D_xz_, D_yy_, D_yz_, D_zz_;
-    Grid_FFT<real_t> grad_x_, grad_y_, grad_z_;
+    Grid_FFT<real_t,false> D_xx_, D_xy_, D_xz_, D_yy_, D_yz_, D_zz_;
+    Grid_FFT<real_t,false> grad_x_, grad_y_, grad_z_;
 
     void init_D()
     {
@@ -146,8 +148,8 @@ private:
                         const real_t kmod2 = kv.norm_squared();
 
                         // long range component of Ewald sum
-                        ccomplex_t shift = 1.0;//std::exp(ccomplex_t(0.0,0.5*(kv[0] + kv[1] + kv[2])* D_xx_.get_dx()[0]));
-                        ccomplex_t phi0 = -rho0 * (0.5+0.5*shift) * std::exp(-0.5*eta*eta*kmod2) / kmod2;
+                        //ccomplex_t shift = 1.0;//std::exp(ccomplex_t(0.0,0.5*(kv[0] + kv[1] + kv[2])* D_xx_.get_dx()[0]));
+                        ccomplex_t phi0 = -rho0 * std::exp(-0.5*eta*eta*kmod2) / kmod2;
                         phi0 = (phi0==phi0)? phi0 : 0.0; // catch NaN from division by zero when kmod2=0
 
 
@@ -322,7 +324,7 @@ private:
                                         amod2  += bcc_normals[l][m]*bcc_normals[l][m];
                                         scalar += bcc_normals[l][m]*vectk[idx][m];
                                     }
-                                    real_t amod = std::sqrt(amod2);
+                                    //real_t amod = std::sqrt(amod2);
                                     //if( scalar/amod > amod*1.0001 ){ btest=false; break; }
                                     if( scalar > 1.01 * amod2 ){ btest=false; break; }
                                 }
@@ -378,13 +380,13 @@ public:
 
         csoca::ilog << "PLT corrections for SC lattice will be computed on " << ngrid_ << "**3 mesh" << std::endl;
 
-#if defined(USE_MPI)
-        if( CONFIG::MPI_task_size>1 )
-        {
-            csoca::elog << "PLT not implemented for MPI, cannot run with more than 1 task currently!" << std::endl;
-            abort();
-        }
-#endif 
+// #if defined(USE_MPI)
+//         if( CONFIG::MPI_task_size>1 )
+//         {
+//             csoca::elog << "PLT not implemented for MPI, cannot run with more than 1 task currently!" << std::endl;
+//             abort();
+//         }
+// #endif 
 
         double wtime = get_wtime();
         csoca::ilog << std::setw(40) << std::setfill('.') << std::left << "Computing PLT eigenmodes "<< std::flush;
@@ -454,7 +456,7 @@ inline void test_plt( void ){
     const real_t pi3halfs = std::pow(M_PI,1.5);
 
     const real_t dV( std::pow( boxlen/ngrid, 3 ) );
-    Grid_FFT<real_t> rho({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
+    Grid_FFT<real_t,false> rho({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
 
     auto kronecker = []( int i, int j ) -> real_t { return (i==j)? 1.0 : 0.0; };
 
@@ -511,12 +513,12 @@ inline void test_plt( void ){
         return sr;
     };
 
-    Grid_FFT<real_t> D_xx({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
-    Grid_FFT<real_t> D_xy({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
-    Grid_FFT<real_t> D_xz({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
-    Grid_FFT<real_t> D_yy({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
-    Grid_FFT<real_t> D_yz({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
-    Grid_FFT<real_t> D_zz({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
+    Grid_FFT<real_t,false> D_xx({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
+    Grid_FFT<real_t,false> D_xy({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
+    Grid_FFT<real_t,false> D_xz({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
+    Grid_FFT<real_t,false> D_yy({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
+    Grid_FFT<real_t,false> D_yz({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
+    Grid_FFT<real_t,false> D_zz({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
 
     #pragma omp parallel for
     for( size_t i=0; i<ngrid; i++ ){
