@@ -25,6 +25,18 @@ private:
 
     void init_D()
     {
+        constexpr real_t pi = M_PI, twopi = 2.0*M_PI;
+
+        const std::vector<vec3<real_t>> bcc_normals{
+            {0.,pi,pi},{0.,-pi,pi},{0.,pi,-pi},{0.,-pi,-pi},
+            {pi,0.,pi},{-pi,0.,pi},{pi,0.,-pi},{-pi,0.,-pi},
+            {pi,pi,0.},{-pi,pi,0.},{pi,-pi,0.},{-pi,-pi,0.}
+        };
+
+        const std::vector<vec3<real_t>> bcc_reciprocal{
+            {twopi,0.,-twopi}, {0.,twopi,-twopi}, {0.,0.,2*twopi}
+        };
+
         const real_t eta = 2.0/ngrid_; // Ewald cutoff shall be 2 cells
         const real_t alpha = 1.0/std::sqrt(2)/eta;
         const real_t alpha2 = alpha*alpha;
@@ -56,6 +68,17 @@ private:
                     for( int k=-N; k<=N; ++k ){
                         if( std::abs(i)+std::abs(j)+std::abs(k) <= N ){
                             sr += greensftide_sr( mu, nu, v, {real_t(i),real_t(j),real_t(k)} );
+                            //sr += greensftide_sr( mu, nu, v, {real_t(i),real_t(j),real_t(k)} ) * 0.5;
+                            // sr += greensftide_sr( mu, nu, v, {real_t(i)+0.5,real_t(j)+0.5,real_t(k)+0.5} ) * 0.5;
+
+                            // sr += greensftide_sr( mu, nu, v, {real_t(i)+0.5,real_t(j)+0.5,real_t(k)+0.5} )/16;
+                            // sr += greensftide_sr( mu, nu, v, {real_t(i)+0.5,real_t(j)+0.5,real_t(k)-0.5} )/16;
+                            // sr += greensftide_sr( mu, nu, v, {real_t(i)+0.5,real_t(j)-0.5,real_t(k)+0.5} )/16;
+                            // sr += greensftide_sr( mu, nu, v, {real_t(i)+0.5,real_t(j)-0.5,real_t(k)-0.5} )/16;
+                            // sr += greensftide_sr( mu, nu, v, {real_t(i)-0.5,real_t(j)+0.5,real_t(k)+0.5} )/16;
+                            // sr += greensftide_sr( mu, nu, v, {real_t(i)-0.5,real_t(j)+0.5,real_t(k)-0.5} )/16;
+                            // sr += greensftide_sr( mu, nu, v, {real_t(i)-0.5,real_t(j)-0.5,real_t(k)+0.5} )/16;
+                            // sr += greensftide_sr( mu, nu, v, {real_t(i)-0.5,real_t(j)-0.5,real_t(k)-0.5} )/16;
                         }
                     }
                 }
@@ -88,6 +111,7 @@ private:
         D_yy_.relem(0,0,0) = 0.0;
         D_yz_.relem(0,0,0) = 0.0;
         D_zz_.relem(0,0,0) = 0.0;
+        
 
         // Fourier transform all six components
         D_xx_.FourierTransformForward();
@@ -114,19 +138,42 @@ private:
                     for( size_t k=0; k<D_xx_.size(2); k++ )
                     {
                         vec3<real_t> kv = D_xx_.get_k<real_t>(i,j,k);
+                        auto& b=bcc_reciprocal;
+                        vec3<real_t> kvc = { b[0][0]*kvc[0]+b[1][0]*kvc[1]+b[2][0]*kvc[2],
+                                            b[0][1]*kvc[0]+b[1][1]*kvc[1]+b[2][1]*kvc[2],
+                                            b[0][2]*kvc[0]+b[1][2]*kvc[1]+b[2][2]*kvc[2] };
+                        // vec3<real_t> kv = {kvc.dot(bcc_reciprocal[0]),kvc.dot(bcc_reciprocal[1]),kvc.dot(bcc_reciprocal[2])};
                         const real_t kmod2 = kv.norm_squared();
 
                         // long range component of Ewald sum
-                        real_t phi0 = -rho0 * std::exp(-0.5*eta*eta*kmod2) / kmod2;
+                        ccomplex_t shift = 1.0;//std::exp(ccomplex_t(0.0,0.5*(kv[0] + kv[1] + kv[2])* D_xx_.get_dx()[0]));
+                        ccomplex_t phi0 = -rho0 * (0.5+0.5*shift) * std::exp(-0.5*eta*eta*kmod2) / kmod2;
                         phi0 = (phi0==phi0)? phi0 : 0.0; // catch NaN from division by zero when kmod2=0
 
+
+                        // const int nn = 3;
+                        // size_t nsum = 0;
+                        // ccomplex_t ff = 0.0;
+                        // for( int is=-nn;is<=nn;is++){
+                        //     for( int js=-nn;js<=nn;js++){
+                        //         for( int ks=-nn;ks<=nn;ks++){
+                        //             if( std::abs(is)+std::abs(js)+std::abs(ks) <= nn ){
+                        //                 ff += std::exp(ccomplex_t(0.0,(((is)*kv[0] + (js)*kv[1] + (ks)*kv[2]))));
+                        //                 ff += std::exp(ccomplex_t(0.0,(((0.5+is)*kv[0] + (0.5+js)*kv[1] + (0.5+ks)*kv[2]))));
+                        //                 ++nsum;
+                        //             }
+                        //         }
+                        //     }    
+                        // }
+                        // ff /= nsum;
+                        ccomplex_t ff = 1.0; //(0.5+0.5*std::exp(ccomplex_t(0.0,0.5*(kv[0] + kv[1] + kv[2]))));
                         // assemble short-range + long_range of Ewald sum and add DC component to trace
-                        D_xx_.kelem(i,j,k) = (D_xx_.kelem(i,j,k) - kv[0]*kv[0] * phi0)*nfac + 1.0/3.0;
-                        D_xy_.kelem(i,j,k) = (D_xy_.kelem(i,j,k) - kv[0]*kv[1] * phi0)*nfac;
-                        D_xz_.kelem(i,j,k) = (D_xz_.kelem(i,j,k) - kv[0]*kv[2] * phi0)*nfac;
-                        D_yy_.kelem(i,j,k) = (D_yy_.kelem(i,j,k) - kv[1]*kv[1] * phi0)*nfac + 1.0/3.0;
-                        D_yz_.kelem(i,j,k) = (D_yz_.kelem(i,j,k) - kv[1]*kv[2] * phi0)*nfac;
-                        D_zz_.kelem(i,j,k) = (D_zz_.kelem(i,j,k) - kv[2]*kv[2] * phi0)*nfac + 1.0/3.0;
+                        D_xx_.kelem(i,j,k) = ff*((D_xx_.kelem(i,j,k) - kv[0]*kv[0] * phi0)*nfac) + 1.0/3.0;
+                        D_xy_.kelem(i,j,k) = ff*((D_xy_.kelem(i,j,k) - kv[0]*kv[1] * phi0)*nfac);
+                        D_xz_.kelem(i,j,k) = ff*((D_xz_.kelem(i,j,k) - kv[0]*kv[2] * phi0)*nfac);
+                        D_yy_.kelem(i,j,k) = ff*((D_yy_.kelem(i,j,k) - kv[1]*kv[1] * phi0)*nfac) + 1.0/3.0;
+                        D_yz_.kelem(i,j,k) = ff*((D_yz_.kelem(i,j,k) - kv[1]*kv[2] * phi0)*nfac);
+                        D_zz_.kelem(i,j,k) = ff*((D_zz_.kelem(i,j,k) - kv[2]*kv[2] * phi0)*nfac) + 1.0/3.0;
 
                     }
                 }
@@ -163,20 +210,145 @@ private:
 
                         auto norm = (kv.norm()/kv.dot(evec3));
                         if ( std::abs(kv.dot(evec3)) < 1e-10 || kv.norm() < 1e-10 ) norm = 0.0; 
-
+#ifdef PRODUCTION
                         D_xx_.kelem(i,j,k) *= norm;
                         D_yy_.kelem(i,j,k) *= norm;
                         D_zz_.kelem(i,j,k) *= norm;
 
                         // spatially dependent correction to vfact = \dot{D_+}/D_+
                         D_xy_.kelem(i,j,k) = 1.0/(0.25*(std::sqrt(1.+24*eval[2])-1.));
+#else
+
+                        D_xx_.kelem(i,j,k) = eval[2];
+                        D_yy_.kelem(i,j,k) = eval[1];
+                        D_zz_.kelem(i,j,k) = eval[0];
+
+                        D_xy_.kelem(i,j,k) = evec3[0];
+                        D_xz_.kelem(i,j,k) = evec3[1];
+                        D_yz_.kelem(i,j,k) = evec3[2];
+#endif
                     }
                 }
             }
         }
-
+#ifdef PRODUCTION
         D_xy_.kelem(0,0,0) = 1.0;
+#endif
 
+        //////////////////////////////////////////
+        std::string filename("plt_test.hdf5");
+        unlink(filename.c_str());
+    #if defined(USE_MPI)
+        MPI_Barrier(MPI_COMM_WORLD);
+    #endif
+    //     rho.Write_to_HDF5(filename, "rho");
+        D_xx_.Write_to_HDF5(filename, "omega1");
+        D_yy_.Write_to_HDF5(filename, "omega2");
+        D_zz_.Write_to_HDF5(filename, "omega3");
+        D_xy_.Write_to_HDF5(filename, "e1_x");
+        D_xz_.Write_to_HDF5(filename, "e1_y");
+        D_yz_.Write_to_HDF5(filename, "e1_z");
+
+    }
+
+
+    void compute_vectk( )
+    {
+        constexpr real_t pi = M_PI, twopi = 2.0*M_PI;
+
+        const std::vector<vec3<real_t>> bcc_normals{
+            {0.,pi,pi},{0.,-pi,pi},{0.,pi,-pi},{0.,-pi,-pi},
+            {pi,0.,pi},{-pi,0.,pi},{pi,0.,-pi},{-pi,0.,-pi},
+            {pi,pi,0.},{-pi,pi,0.},{pi,-pi,0.},{-pi,-pi,0.}
+        };
+
+        const std::vector<vec3<real_t>> bcc_reciprocal{
+            {twopi,0.,-twopi}, {0.,twopi,-twopi}, {0.,0.,2*twopi}
+        }; 
+
+        std::vector<vec3<real_t>> vectk;
+        std::vector<vec3<int>> ico, vecitk;
+        vectk.assign(D_xx_.size(0)*D_xx_.size(1)*D_xx_.size(2),vec3<real_t>());
+        ico.assign(D_xx_.size(0)*D_xx_.size(1)*D_xx_.size(2),vec3<int>());
+        vecitk.assign(D_xx_.size(0)*D_xx_.size(1)*D_xx_.size(2),vec3<int>());
+
+        std::ofstream ofs2("test_brillouin.txt");
+
+        const int numb = 1;
+        for( size_t i=0; i<D_xx_.size(0); i++ ){
+            mat3s<real_t> D;
+            vec3<real_t> eval, evec1, evec2, evec3;
+            vec3<real_t> a({0.,0.,0.});
+
+            for( size_t j=0; j<D_xx_.size(1); j++ ){
+
+                for( size_t k=0; k<D_xx_.size(2); k++ ){
+
+                    auto idx = D_xx_.get_idx(i,j,k);
+                    vec3<real_t> ar = D_xx_.get_k<real_t>(i,j,k) / (twopi*ngrid_);
+                    vec3<real_t> kv = D_xx_.get_k<real_t>(i,j,k);
+                    
+                    for( int l=0; l<3; l++ ){
+                        a[l] = 0.0;
+                        for( int m=0; m<3; m++){
+                            // project k on reciprocal basis
+                            a[l] += ar[m]*bcc_reciprocal[m][l];
+                        }
+                    }
+
+                    // translate the k-vectors into the "candidate" FBZ
+                    vec3<real_t> anum;
+                    for( int l1=-numb; l1<=numb; ++l1 ){
+                        anum[0] = real_t(l1);
+                        for( int l2=-numb; l2<=numb; ++l2 ){
+                            anum[1] = real_t(l2);
+                            for( int l3=-numb; l3<=numb; ++l3 ){
+                                anum[2] = real_t(l3);
+
+                                vectk[idx] = a;
+
+                                for( int l=0; l<3; l++ ){
+                                    for( int m=0; m<3; m++){
+                                        // project k on reciprocal basis
+                                        vectk[idx][l] += anum[m]*bcc_reciprocal[m][l];
+                                    }
+                                }
+                                // check if in first Brillouin zone
+                                bool btest=true;
+                                for( size_t l=0; l<bcc_normals.size(); ++l ){
+                                    real_t amod2 = 0.0;
+                                    real_t scalar = 0.0;
+                                    for( int m=0; m<3; m++ ){
+                                        amod2  += bcc_normals[l][m]*bcc_normals[l][m];
+                                        scalar += bcc_normals[l][m]*vectk[idx][m];
+                                    }
+                                    real_t amod = std::sqrt(amod2);
+                                    //if( scalar/amod > amod*1.0001 ){ btest=false; break; }
+                                    if( scalar > 1.01 * amod2 ){ btest=false; break; }
+                                }
+                                if( btest ){
+                                    
+                                    vecitk[idx][0] = std::round(vectk[idx][0]*(ngrid_)/twopi);
+                                    vecitk[idx][1] = std::round(vectk[idx][1]*(ngrid_)/twopi);
+                                    vecitk[idx][2] = std::round(vectk[idx][2]*(ngrid_)/twopi);
+
+                                    ico[idx][0] = std::round((ar[0]+l1) * ngrid_);
+                                    ico[idx][1] = std::round((ar[1]+l2) * ngrid_);
+                                    ico[idx][2] = std::round((ar[2]+l3) * ngrid_);
+
+                                    ofs2 << vectk[idx].norm() << " " << kv.norm() << " " << std::real(D_xx_.kelem(i,j,k)) << " " << std::real(D_yy_.kelem(i,j,k)) << " " << std::real(D_zz_.kelem(i,j,k)) << std::endl;
+                                    // ofs2 << kv.x/twopi << ", " << kv.y/twopi << ", " << kv.z/twopi << ", " << vecitk[idx].x << ", " << vecitk[idx].y << ", " << vecitk[idx].z << ", " << ico[idx][0] << ", " << ico[idx][1] << ", " << ico[idx][2] << std::endl;
+                                    // ofs2 << kv.x/twopi << ", " << kv.y/twopi << ", " << kv.z/twopi << ", " << -vecitk[idx].x << ", " << -vecitk[idx].y << ", " << -vecitk[idx].z << ", " << ico[idx][0] << ", " << ico[idx][1] << ", " << ico[idx][2] << std::endl;
+                                    
+                                    goto endloop;
+                                }
+                            }
+                        }
+                    }
+                    endloop: ;
+                }
+            }
+        }            
     }
 
 public:
@@ -218,6 +390,7 @@ public:
         csoca::ilog << std::setw(40) << std::setfill('.') << std::left << "Computing PLT eigenmodes "<< std::flush;
         
         init_D();
+        compute_vectk();
 
         csoca::ilog << std::setw(20) << std::setfill(' ') << std::right << "took " << get_wtime()-wtime << "s" << std::endl;
     }
