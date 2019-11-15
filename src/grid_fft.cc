@@ -2,32 +2,6 @@
 #include <grid_fft.hh>
 #include <thread>
 
-#include <gsl/gsl_rng.h>
-#include <gsl/gsl_randist.h>
-
-template <typename data_t,bool bdistributed>
-void Grid_FFT<data_t,bdistributed>::FillRandomReal(unsigned long int seed)
-{
-    gsl_rng *RNG = gsl_rng_alloc(gsl_rng_mt19937);
-    if( bdistributed ){
-        seed += 17321 * CONFIG::MPI_task_rank;
-    }
-    gsl_rng_set(RNG, seed);
-
-    for (size_t i = 0; i < sizes_[0]; ++i)
-    {
-        for (size_t j = 0; j < sizes_[1]; ++j)
-        {
-            for (size_t k = 0; k < sizes_[2]; ++k)
-            {
-                this->relem(i, j, k) = gsl_ran_ugaussian_ratio_method(RNG);
-            }
-        }
-    }
-
-    gsl_rng_free(RNG);
-}
-
 template <typename data_t,bool bdistributed>
 void Grid_FFT<data_t,bdistributed>::Setup(void)
 {

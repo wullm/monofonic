@@ -240,16 +240,6 @@ public:
     std::array<size_t,3> get_k3(const size_t i, const size_t j, const size_t k) const
     {
         return bdistributed? std::array<size_t,3>({j,i+local_1_start_,k}) : std::array<size_t,3>({i,j,k});
-        // vec3<size_t> kk;
-        // if( bdistributed ){
-        //     kk[0] = j;
-        //     kk[1] = i + local_1_start_;
-        // }else{
-        //     kk[0] = i;
-        //     kk[1] = j;
-        // }
-        // kk[2] = k;
-        // return kk;
     }
 
     data_t get_cic( const vec3<real_t>& v ) const{
