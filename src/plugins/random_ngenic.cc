@@ -82,7 +82,11 @@ public:
                 for (size_t j = 0; j < nres_; ++j) 
                 {                   
                     ptrdiff_t jj = (j>0)? nres_ - j : 0;
-                    gsl_rng_set( pRandomGenerator_, SeedTable_[i * nres_ + j]);
+                    if( g.is_distributed() )
+                        gsl_rng_set( pRandomGenerator_, SeedTable_[j * nres_ + i]);
+                    else
+                        gsl_rng_set( pRandomGenerator_, SeedTable_[i * nres_ + j]);
+                    
                     for (size_t k = 0; k < g.size(2); ++k) 
                     {
                         double phase = gsl_rng_uniform(pRandomGenerator_) * 2 * M_PI;
@@ -101,15 +105,28 @@ public:
                         if (k > 0) {
                             if (i_in_range) g.kelem(ip,j,k) = zrand;
                         } else{ /* k=0 plane needs special treatment */
-                            if (i == 0) {
-                                if (j < nres_ / 2 && i_in_range)
-                                {
-                                    g.kelem(ip,j,k) = zrand;
-                                    g.kelem(ip,jj,k) = std::conj(zrand);
+                            if( g.is_distributed() ){
+                                if (j == 0) {
+                                    if (i < nres_ / 2 && i_in_range)
+                                    {
+                                        if(i_in_range) g.kelem(ip,jj,k) = zrand;
+                                        if(ii_in_range) g.kelem(iip,j,k) = std::conj(zrand);
+                                    }
+                                } else if (j < nres_ / 2) {
+                                    if(i_in_range) g.kelem(ip,j,k) = zrand;
+                                    if(ii_in_range) g.kelem(iip,jj,k) = std::conj(zrand);
                                 }
-                            } else if (i < nres_ / 2) {
-                                if(i_in_range) g.kelem(ip,j,k) = zrand;
-                                if (ii_in_range) g.kelem(iip,jj,k) = std::conj(zrand);
+                            }else{
+                                if (i == 0) {
+                                    if (j < nres_ / 2 && i_in_range)
+                                    {
+                                        g.kelem(ip,j,k) = zrand;
+                                        g.kelem(ip,jj,k) = std::conj(zrand);
+                                    }
+                                } else if (i < nres_ / 2) {
+                                    if(i_in_range) g.kelem(ip,j,k) = zrand;
+                                    if (ii_in_range) g.kelem(iip,jj,k) = std::conj(zrand);
+                                }
                             }
                         }
                     }

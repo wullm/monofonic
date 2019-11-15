@@ -73,6 +73,8 @@ public:
 
     const grid_fft_t *get_grid(size_t ilevel) const { return this; }
 
+    bool is_distributed( void ) const { return bdistributed; }
+
     void Setup();
 
     //! return the (local) size of dimension i
