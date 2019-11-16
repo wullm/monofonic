@@ -246,16 +246,141 @@ void create_hdf5(std::string Filename)
     H5Fclose(HDF_FileID);
 }
 
+
 template <typename data_t,bool bdistributed>
 void Grid_FFT<data_t,bdistributed>::Write_to_HDF5(std::string fname, std::string datasetname) const
 {
+    // FIXME: cleanup duplicate code in this function!
+    if( !bdistributed && CONFIG::MPI_task_rank==0 ){
+        
+        hid_t file_id, dset_id;    /* file and dataset identifiers */
+        hid_t filespace, memspace; /* file and memory dataspace identifiers */
+        hsize_t offset[3], count[3];
+        hid_t dtype_id = H5T_NATIVE_FLOAT;
+        hid_t plist_id = H5P_DEFAULT;
+
+        if (!file_exists(fname))
+            create_hdf5(fname);
+
+        file_id = H5Fopen(fname.c_str(), H5F_ACC_RDWR, plist_id);
+
+        for (int i = 0; i < 3; ++i)
+            count[i] = size(i);
+        
+        if (typeid(data_t) == typeid(float))
+            dtype_id = H5T_NATIVE_FLOAT;
+        else if (typeid(data_t) == typeid(double))
+            dtype_id = H5T_NATIVE_DOUBLE;
+        else if (typeid(data_t) == typeid(std::complex<float>))
+        {
+            dtype_id = H5T_NATIVE_FLOAT;
+        }
+        else if (typeid(data_t) == typeid(std::complex<double>))
+        {
+            dtype_id = H5T_NATIVE_DOUBLE;
+        }
+
+        filespace = H5Screate_simple(3, count, NULL);
+        dset_id = H5Dcreate2(file_id, datasetname.c_str(), dtype_id, filespace,
+                            H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+        H5Sclose(filespace);
+
+        hsize_t slice_sz = size(1) * size(2);
+
+        real_t *buf = new real_t[slice_sz];
+
+        count[0] = 1;
+        count[1] = size(1);
+        count[2] = size(2);
+
+        offset[1] = 0;
+        offset[2] = 0;
+
+        memspace = H5Screate_simple(3, count, NULL);
+        filespace = H5Dget_space(dset_id);
+
+        for (size_t i = 0; i < size(0); ++i)
+        {
+            offset[0] = i;
+            for (size_t j = 0; j < size(1); ++j)
+            {
+                for (size_t k = 0; k < size(2); ++k)
+                {
+                    if( this->space_ == rspace_id )
+                        buf[j * size(2) + k] = std::real(relem(i, j, k));
+                    else
+                        buf[j * size(2) + k] = std::real(kelem(i, j, k));
+                }
+            }
+
+            H5Sselect_hyperslab(filespace, H5S_SELECT_SET, offset, NULL, count, NULL);
+            H5Dwrite(dset_id, dtype_id, memspace, filespace, H5P_DEFAULT, buf);
+        }
+
+        H5Sclose(filespace);
+        H5Sclose(memspace);
+
+        // H5Sclose(filespace);
+        H5Dclose(dset_id);
+
+        if (typeid(data_t) == typeid(std::complex<float>) ||
+            typeid(data_t) == typeid(std::complex<double>) ||
+            this->space_ == kspace_id )
+        {
+            datasetname += std::string(".im");
+
+            for (int i = 0; i < 3; ++i)
+                count[i] = size(i);
+
+            filespace = H5Screate_simple(3, count, NULL);
+            dset_id = H5Dcreate2(file_id, datasetname.c_str(), dtype_id, filespace,
+                                H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+            H5Sclose(filespace);
+
+            count[0] = 1;
+
+            for (size_t i = 0; i < size(0); ++i)
+            {
+                offset[0] = i;
+
+                for (size_t j = 0; j < size(1); ++j)
+                    for (size_t k = 0; k < size(2); ++k)
+                    {
+                        if( this->space_ == rspace_id )
+                            buf[j * size(2) + k] = std::imag(relem(i, j, k));
+                        else
+                            buf[j * size(2) + k] = std::imag(kelem(i, j, k));
+                    }
+
+                memspace = H5Screate_simple(3, count, NULL);
+                filespace = H5Dget_space(dset_id);
+
+                H5Sselect_hyperslab(filespace, H5S_SELECT_SET, offset, NULL, count,
+                                    NULL);
+
+                H5Dwrite(dset_id, dtype_id, memspace, filespace, H5P_DEFAULT, buf);
+
+                H5Sclose(memspace);
+                H5Sclose(filespace);
+            }
+
+            H5Dclose(dset_id);
+
+            delete[] buf;
+        }
+
+        H5Fclose(file_id);
+        return;
+    }
+
+    if( !bdistributed && CONFIG::MPI_task_rank!=0 ) return;
+
     hid_t file_id, dset_id;    /* file and dataset identifiers */
     hid_t filespace, memspace; /* file and memory dataspace identifiers */
     hsize_t offset[3], count[3];
     hid_t dtype_id = H5T_NATIVE_FLOAT;
     hid_t plist_id;
 
-    #warning "check if this works for non-distributed fft arrays with MPI"
 
 #if defined(USE_MPI)
 
