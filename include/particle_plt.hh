@@ -12,7 +12,7 @@
 #include <grid_fft.hh>
 #include <mat3.hh>
 
-#define PRODUCTION
+// #define PRODUCTION
 
 namespace particle{
 //! implement Marcos et al. PLT calculation
@@ -26,6 +26,176 @@ private:
     Grid_FFT<real_t,false> grad_x_, grad_y_, grad_z_;
 
     void init_D()
+    {
+        constexpr real_t pi = M_PI, twopi = 2.0*M_PI;
+
+        const ptrdiff_t nlattice = 16;
+        const real_t dx = 1.0/real_t(nlattice);
+
+        const real_t eta = 4.0/nlattice;//4.0; //2.0/ngrid_; // Ewald cutoff shall be 2 cells
+        const real_t alpha = 1.0/std::sqrt(2)/eta;
+        const real_t alpha2 = alpha*alpha;
+        const real_t alpha3 = alpha2*alpha;
+        const real_t sqrtpi = std::sqrt(M_PI);
+        const real_t pi32   = std::pow(M_PI,1.5);
+
+        //! just a Kronecker \delta_ij
+        auto kronecker = []( int i, int j ) -> real_t { return (i==j)? 1.0 : 0.0; };
+
+        //! short range component of Ewald sum, eq. (A2) of Marcos (2008)
+        auto greensftide_sr = [&]( int mu, int nu, const vec3<real_t>& vR, const vec3<real_t>& vP ) -> real_t {
+            auto d = vR-vP;
+            auto r = d.norm();
+            if( r< 1e-14 ) return 0.0; // let's return nonsense for r=0, and fix it later!
+            real_t val{0.0};
+            val -= d[mu]*d[nu]/(r*r) * alpha3/pi32 * std::exp(-alpha*alpha*r*r);
+            val += 1.0/(4.0*M_PI)*(kronecker(mu,nu)/std::pow(r,3) - 3.0 * (d[mu]*d[nu])/std::pow(r,5)) * 
+                (std::erfc(alpha*r) + 2.0*alpha/sqrtpi*std::exp(-alpha*alpha*r*r)*r);
+            return val;
+        };
+
+        auto greensftide_sr2 = [&]( int mu, int nu, const vec3<real_t>& d ) -> real_t {
+            auto r = d.norm();
+            if( r< 1e-14 ) return 0.0; // let's return nonsense for r=0, and fix it later!
+            real_t val{0.0};
+            val -= d[mu]*d[nu]/(r*r) * alpha3/pi32 * std::exp(-alpha*alpha*r*r);
+            val += 1.0/(4.0*M_PI)*(kronecker(mu,nu)/std::pow(r,3) - 3.0 * (d[mu]*d[nu])/std::pow(r,5)) * 
+                (std::erfc(alpha*r) + 2.0*alpha/sqrtpi*std::exp(-alpha*alpha*r*r)*r);
+            return val;
+        };
+
+        const std::vector<vec3<real_t>> bcc_bravais{
+           {1.0,0.0,0.0},{0.0,1.0,0.0},{0.5,0.5,0.5} 
+        };
+
+        const std::vector<vec3<real_t>> bcc_reciprocal{
+            {twopi,0.,-twopi}, {0.,twopi,-twopi}, {0.,0.,2*twopi}
+        };
+        
+        const std::vector<vec3<real_t>> bcc_normals{
+            {0.,pi,pi},{0.,-pi,pi},{0.,pi,-pi},{0.,-pi,-pi},
+            {pi,0.,pi},{-pi,0.,pi},{pi,0.,-pi},{-pi,0.,-pi},
+            {pi,pi,0.},{-pi,pi,0.},{pi,-pi,0.},{-pi,-pi,0.}
+        };
+
+        
+        std::vector<vec3<real_t>> x;
+        for( ptrdiff_t i=-2*nlattice; i<=2*nlattice; i++ ){
+            for( ptrdiff_t j=-2*nlattice; j<=2*nlattice; j++ ){
+                for( ptrdiff_t k=-2*nlattice; k<=2*nlattice; k++ ){
+                    real_t dxp = dx*(real_t(i)*bcc_bravais[0][0]+real_t(j)*bcc_bravais[1][0]+real_t(k)*bcc_bravais[2][0]);
+                    real_t dyp = dx*(real_t(i)*bcc_bravais[0][1]+real_t(j)*bcc_bravais[1][1]+real_t(k)*bcc_bravais[2][1]);
+                    real_t dzp = dx*(real_t(i)*bcc_bravais[0][2]+real_t(j)*bcc_bravais[1][2]+real_t(k)*bcc_bravais[2][2]);
+
+                    if( dxp>-1e-10&&dxp<1.0&&dyp>-1e-10&&dyp<1.0&&dzp>-1e-10&&dzp<1.0)              
+                    {
+                        x.push_back({dxp,dyp,dzp});
+                    }
+                }
+            }
+        }
+        std::vector<mat3s<real_t>> a(x.size(),{0.0});
+
+
+        constexpr ptrdiff_t lnumber = 4, knumber = 4;
+        for( size_t i=0,j=0; j< x.size(); ++j ){
+            // r-part
+            if( i==j )
+            {
+                a[i](0,0) = 1.0/3.0;
+                a[i](1,1) = 1.0/3.0;
+                a[i](2,2) = 1.0/3.0; 
+            }else{
+
+                for( ptrdiff_t ix=-lnumber; ix<=lnumber; ix++ ){
+                    for( ptrdiff_t iy=-lnumber; iy<=lnumber; iy++ ){
+                        for( ptrdiff_t iz=-lnumber; iz<=lnumber; iz++ ){                      
+                            vec3<real_t> ai = {real_t(ix)*nlattice,real_t(iy)*nlattice,real_t(iz)*nlattice};
+                            auto dr = x[i]-x[j];
+                            dr[0] -= ai.x*bcc_bravais[0][0]+ai.y*bcc_bravais[1][0]+ai.z*bcc_bravais[2][0];
+                            dr[1] -= ai.x*bcc_bravais[0][1]+ai.y*bcc_bravais[1][1]+ai.z*bcc_bravais[2][1];
+                            dr[2] -= ai.x*bcc_bravais[0][2]+ai.y*bcc_bravais[1][2]+ai.z*bcc_bravais[2][2];
+                            real_t d = dr.norm();
+                            // std::cerr << dr.x << " " << dr.y << " " << dr.z << " " << greensftide_sr2(0,0,dr) << std::endl;
+                            for( int mu=0; mu<3; ++mu ){
+                                for( int nu=mu; nu<3; ++nu ){
+                                    a[i](mu,nu) += greensftide_sr2(mu,nu,dr);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // k-part
+            if( i!=j ){
+                auto dr = x[i]-x[j];
+                real_t d = dr.norm();
+                for( ptrdiff_t ix=-knumber; ix<=knumber; ix++ ){
+                    for( ptrdiff_t iy=-knumber; iy<=knumber; iy++ ){
+                        for( ptrdiff_t iz=-knumber; iz<=knumber; iz++ ){    
+                            vec3<real_t> ak, bk = {real_t(ix)/nlattice,real_t(iy)/nlattice,real_t(iz)/nlattice};
+                            if(std::abs(ix)+std::abs(iy)+std::abs(iz) != 0){
+                                ak.x = bk.x*bcc_reciprocal[0][0]+bk.y*bcc_reciprocal[1][0]+bk.z*bcc_reciprocal[2][0];
+                                ak.y = bk.x*bcc_reciprocal[0][1]+bk.y*bcc_reciprocal[1][1]+bk.z*bcc_reciprocal[2][1];
+                                ak.z = bk.x*bcc_reciprocal[0][2]+bk.y*bcc_reciprocal[1][2]+bk.z*bcc_reciprocal[2][2];
+                                real_t amodk2 = ak.norm_squared();
+                                real_t term = std::exp(-amodk2/(4*alpha*alpha))*std::cos(ak.dot(dr)) / amodk2;// / std::pow(nlattice,3);
+                                for( int mu=0; mu<3; ++mu ){
+                                    for( int nu=mu; nu<3; ++nu ){
+                                        a[i](mu,nu) += ak[mu]*ak[nu]*term;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+            }
+
+
+            
+        }
+        
+        for( auto& m : a ){
+            std::cout << m(0,0) << std::endl;
+        }
+        
+
+        //! sums mirrored copies of short-range component of Ewald sum
+        auto evaluate_D = [&]( int mu, int nu, const vec3<real_t>& v ) -> real_t{
+            real_t sr = 0.0;
+            constexpr int N = 3; // number of repeated copies ±N per dimension
+            int count = 0;
+            for( int i=-N; i<=N; ++i ){
+                for( int j=-N; j<=N; ++j ){
+                    for( int k=-N; k<=N; ++k ){
+                        if( mu!=nu ){
+
+                        }
+
+                        if( std::abs(i)+std::abs(j)+std::abs(k) <= N ){
+                            //sr += greensftide_sr( mu, nu, v, {real_t(i),real_t(j),real_t(k)} );
+                            sr += greensftide_sr( mu, nu, v, {real_t(i),real_t(j),real_t(k)} );
+                            sr += greensftide_sr( mu, nu, v, {real_t(i)+0.5,real_t(j)+0.5,real_t(k)+0.5} );
+                            count += 2;
+
+                            // sr += greensftide_sr( mu, nu, v, {real_t(i)+0.5,real_t(j)+0.5,real_t(k)+0.5} )/16;
+                            // sr += greensftide_sr( mu, nu, v, {real_t(i)+0.5,real_t(j)+0.5,real_t(k)-0.5} )/16;
+                            // sr += greensftide_sr( mu, nu, v, {real_t(i)+0.5,real_t(j)-0.5,real_t(k)+0.5} )/16;
+                            // sr += greensftide_sr( mu, nu, v, {real_t(i)+0.5,real_t(j)-0.5,real_t(k)-0.5} )/16;
+                            // sr += greensftide_sr( mu, nu, v, {real_t(i)-0.5,real_t(j)+0.5,real_t(k)+0.5} )/16;
+                            // sr += greensftide_sr( mu, nu, v, {real_t(i)-0.5,real_t(j)+0.5,real_t(k)-0.5} )/16;
+                            // sr += greensftide_sr( mu, nu, v, {real_t(i)-0.5,real_t(j)-0.5,real_t(k)+0.5} )/16;
+                            // sr += greensftide_sr( mu, nu, v, {real_t(i)-0.5,real_t(j)-0.5,real_t(k)-0.5} )/16;
+                        }
+                    }
+                }
+            }
+            return sr / count;
+        };
+    }
+    void init_D__old()
     {
         constexpr real_t pi = M_PI, twopi = 2.0*M_PI;
 
@@ -53,7 +223,7 @@ private:
         auto greensftide_sr = [&]( int mu, int nu, const vec3<real_t>& vR, const vec3<real_t>& vP ) -> real_t {
             auto d = vR-vP;
             auto r = d.norm();
-            // if( r< 1e-14 ) return 0.0; // let's return nonsense for r=0, and fix it later!
+            if( r< 1e-14 ) return 0.0; // let's return nonsense for r=0, and fix it later!
             real_t val{0.0};
             val -= d[mu]*d[nu]/(r*r) * alpha3/pi32 * std::exp(-alpha*alpha*r*r);
             val += 1.0/(4.0*M_PI)*(kronecker(mu,nu)/std::pow(r,3) - 3.0 * (d[mu]*d[nu])/std::pow(r,5)) * 
@@ -65,13 +235,15 @@ private:
         auto evaluate_D = [&]( int mu, int nu, const vec3<real_t>& v ) -> real_t{
             real_t sr = 0.0;
             constexpr int N = 3; // number of repeated copies ±N per dimension
+            int count = 0;
             for( int i=-N; i<=N; ++i ){
                 for( int j=-N; j<=N; ++j ){
                     for( int k=-N; k<=N; ++k ){
                         if( std::abs(i)+std::abs(j)+std::abs(k) <= N ){
+                            //sr += greensftide_sr( mu, nu, v, {real_t(i),real_t(j),real_t(k)} );
                             sr += greensftide_sr( mu, nu, v, {real_t(i),real_t(j),real_t(k)} );
-                            //sr += greensftide_sr( mu, nu, v, {real_t(i),real_t(j),real_t(k)} ) * 0.5;
-                            // sr += greensftide_sr( mu, nu, v, {real_t(i)+0.5,real_t(j)+0.5,real_t(k)+0.5} ) * 0.5;
+                            sr += greensftide_sr( mu, nu, v, {real_t(i)+0.5,real_t(j)+0.5,real_t(k)+0.5} );
+                            count += 2;
 
                             // sr += greensftide_sr( mu, nu, v, {real_t(i)+0.5,real_t(j)+0.5,real_t(k)+0.5} )/16;
                             // sr += greensftide_sr( mu, nu, v, {real_t(i)+0.5,real_t(j)+0.5,real_t(k)-0.5} )/16;
@@ -85,7 +257,7 @@ private:
                     }
                 }
             }
-            return sr;
+            return sr / count;
         };
 
         //! fill D_ij array with short range evaluated function
@@ -153,22 +325,23 @@ private:
                         phi0 = (phi0==phi0)? phi0 : 0.0; // catch NaN from division by zero when kmod2=0
 
 
-                        // const int nn = 3;
-                        // size_t nsum = 0;
-                        // ccomplex_t ff = 0.0;
-                        // for( int is=-nn;is<=nn;is++){
-                        //     for( int js=-nn;js<=nn;js++){
-                        //         for( int ks=-nn;ks<=nn;ks++){
-                        //             if( std::abs(is)+std::abs(js)+std::abs(ks) <= nn ){
-                        //                 ff += std::exp(ccomplex_t(0.0,(((is)*kv[0] + (js)*kv[1] + (ks)*kv[2]))));
-                        //                 ff += std::exp(ccomplex_t(0.0,(((0.5+is)*kv[0] + (0.5+js)*kv[1] + (0.5+ks)*kv[2]))));
-                        //                 ++nsum;
-                        //             }
-                        //         }
-                        //     }    
-                        // }
-                        // ff /= nsum;
-                        ccomplex_t ff = 1.0; //(0.5+0.5*std::exp(ccomplex_t(0.0,0.5*(kv[0] + kv[1] + kv[2]))));
+                        const int nn = 3;
+                        size_t nsum = 0;
+                        ccomplex_t ff = 0.0;
+                        for( int is=-nn;is<=nn;is++){
+                            for( int js=-nn;js<=nn;js++){
+                                for( int ks=-nn;ks<=nn;ks++){
+                                    if( std::abs(is)+std::abs(js)+std::abs(ks) <= nn ){
+                                        ff += std::exp(ccomplex_t(0.0,(((is)*kv[0] + (js)*kv[1] + (ks)*kv[2]))));
+                                        ff += std::exp(ccomplex_t(0.0,(((0.5+is)*kv[0] + (0.5+js)*kv[1] + (0.5+ks)*kv[2]))));
+                                        ++nsum;
+                                    }
+                                }
+                            }    
+                        }
+                        ff /= nsum;
+                        // ccomplex_t ff = 1.0; 
+                        // ccomplex_t ff = (0.5+0.5*std::exp(ccomplex_t(0.0,0.5*(kv[0] + kv[1] + kv[2]))));
                         // assemble short-range + long_range of Ewald sum and add DC component to trace
                         D_xx_.kelem(i,j,k) = ff*((D_xx_.kelem(i,j,k) - kv[0]*kv[0] * phi0)*nfac) + 1.0/3.0;
                         D_xy_.kelem(i,j,k) = ff*((D_xy_.kelem(i,j,k) - kv[0]*kv[1] * phi0)*nfac);
