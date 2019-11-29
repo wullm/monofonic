@@ -32,7 +32,7 @@ private:
         const ptrdiff_t nlattice = 16;
         const real_t dx = 1.0/real_t(nlattice);
 
-        const real_t eta = 4.0/nlattice;//4.0; //2.0/ngrid_; // Ewald cutoff shall be 2 cells
+        const real_t eta = 4.0;//nlattice;//4.0; //2.0/ngrid_; // Ewald cutoff shall be 2 cells
         const real_t alpha = 1.0/std::sqrt(2)/eta;
         const real_t alpha2 = alpha*alpha;
         const real_t alpha3 = alpha2*alpha;
@@ -80,46 +80,58 @@ private:
 
         
         std::vector<vec3<real_t>> x;
-        for( ptrdiff_t i=-2*nlattice; i<=2*nlattice; i++ ){
-            for( ptrdiff_t j=-2*nlattice; j<=2*nlattice; j++ ){
-                for( ptrdiff_t k=-2*nlattice; k<=2*nlattice; k++ ){
+        // for( ptrdiff_t i=-2*nlattice; i<=2*nlattice; i++ ){
+        //     for( ptrdiff_t j=-2*nlattice; j<=2*nlattice; j++ ){
+        //         for( ptrdiff_t k=-2*nlattice; k<=2*nlattice; k++ ){
+        //             real_t dxp = dx*(real_t(i)*bcc_bravais[0][0]+real_t(j)*bcc_bravais[1][0]+real_t(k)*bcc_bravais[2][0]);
+        //             real_t dyp = dx*(real_t(i)*bcc_bravais[0][1]+real_t(j)*bcc_bravais[1][1]+real_t(k)*bcc_bravais[2][1]);
+        //             real_t dzp = dx*(real_t(i)*bcc_bravais[0][2]+real_t(j)*bcc_bravais[1][2]+real_t(k)*bcc_bravais[2][2]);
+
+        //             if( dxp>-1e-10&&dxp<1.0&&dyp>-1e-10&&dyp<1.0&&dzp>-1e-10&&dzp<1.0)              
+        //             {
+        //                 x.push_back({dxp,dyp,dzp});
+        //             }
+        //         }
+        //     }
+        // }
+        for( size_t i=0; i<nlattice; ++i ){
+            for( size_t j=0; j<nlattice; ++j ){
+                for( size_t k=0; k<nlattice; ++k ){
                     real_t dxp = dx*(real_t(i)*bcc_bravais[0][0]+real_t(j)*bcc_bravais[1][0]+real_t(k)*bcc_bravais[2][0]);
                     real_t dyp = dx*(real_t(i)*bcc_bravais[0][1]+real_t(j)*bcc_bravais[1][1]+real_t(k)*bcc_bravais[2][1]);
                     real_t dzp = dx*(real_t(i)*bcc_bravais[0][2]+real_t(j)*bcc_bravais[1][2]+real_t(k)*bcc_bravais[2][2]);
-
-                    if( dxp>-1e-10&&dxp<1.0&&dyp>-1e-10&&dyp<1.0&&dzp>-1e-10&&dzp<1.0)              
-                    {
-                        x.push_back({dxp,dyp,dzp});
-                    }
+                    dxp = std::fmod( 2.0+dxp, 1.0 );
+                    dyp = std::fmod( 2.0+dyp, 1.0 );
+                    dzp = std::fmod( 2.0+dzp, 1.0 );
+                    x.push_back( {dxp,dyp,dzp} );
                 }
             }
         }
         std::vector<mat3s<real_t>> a(x.size(),{0.0});
 
+        std::ofstream ofs("debug.txt");
 
         constexpr ptrdiff_t lnumber = 4, knumber = 4;
         for( size_t i=0,j=0; j< x.size(); ++j ){
             // r-part
             if( i==j )
             {
-                a[i](0,0) = 1.0/3.0;
-                a[i](1,1) = 1.0/3.0;
-                a[i](2,2) = 1.0/3.0; 
+                a[j](0,0) = 1.0/3.0;
+                a[j](1,1) = 1.0/3.0;
+                a[j](2,2) = 1.0/3.0; 
             }else{
 
                 for( ptrdiff_t ix=-lnumber; ix<=lnumber; ix++ ){
                     for( ptrdiff_t iy=-lnumber; iy<=lnumber; iy++ ){
                         for( ptrdiff_t iz=-lnumber; iz<=lnumber; iz++ ){                      
-                            vec3<real_t> ai = {real_t(ix)*nlattice,real_t(iy)*nlattice,real_t(iz)*nlattice};
+                            vec3<real_t> ai = {real_t(ix),real_t(iy),real_t(iz)};
                             auto dr = x[i]-x[j];
-                            dr[0] -= ai.x*bcc_bravais[0][0]+ai.y*bcc_bravais[1][0]+ai.z*bcc_bravais[2][0];
-                            dr[1] -= ai.x*bcc_bravais[0][1]+ai.y*bcc_bravais[1][1]+ai.z*bcc_bravais[2][1];
-                            dr[2] -= ai.x*bcc_bravais[0][2]+ai.y*bcc_bravais[1][2]+ai.z*bcc_bravais[2][2];
-                            real_t d = dr.norm();
-                            // std::cerr << dr.x << " " << dr.y << " " << dr.z << " " << greensftide_sr2(0,0,dr) << std::endl;
+                            dr[0] -= (ai.x*bcc_bravais[0][0]+ai.y*bcc_bravais[1][0]+ai.z*bcc_bravais[2][0]);
+                            dr[1] -= (ai.x*bcc_bravais[0][1]+ai.y*bcc_bravais[1][1]+ai.z*bcc_bravais[2][1]);
+                            dr[2] -= (ai.x*bcc_bravais[0][2]+ai.y*bcc_bravais[1][2]+ai.z*bcc_bravais[2][2]);
                             for( int mu=0; mu<3; ++mu ){
                                 for( int nu=mu; nu<3; ++nu ){
-                                    a[i](mu,nu) += greensftide_sr2(mu,nu,dr);
+                                    a[j](mu,nu) += greensftide_sr2(mu,nu,dr);
                                 }
                             }
                         }
@@ -140,10 +152,10 @@ private:
                                 ak.y = bk.x*bcc_reciprocal[0][1]+bk.y*bcc_reciprocal[1][1]+bk.z*bcc_reciprocal[2][1];
                                 ak.z = bk.x*bcc_reciprocal[0][2]+bk.y*bcc_reciprocal[1][2]+bk.z*bcc_reciprocal[2][2];
                                 real_t amodk2 = ak.norm_squared();
-                                real_t term = std::exp(-amodk2/(4*alpha*alpha))*std::cos(ak.dot(dr)) / amodk2;// / std::pow(nlattice,3);
+                                real_t term = std::exp(-amodk2/(4*alpha*alpha))*std::cos(ak.dot(dr)) / amodk2 / std::pow(nlattice,3);
                                 for( int mu=0; mu<3; ++mu ){
                                     for( int nu=mu; nu<3; ++nu ){
-                                        a[i](mu,nu) += ak[mu]*ak[nu]*term;
+                                        a[j](mu,nu) += ak[mu]*ak[nu]*term;
                                     }
                                 }
                             }
@@ -153,17 +165,22 @@ private:
 
             }
 
-
+            ofs << x[j].x << " " << x[j].y << " " << x[j].z << " " 
+                << a[j](0,0) << " " << a[j](0,1) << " " << a[j](0,2) << " " 
+                << a[j](1,1) << " " << a[j](1,2) << " " << a[j](2,2) << std::endl;
+                
             
         }
+
+        std::cout << "num grid points : " << x.size() << std::endl;
         
-        for( auto& m : a ){
-            std::cout << m(0,0) << std::endl;
-        }
+        // for( auto& m : a ){
+        //     std::cout << m(0,1) << " ";
+        // }
         
 
         //! sums mirrored copies of short-range component of Ewald sum
-        auto evaluate_D = [&]( int mu, int nu, const vec3<real_t>& v ) -> real_t{
+        /*auto evaluate_D = [&]( int mu, int nu, const vec3<real_t>& v ) -> real_t{
             real_t sr = 0.0;
             constexpr int N = 3; // number of repeated copies ±N per dimension
             int count = 0;
@@ -193,7 +210,7 @@ private:
                 }
             }
             return sr / count;
-        };
+        };*/
     }
     void init_D__old()
     {
