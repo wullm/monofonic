@@ -31,45 +31,18 @@ private:
     {
         constexpr real_t pi = M_PI, twopi = 2.0*M_PI;
 
-        const ptrdiff_t nlattice = ngrid_;//16;
-        const real_t dx = 1.0/real_t(nlattice);
-
-        const real_t eta = 4.0;//nlattice;//4.0; //2.0/ngrid_; // Ewald cutoff shall be 2 cells
-        const real_t alpha = 1.0/std::sqrt(2)/eta;
-        const real_t alpha2 = alpha*alpha;
-        const real_t alpha3 = alpha2*alpha;
-        const real_t sqrtpi = std::sqrt(M_PI);
-        const real_t pi32   = std::pow(M_PI,1.5);
-
-        //! just a Kronecker \delta_ij
-        auto kronecker = []( int i, int j ) -> real_t { return (i==j)? 1.0 : 0.0; };
-
-        //! short range component of Ewald sum, eq. (A2) of Marcos (2008)
-        auto greensftide_sr = [&]( int mu, int nu, const vec3<real_t>& vR, const vec3<real_t>& vP ) -> real_t {
-            auto d = vR-vP;
-            auto r = d.norm();
-            if( r< 1e-14 ) return 0.0; // let's return nonsense for r=0, and fix it later!
-            real_t val{0.0};
-            val -= d[mu]*d[nu]/(r*r) * alpha3/pi32 * std::exp(-alpha*alpha*r*r);
-            val += 1.0/(4.0*M_PI)*(kronecker(mu,nu)/std::pow(r,3) - 3.0 * (d[mu]*d[nu])/std::pow(r,5)) * 
-                (std::erfc(alpha*r) + 2.0*alpha/sqrtpi*std::exp(-alpha*alpha*r*r)*r);
-            return val;
-        };
-
-        auto greensftide_sr2 = [&]( int mu, int nu, const vec3<real_t>& d ) -> real_t {
-            auto r = d.norm();
-            if( r< 1e-14 ) return 0.0; // let's return nonsense for r=0, and fix it later!
-            real_t val{0.0};
-            val -= d[mu]*d[nu]/(r*r) * alpha3/pi32 * std::exp(-alpha2*r*r);
-            val += 1.0/(4.0*M_PI)*(kronecker(mu,nu)/std::pow(r,3) - 3.0 * (d[mu]*d[nu])/std::pow(r,5)) * 
-                (std::erfc(alpha*r) + 2.0*alpha/sqrtpi*std::exp(-alpha2*r*r)*r);
-            return val;
-        };
-
         const int charge_multiplicity = 2;
 
-        const std::vector<vec3<real_t>> bcc_bravais{
-           {1.0,0.0,0.0},{0.0,1.0,0.0},{0.5,0.5,0.5} 
+        const mat3<real_t> mat_bcc_bravais{
+            1.0, 0.0, 0.5,
+            0.0, 1.0, 0.5,
+            0.0, 0.0, 0.5, 
+        };
+
+        const mat3<real_t> mat_bcc_reciprocal{
+            twopi, 0.0, 0.0,
+            0.0, twopi, 0.0,
+            -twopi, -twopi, 2.0*twopi,
         };
 
         const std::vector<vec3<real_t>> bcc_reciprocal{
@@ -82,11 +55,55 @@ private:
             {pi,pi,0.},{-pi,pi,0.},{pi,-pi,0.},{-pi,-pi,0.}
         };
 
-        const real_t charge = 1.0/std::pow(real_t(nlattice),3)/charge_multiplicity;
-        const real_t fft_norm12 = 1.0/std::pow(real_t(nlattice),1.5);
         
-        std::vector<vec3<real_t>> x;
-        std::vector<mat3s<real_t>> a(x.size(),{0.0});
+
+        const size_t nlattice = ngrid_;//16;
+        const real_t dx = 1.0/real_t(nlattice);
+
+        const real_t eta = 4.0;//nlattice;//4.0; //2.0/ngrid_; // Ewald cutoff shall be 2 cells
+        const real_t alpha = 1.0/std::sqrt(2)/eta;
+        const real_t alpha2 = alpha*alpha;
+        const real_t alpha3 = alpha2*alpha;
+        const real_t sqrtpi = std::sqrt(M_PI);
+        const real_t fourpi = 4.0*M_PI;
+        const real_t pi32   = std::pow(M_PI,1.5);
+        
+        const real_t charge = 1.0/std::pow(real_t(nlattice),3)/charge_multiplicity;
+        const real_t fft_norm   = 1.0/std::pow(real_t(nlattice),3.0);
+        const real_t fft_norm12 = 1.0/std::pow(real_t(nlattice),1.5);
+
+        //! just a Kronecker \delta_ij
+        auto kronecker = []( int i, int j ) -> real_t { return (i==j)? 1.0 : 0.0; };
+
+        auto add_greensftide_sr = [&]( mat3<real_t>& D, const vec3<real_t>& d ) -> void {
+            auto r = d.norm();
+            if( r< 1e-14 ) return; // return zero for r=0
+
+            const real_t r2(r*r), r3(r2*r), r5(r3*r2);
+            const real_t K1( -alpha3/pi32 * std::exp(-alpha2*r2)/r2 );
+            const real_t K2( (std::erfc(alpha*r) + 2.0*alpha/sqrtpi*std::exp(-alpha2*r2)*r)/fourpi );
+            
+            for( int mu=0; mu<3; ++mu ){
+                for( int nu=mu; nu<3; ++nu ){
+                    real_t dd( d[mu]*d[nu] * K1 + (kronecker(mu,nu)/r3 - 3.0 * (d[mu]*d[nu])/r5) * K2 );
+                    D(mu,nu) += dd;
+                    D(nu,mu) += (mu!=nu)? dd : 0.0;
+                }
+            }
+        };
+
+        auto add_greensftide_lr = [&]( mat3<real_t>& D, const vec3<real_t>& k, const vec3<real_t>& r ) -> void {
+            real_t kmod2 = k.norm_squared();
+            real_t term = std::exp(-kmod2/(4*alpha2))*std::cos(k.dot(r)) / kmod2 * fft_norm;
+            for( int mu=0; mu<3; ++mu ){
+                for( int nu=mu; nu<3; ++nu ){
+                    auto dd = k[mu] * k[nu] * term;
+                    D(mu,nu) += dd;
+                    D(nu,mu) += (mu!=nu)? dd : 0.0;
+                }
+            }
+        };
+        
         constexpr ptrdiff_t lnumber = 4, knumber = 4;
         const int numb = 1;
 
@@ -94,59 +111,57 @@ private:
         ico_.assign(D_xx_.memsize(),vec3<int>());
         vecitk_.assign(D_xx_.memsize(),vec3<int>());
 
-        D_xx_.zero(); 
-        D_xy_.zero(); 
-        D_xz_.zero(); 
-        D_yy_.zero(); 
-        D_yz_.zero(); 
-        D_zz_.zero(); 
+        #pragma omp parallel 
+        {
+            //... temporary to hold values of the dynamical matrix 
+            mat3<real_t> matD(0.0);
 
-        #pragma omp parallel for
-        for( size_t i=0; i<nlattice; ++i ){
-            for( size_t j=0; j<nlattice; ++j ){
-                for( size_t k=0; k<nlattice; ++k ){
-                    real_t dxp = dx*(real_t(i)*bcc_bravais[0][0]+real_t(j)*bcc_bravais[1][0]+real_t(k)*bcc_bravais[2][0]);
-                    real_t dyp = dx*(real_t(i)*bcc_bravais[0][1]+real_t(j)*bcc_bravais[1][1]+real_t(k)*bcc_bravais[2][1]);
-                    real_t dzp = dx*(real_t(i)*bcc_bravais[0][2]+real_t(j)*bcc_bravais[1][2]+real_t(k)*bcc_bravais[2][2]);
-                    const vec3<real_t> cdr( {std::fmod( 2.0+dxp, 1.0 ),std::fmod( 2.0+dyp, 1.0 ),std::fmod( 2.0+dzp, 1.0 )} );
-                    vec3<real_t> ak;
+            #pragma omp for
+            for( size_t i=0; i<nlattice; ++i ){
+                for( size_t j=0; j<nlattice; ++j ){
+                    for( size_t k=0; k<nlattice; ++k ){
+                        // compute lattice site vector from (i,j,k) multiplying Bravais base matrix, and wrap back to box
+                        const vec3<real_t> x_ijk({dx*real_t(i),dx*real_t(j),dx*real_t(k)});
+                        const vec3<real_t> ar = (mat_bcc_bravais * x_ijk).wrap_abs();
 
-                    for( ptrdiff_t ix=-lnumber; ix<=lnumber; ix++ ){
-                        for( ptrdiff_t iy=-lnumber; iy<=lnumber; iy++ ){
-                            for( ptrdiff_t iz=-lnumber; iz<=lnumber; iz++ ){                      
-                                vec3<real_t> ai = {real_t(ix),real_t(iy),real_t(iz)};
-                                vec3<real_t> dr( cdr );
-                                dr[0] -= (ai.x*bcc_bravais[0][0]+ai.y*bcc_bravais[1][0]+ai.z*bcc_bravais[2][0]);
-                                dr[1] -= (ai.x*bcc_bravais[0][1]+ai.y*bcc_bravais[1][1]+ai.z*bcc_bravais[2][1]);
-                                dr[2] -= (ai.x*bcc_bravais[0][2]+ai.y*bcc_bravais[1][2]+ai.z*bcc_bravais[2][2]);
+                        //... zero temporary matrix
+                        matD.zero();        
 
-                                D_xx_.relem(i,j,k) += greensftide_sr2(0,0,dr) * charge;
-                                D_xy_.relem(i,j,k) += greensftide_sr2(0,1,dr) * charge;
-                                D_xz_.relem(i,j,k) += greensftide_sr2(0,2,dr) * charge;
-                                D_yy_.relem(i,j,k) += greensftide_sr2(1,1,dr) * charge;
-                                D_yz_.relem(i,j,k) += greensftide_sr2(1,2,dr) * charge;
-                                D_zz_.relem(i,j,k) += greensftide_sr2(2,2,dr) * charge;
-                             
-                                vec3<real_t> bk = {real_t(ix)/nlattice,real_t(iy)/nlattice,real_t(iz)/nlattice};
-                                if(std::abs(ix)+std::abs(iy)+std::abs(iz) != 0){
-                                    ak.x = bk.x*bcc_reciprocal[0][0]+bk.y*bcc_reciprocal[1][0]+bk.z*bcc_reciprocal[2][0];
-                                    ak.y = bk.x*bcc_reciprocal[0][1]+bk.y*bcc_reciprocal[1][1]+bk.z*bcc_reciprocal[2][1];
-                                    ak.z = bk.x*bcc_reciprocal[0][2]+bk.y*bcc_reciprocal[1][2]+bk.z*bcc_reciprocal[2][2];
-                                    real_t amodk2 = ak.norm_squared();
-                                    real_t term = charge*std::exp(-amodk2/(4*alpha*alpha))*std::cos(ak.dot(cdr)) / amodk2 / std::pow(nlattice,3);
-                                    D_xx_.relem(i,j,k) += ak.x*ak.x*term;
-                                    D_xy_.relem(i,j,k) += ak.x*ak.y*term;
-                                    D_xz_.relem(i,j,k) += ak.x*ak.z*term;
-                                    D_yy_.relem(i,j,k) += ak.y*ak.y*term;
-                                    D_yz_.relem(i,j,k) += ak.y*ak.z*term;
-                                    D_zz_.relem(i,j,k) += ak.z*ak.z*term;
+                        // add real-space part of dynamical matrix, periodic copies
+                        for( ptrdiff_t ix=-lnumber; ix<=lnumber; ix++ ){
+                            for( ptrdiff_t iy=-lnumber; iy<=lnumber; iy++ ){
+                                for( ptrdiff_t iz=-lnumber; iz<=lnumber; iz++ ){      
+                                    const vec3<real_t> n_ijk({real_t(ix),real_t(iy),real_t(iz)});            
+                                    const vec3<real_t> dr(ar - mat_bcc_bravais * n_ijk);
+                                    add_greensftide_sr(matD, dr);
                                 }
                             }
                         }
-                    }   
+
+                        // add k-space part of dynamical matrix
+                        for( ptrdiff_t ix=-knumber; ix<=knumber; ix++ ){
+                            for( ptrdiff_t iy=-knumber; iy<=knumber; iy++ ){
+                                for( ptrdiff_t iz=-knumber; iz<=knumber; iz++ ){                      
+                                    if(std::abs(ix)+std::abs(iy)+std::abs(iz) != 0){
+                                        const vec3<real_t> k_ijk({real_t(ix)/nlattice,real_t(iy)/nlattice,real_t(iz)/nlattice});
+                                        const vec3<real_t> ak( mat_bcc_reciprocal * k_ijk);
+
+                                        add_greensftide_lr(matD, ak, ar );
+                                    }
+                                }
+                            }
+                        } 
+
+                        D_xx_.relem(i,j,k) = matD(0,0) * charge;
+                        D_xy_.relem(i,j,k) = matD(0,1) * charge;
+                        D_xz_.relem(i,j,k) = matD(0,2) * charge;
+                        D_yy_.relem(i,j,k) = matD(1,1) * charge;
+                        D_yz_.relem(i,j,k) = matD(1,2) * charge;
+                        D_zz_.relem(i,j,k) = matD(2,2) * charge;
+                    }
                 }
             }
-        }
+        } // end omp parallel region
 
         // fix r=0 with background density (added later in Fourier space)
         D_xx_.relem(0,0,0) = 1.0/3.0;
@@ -177,7 +192,7 @@ private:
         #pragma omp parallel
         {
             // thread private matrix representation
-            mat3s<real_t> D;
+            mat3<real_t> D;
             vec3<real_t> eval, evec1, evec2, evec3;
 
             #pragma omp for
@@ -191,13 +206,13 @@ private:
                         const real_t kmod  = kv.norm()/mapratio_/boxlen_;
 
                         // put matrix elements into actual matrix
-                        D = {   std::real(D_xx_.kelem(i,j,k))/fft_norm12, 
-                                std::real(D_xy_.kelem(i,j,k))/fft_norm12,
-                                std::real(D_xz_.kelem(i,j,k))/fft_norm12,
-                                std::real(D_yy_.kelem(i,j,k))/fft_norm12, 
-                                std::real(D_yz_.kelem(i,j,k))/fft_norm12, 
-                                std::real(D_zz_.kelem(i,j,k))/fft_norm12 };
-                        
+                        D(0,0) = std::real(D_xx_.kelem(i,j,k)) / fft_norm12;
+                        D(0,1) = D(1,0) = std::real(D_xy_.kelem(i,j,k)) / fft_norm12;
+                        D(0,2) = D(2,0) = std::real(D_xz_.kelem(i,j,k)) / fft_norm12;
+                        D(1,1) = std::real(D_yy_.kelem(i,j,k)) / fft_norm12;
+                        D(1,2) = D(2,1) = std::real(D_yz_.kelem(i,j,k)) / fft_norm12;
+                        D(2,2) = std::real(D_zz_.kelem(i,j,k)) / fft_norm12;
+
                         // compute eigenstructure of matrix
                         D.eigen(eval, evec1, evec2, evec3);
 
@@ -395,7 +410,7 @@ private:
         #pragma omp parallel
         {
             // thread private matrix representation
-            mat3s<real_t> D;
+            mat3<real_t> D;
             vec3<real_t> eval, evec1, evec2, evec3;
         
             #pragma omp for
@@ -523,7 +538,7 @@ private:
 
 public:
     // real_t boxlen, size_t ngridother
-    explicit lattice_gradient( ConfigFile& the_config, size_t ngridself=16 )
+    explicit lattice_gradient( ConfigFile& the_config, size_t ngridself=32 )
     : boxlen_( the_config.GetValue<double>("setup", "BoxLength") ), 
       ngmapto_( the_config.GetValue<size_t>("setup", "GridRes") ), 
       ngrid_( ngridself ), ngrid32_( std::pow(ngrid_, 1.5) ), mapratio_(real_t(ngrid_)/real_t(ngmapto_)),
