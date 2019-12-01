@@ -29,7 +29,7 @@ public:
     //! copy constructor for non-const reference, needed to avoid variadic template being called for non-const reference
     vec3( vec3<T>& v)
     : data_(v.data_), x(data_[0]),y(data_[1]),z(data_[2]){}
-    
+
     //! move constructor
     vec3( vec3<T> &&v)
     : data_(std::move(v.data_)), x(data_[0]), y(data_[1]), z(data_[2]){}
@@ -59,6 +59,9 @@ public:
 
     //! implementation of difference of vec3
     vec3<T> operator-( const vec3<T>& v ) const noexcept{ return vec3<T>({x-v.x,y-v.y,z-v.z}); }
+
+    //! implementation of unary negative
+    vec3<T> operator-() const noexcept{ return vec3<T>({-x,-y,-z}); }
 
     //! implementation of scalar multiplication
     vec3<T> operator*( T s ) const noexcept{ return vec3<T>({x*s,y*s,z*s}); }

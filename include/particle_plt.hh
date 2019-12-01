@@ -23,6 +23,7 @@ private:
     const size_t ngmapto_, ngrid_, ngrid32_;
     const real_t mapratio_;
     Grid_FFT<real_t,false> D_xx_, D_xy_, D_xz_, D_yy_, D_yz_, D_zz_;
+    Grid_FFT<real_t,false> mu1;
     Grid_FFT<real_t,false> grad_x_, grad_y_, grad_z_;
     std::vector<vec3<real_t>> vectk_;
     std::vector<vec3<int>> ico_, vecitk_;
@@ -103,7 +104,7 @@ private:
         const auto normals        = (ilat==2)? normals_fcc : (ilat==1)? normals_bcc : normals_sc;
         const auto charge_fac     = (ilat==2)? charge_fac_fcc : (ilat==1)? charge_fac_bcc : charge_fac_sc;
 
-        const size_t nlattice = ngrid_;
+        const ptrdiff_t nlattice = ngrid_;
         const real_t dx = 1.0/real_t(nlattice);
 
         const real_t eta = 4.0;//nlattice;//4.0; //2.0/ngrid_; // Ewald cutoff shall be 2 cells
@@ -153,7 +154,7 @@ private:
         auto check_FBZ = []( const auto& normals, const auto& vec ) -> bool {
             bool btest = true;
             for( const auto& n : normals ){ 
-                if( n.dot( vec ) > 1.01 * n.dot(n) ){
+                if( n.dot( vec ) > 1.0001 * n.dot(n) ){
                     btest = false;
                     break;
                 }
@@ -162,7 +163,7 @@ private:
         };
         
         constexpr ptrdiff_t lnumber = 3, knumber = 3;
-        const int numb = 1;
+        const int numb = 1, numb2 = 2;
 
         vectk_.assign(D_xx_.memsize(),vec3<real_t>());
         ico_.assign(D_xx_.memsize(),vec3<int>());
@@ -234,6 +235,7 @@ private:
         D_yy_.FourierTransformForward();
         D_yz_.FourierTransformForward();
         D_zz_.FourierTransformForward();
+        mu1.FourierTransformForward(false);
 
         if (CONFIG::MPI_task_rank == 0)
             unlink("debug.hdf5");
@@ -274,50 +276,160 @@ private:
                         // compute eigenstructure of matrix
                         D.eigen(eval, evec1, evec2, evec3);
 
-                        D_xx_.kelem(i,j,k) = eval[2];
-                        D_yy_.kelem(i,j,k) = eval[1];
-                        D_zz_.kelem(i,j,k) = eval[0];
-
-                        D_xy_.kelem(i,j,k) = evec3[0];
-                        D_xz_.kelem(i,j,k) = evec3[1];
-                        D_yz_.kelem(i,j,k) = evec3[2];
-
+                        // now determine to which modes on the regular lattice this contributes
+                        vec3<real_t> ar1 = kv / (twopi*ngrid_);
+                        vec3<real_t> ar2 = -kv / (twopi*ngrid_);
                         
-                        vec3<real_t> ar = kv / (twopi*ngrid_);
-                        vec3<real_t> a(mat_reciprocal * ar);
+                        vec3<real_t> a1(mat_reciprocal * ar1);
+                        vec3<real_t> a2(mat_reciprocal * ar2);
 
                         // translate the k-vectors into the "candidate" FBZ
                         for( int l1=-numb; l1<=numb; ++l1 ){
                             for( int l2=-numb; l2<=numb; ++l2 ){
                                 for( int l3=-numb; l3<=numb; ++l3 ){
 
-                                    vectk_[idx] = a + mat_reciprocal * vec3<real_t>({real_t(l1),real_t(l2),real_t(l3)});
+                                    vectk_[idx] = a1 + mat_reciprocal * vec3<real_t>({real_t(l1),real_t(l2),real_t(l3)});
 
                                     if( check_FBZ( normals, vectk_[idx]) ){
                                         
-                                        vecitk_[idx][0] = std::round(vectk_[idx][0]*(ngrid_)/twopi);
-                                        vecitk_[idx][1] = std::round(vectk_[idx][1]*(ngrid_)/twopi);
-                                        vecitk_[idx][2] = std::round(vectk_[idx][2]*(ngrid_)/twopi);
+                                        int ix = std::round(vectk_[idx][0]*(ngrid_)/twopi);
+                                        int iy = std::round(vectk_[idx][1]*(ngrid_)/twopi);
+                                        int iz = std::round(vectk_[idx][2]*(ngrid_)/twopi);
 
-                                        ico_[idx][0] = std::round((ar[0]+l1) * ngrid_);
-                                        ico_[idx][1] = std::round((ar[1]+l2) * ngrid_);
-                                        ico_[idx][2] = std::round((ar[2]+l3) * ngrid_);
+                                        // for( int k1=-numb2; k1<=numb2; ++k1 ){
+                                        //     for( int k2=-numb2; k2<=numb2; ++k2 ){
+                                        //         for( int k3=-numb2; k3<=numb2; ++k3 ){
+                                        {{{ int k1=0,k2=0,k3=0;
 
-                                        #pragma omp critical
-                                        {
-                                            ofs2 << vectk_[idx].norm() << " " << kv.norm() << " " << std::real(D_xx_.kelem(i,j,k)) << " " << std::real(D_yy_.kelem(i,j,k)) << " " << std::real(D_zz_.kelem(i,j,k)) << std::endl;
+                                                    auto d = mat_reciprocal * vec3<real_t>({real_t(k1),real_t(k2),real_t(k3)}) / twopi * ngrid_;
+                                                    int iix = ix;// + std::round(d.x);
+                                                    int iiy = iy;// + std::round(d.y);
+                                                    int iiz = iz;// + std::round(d.z);
+
+                                                    if( iix >= -nlattice/2 && iiy >= -nlattice/2 && iiz >= 0 &&
+                                                    // if( iix >= 0 && iiy >= 0 && iiz >= 0 &&
+                                                        iix < nlattice/2 && iiy < nlattice/2 && iiz <= nlattice/2){
+                                                        iix = (iix<0)? iix+nlattice : iix;
+                                                        iiy = (iiy<0)? iiy+nlattice : iiy;
+                                                        iiz = (iiz<0)? iiz+nlattice : iiz;
+                                                        mu1.kelem(iix,iiy,iiz) = eval[2];
+                                                    }
+                                                }
+                                            }
                                         }
-                                        goto endloop;
+                                    }
+
+                                    vectk_[idx] = a2 + mat_reciprocal * vec3<real_t>({real_t(l1),real_t(l2),real_t(l3)});
+
+                                    if( check_FBZ( normals, vectk_[idx]) ){
+                                        
+                                        int ix = std::round(vectk_[idx][0]*(ngrid_)/twopi);
+                                        int iy = std::round(vectk_[idx][1]*(ngrid_)/twopi);
+                                        int iz = std::round(vectk_[idx][2]*(ngrid_)/twopi);
+
+                                        // for( int k1=-numb; k1<=numb2; ++k1 ){
+                                        //     for( int k2=-numb; k2<=numb2; ++k2 ){
+                                        //         for( int k3=-numb; k3<=numb2; ++k3 ){
+                                        {{{ int k1=0,k2=0,k3=0;
+
+                                                    auto d = mat_reciprocal * vec3<real_t>({real_t(k1),real_t(k2),real_t(k3)}) / twopi * ngrid_;
+                                                    int iix = ix;// + std::round(d.x);
+                                                    int iiy = iy;// + std::round(d.y);
+                                                    int iiz = iz;// + std::round(d.z);
+
+                                        
+                                                    if( iix >= -nlattice/2 && iiy >= -nlattice/2 && iiz >= 0 &&
+                                                    // if( iix >= 0 && iiy >= 0 && iiz >= 0 &&
+                                                        iix < nlattice/2 && iiy < nlattice/2 && iiz <= nlattice/2){
+                                                        iix = (iix<0)? iix+nlattice : iix;
+                                                        iiy = (iiy<0)? iiy+nlattice : iiy;
+                                                        iiz = (iiz<0)? iiz+nlattice : iiz;
+                                                        mu1.kelem(iix,iiy,iiz) = eval[2];
+                                                    }
+                                                }
+                                            }
+                                        }
+
                                     }
                                 }
                             }
-                        }                    endloop: ;
+                        }
+
+                        endloop: ;
+
                     }
                 }
             }
+
+            // #pragma omp for
+            // for( size_t i=0; i<D_xx_.size(0); i++ )
+            // {
+            //     for( size_t j=0; j<D_xx_.size(1); j++ )
+            //     {
+            //         for( size_t k=0; k<D_xx_.size(2); k++ )
+            //         {
+            //             auto idx = D_xx_.get_idx(i,j,k);
+            //             vec3<real_t> kv = D_xx_.get_k<real_t>(i,j,k);
+            //             // const real_t kmod  = kv.norm()/mapratio_/boxlen_;
+
+            //             // put matrix elements into actual matrix
+            //             D(0,0) = std::real(D_xx_.kelem(i,j,k)) / fft_norm12;
+            //             D(0,1) = D(1,0) = std::real(D_xy_.kelem(i,j,k)) / fft_norm12;
+            //             D(0,2) = D(2,0) = std::real(D_xz_.kelem(i,j,k)) / fft_norm12;
+            //             D(1,1) = std::real(D_yy_.kelem(i,j,k)) / fft_norm12;
+            //             D(1,2) = D(2,1) = std::real(D_yz_.kelem(i,j,k)) / fft_norm12;
+            //             D(2,2) = std::real(D_zz_.kelem(i,j,k)) / fft_norm12;
+
+            //             // compute eigenstructure of matrix
+            //             D.eigen(eval, evec1, evec2, evec3);
+
+            //             D_xx_.kelem(i,j,k) = eval[2];
+            //             D_yy_.kelem(i,j,k) = eval[1];
+            //             D_zz_.kelem(i,j,k) = eval[0];
+
+            //             D_xy_.kelem(i,j,k) = evec3[0];
+            //             D_xz_.kelem(i,j,k) = evec3[1];
+            //             D_yz_.kelem(i,j,k) = evec3[2];
+
+                        
+            //             vec3<real_t> ar = kv / (twopi*ngrid_);
+            //             vec3<real_t> a(mat_reciprocal * ar);
+
+            //             // translate the k-vectors into the "candidate" FBZ
+            //             for( int l1=-numb; l1<=numb; ++l1 ){
+            //                 for( int l2=-numb; l2<=numb; ++l2 ){
+            //                     for( int l3=-numb; l3<=numb; ++l3 ){
+
+            //                         vectk_[idx] = a + mat_reciprocal * vec3<real_t>({real_t(l1),real_t(l2),real_t(l3)});
+
+            //                         if( check_FBZ( normals, vectk_[idx]) ){
+                                        
+            //                             vecitk_[idx][0] = std::round(vectk_[idx][0]*(ngrid_)/twopi);
+            //                             vecitk_[idx][1] = std::round(vectk_[idx][1]*(ngrid_)/twopi);
+            //                             vecitk_[idx][2] = std::round(vectk_[idx][2]*(ngrid_)/twopi);
+
+            //                             ico_[idx][0] = std::round((ar[0]+l1) * ngrid_);
+            //                             ico_[idx][1] = std::round((ar[1]+l2) * ngrid_);
+            //                             ico_[idx][2] = std::round((ar[2]+l3) * ngrid_);
+
+            //                             #pragma omp critical
+            //                             {
+            //                                 //ofs2 << vectk_[idx].norm() << " " << kv.norm() << " " << std::real(D_xx_.kelem(i,j,k)) << " " << std::real(D_yy_.kelem(i,j,k)) << " " << std::real(D_zz_.kelem(i,j,k)) << std::endl;
+            //                                 ofs2 << vecitk_[idx][0] << " " << vecitk_[idx][1] << " " << vecitk_[idx][2] << " " << std::real(D_xx_.kelem(i,j,k)) << " " << std::real(D_yy_.kelem(i,j,k)) << " " << std::real(D_zz_.kelem(i,j,k)) << std::endl;
+                                            
+            //                             }
+            //                             //goto endloop;
+            //                         }
+            //                     }
+            //                 }
+            //             }                    endloop: ;
+            //         }
+            //     }
+            // }
         }
 
-        D_xx_.Write_to_HDF5("debug.hdf5","mu1");
+        mu1.kelem(0,0,0) = 1.0;
+        mu1.Write_to_HDF5("debug.hdf5","mu1");
         D_xy_.Write_to_HDF5("debug.hdf5","mu2");
         D_xz_.Write_to_HDF5("debug.hdf5","mu3");
         D_yy_.Write_to_HDF5("debug.hdf5","e1x");
@@ -455,23 +567,23 @@ private:
                         phi0 = (phi0==phi0)? phi0 : 0.0; // catch NaN from division by zero when kmod2=0
 
 
-                        const int nn = 3;
-                        size_t nsum = 0;
-                        ccomplex_t ff = 0.0;
-                        for( int is=-nn;is<=nn;is++){
-                            for( int js=-nn;js<=nn;js++){
-                                for( int ks=-nn;ks<=nn;ks++){
-                                    if( std::abs(is)+std::abs(js)+std::abs(ks) <= nn ){
-                                        ff += std::exp(ccomplex_t(0.0,(((is)*kv[0] + (js)*kv[1] + (ks)*kv[2]))));
-                                        ff += std::exp(ccomplex_t(0.0,(((0.5+is)*kv[0] + (0.5+js)*kv[1] + (0.5+ks)*kv[2]))));
-                                        ++nsum;
-                                    }
-                                }
-                            }    
-                        }
-                        ff /= nsum;
+                        // const int nn = 3;
+                        // size_t nsum = 0;
+                        // ccomplex_t ff = 0.0;
+                        // for( int is=-nn;is<=nn;is++){
+                        //     for( int js=-nn;js<=nn;js++){
+                        //         for( int ks=-nn;ks<=nn;ks++){
+                        //             if( std::abs(is)+std::abs(js)+std::abs(ks) <= nn ){
+                        //                 ff += std::exp(ccomplex_t(0.0,(((is)*kv[0] + (js)*kv[1] + (ks)*kv[2]))));
+                        //                 ff += std::exp(ccomplex_t(0.0,(((0.5+is)*kv[0] + (0.5+js)*kv[1] + (0.5+ks)*kv[2]))));
+                        //                 ++nsum;
+                        //             }
+                        //         }
+                        //     }    
+                        // }
+                        // ff /= nsum;
                         // ccomplex_t ff = 1.0; 
-                        // ccomplex_t ff = (0.5+0.5*std::exp(ccomplex_t(0.0,0.5*(kv[0] + kv[1] + kv[2]))));
+                        ccomplex_t ff = (0.5+0.5*std::exp(ccomplex_t(0.0,0.5*(kv[0] + kv[1] + kv[2]))));
                         // assemble short-range + long_range of Ewald sum and add DC component to trace
                         D_xx_.kelem(i,j,k) = ff*((D_xx_.kelem(i,j,k) - kv[0]*kv[0] * phi0)*nfac) + 1.0/3.0;
                         D_xy_.kelem(i,j,k) = ff*((D_xy_.kelem(i,j,k) - kv[0]*kv[1] * phi0)*nfac);
@@ -559,7 +671,7 @@ private:
 
 public:
     // real_t boxlen, size_t ngridother
-    explicit lattice_gradient( ConfigFile& the_config, size_t ngridself=32 )
+    explicit lattice_gradient( ConfigFile& the_config, size_t ngridself=64 )
     : boxlen_( the_config.GetValue<double>("setup", "BoxLength") ), 
       ngmapto_( the_config.GetValue<size_t>("setup", "GridRes") ), 
       ngrid_( ngridself ), ngrid32_( std::pow(ngrid_, 1.5) ), mapratio_(real_t(ngrid_)/real_t(ngmapto_)),
@@ -567,7 +679,8 @@ public:
       D_xz_({ngrid_, ngrid_, ngrid_}, {1.0,1.0,1.0}), D_yy_({ngrid_, ngrid_, ngrid_}, {1.0,1.0,1.0}),
       D_yz_({ngrid_, ngrid_, ngrid_}, {1.0,1.0,1.0}), D_zz_({ngrid_, ngrid_, ngrid_}, {1.0,1.0,1.0}),
       grad_x_({ngrid_, ngrid_, ngrid_}, {1.0,1.0,1.0}), grad_y_({ngrid_, ngrid_, ngrid_}, {1.0,1.0,1.0}),
-      grad_z_({ngrid_, ngrid_, ngrid_}, {1.0,1.0,1.0})
+      grad_z_({ngrid_, ngrid_, ngrid_}, {1.0,1.0,1.0}),
+      mu1({ngrid_, ngrid_, ngrid_}, {1.0,1.0,1.0})
     { 
         csoca::ilog << "-------------------------------------------------------------------------------" << std::endl;
         std::string lattice_str = the_config.GetValueSafe<std::string>("setup","ParticleLoad","sc");
@@ -596,6 +709,7 @@ public:
         csoca::ilog << std::setw(40) << std::setfill('.') << std::left << "Computing PLT eigenmodes "<< std::flush;
         
         init_D();
+        // init_D__old();
 
         csoca::ilog << std::setw(20) << std::setfill(' ') << std::right << "took " << get_wtime()-wtime << "s" << std::endl;
     }
