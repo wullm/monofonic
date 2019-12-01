@@ -62,6 +62,7 @@ private:
             0.0, 1.0, 0.5,
             0.0, 0.0, 0.5, 
         };
+        
         const mat3<real_t> mat_reciprocal_bcc{
             twopi, 0.0, 0.0,
             0.0, twopi, 0.0,
@@ -97,7 +98,7 @@ private:
         };
         
         //! select the properties for the chosen lattice
-        const int ilat = 1; // 0 = sc, 1 = bcc, 2 = fcc
+        const int ilat = 2; // 0 = sc, 1 = bcc, 2 = fcc
 
         const auto mat_bravais    = (ilat==2)? mat_bravais_fcc : (ilat==1)? mat_bravais_bcc : mat_bravais_sc;
         const auto mat_reciprocal = (ilat==2)? mat_reciprocal_fcc : (ilat==1)? mat_reciprocal_bcc : mat_reciprocal_sc;
@@ -355,80 +356,55 @@ private:
                             }
                         }
 
+                        
                         endloop: ;
 
                     }
                 }
             }
 
-            // #pragma omp for
-            // for( size_t i=0; i<D_xx_.size(0); i++ )
-            // {
-            //     for( size_t j=0; j<D_xx_.size(1); j++ )
-            //     {
-            //         for( size_t k=0; k<D_xx_.size(2); k++ )
-            //         {
-            //             auto idx = D_xx_.get_idx(i,j,k);
-            //             vec3<real_t> kv = D_xx_.get_k<real_t>(i,j,k);
-            //             // const real_t kmod  = kv.norm()/mapratio_/boxlen_;
+            mu1.kelem(0,0,0) = 1.0;
 
-            //             // put matrix elements into actual matrix
-            //             D(0,0) = std::real(D_xx_.kelem(i,j,k)) / fft_norm12;
-            //             D(0,1) = D(1,0) = std::real(D_xy_.kelem(i,j,k)) / fft_norm12;
-            //             D(0,2) = D(2,0) = std::real(D_xz_.kelem(i,j,k)) / fft_norm12;
-            //             D(1,1) = std::real(D_yy_.kelem(i,j,k)) / fft_norm12;
-            //             D(1,2) = D(2,1) = std::real(D_yz_.kelem(i,j,k)) / fft_norm12;
-            //             D(2,2) = std::real(D_zz_.kelem(i,j,k)) / fft_norm12;
-
-            //             // compute eigenstructure of matrix
-            //             D.eigen(eval, evec1, evec2, evec3);
-
-            //             D_xx_.kelem(i,j,k) = eval[2];
-            //             D_yy_.kelem(i,j,k) = eval[1];
-            //             D_zz_.kelem(i,j,k) = eval[0];
-
-            //             D_xy_.kelem(i,j,k) = evec3[0];
-            //             D_xz_.kelem(i,j,k) = evec3[1];
-            //             D_yz_.kelem(i,j,k) = evec3[2];
-
-                        
-            //             vec3<real_t> ar = kv / (twopi*ngrid_);
-            //             vec3<real_t> a(mat_reciprocal * ar);
-
-            //             // translate the k-vectors into the "candidate" FBZ
-            //             for( int l1=-numb; l1<=numb; ++l1 ){
-            //                 for( int l2=-numb; l2<=numb; ++l2 ){
-            //                     for( int l3=-numb; l3<=numb; ++l3 ){
-
-            //                         vectk_[idx] = a + mat_reciprocal * vec3<real_t>({real_t(l1),real_t(l2),real_t(l3)});
-
-            //                         if( check_FBZ( normals, vectk_[idx]) ){
-                                        
-            //                             vecitk_[idx][0] = std::round(vectk_[idx][0]*(ngrid_)/twopi);
-            //                             vecitk_[idx][1] = std::round(vectk_[idx][1]*(ngrid_)/twopi);
-            //                             vecitk_[idx][2] = std::round(vectk_[idx][2]*(ngrid_)/twopi);
-
-            //                             ico_[idx][0] = std::round((ar[0]+l1) * ngrid_);
-            //                             ico_[idx][1] = std::round((ar[1]+l2) * ngrid_);
-            //                             ico_[idx][2] = std::round((ar[2]+l3) * ngrid_);
-
-            //                             #pragma omp critical
-            //                             {
-            //                                 //ofs2 << vectk_[idx].norm() << " " << kv.norm() << " " << std::real(D_xx_.kelem(i,j,k)) << " " << std::real(D_yy_.kelem(i,j,k)) << " " << std::real(D_zz_.kelem(i,j,k)) << std::endl;
-            //                                 ofs2 << vecitk_[idx][0] << " " << vecitk_[idx][1] << " " << vecitk_[idx][2] << " " << std::real(D_xx_.kelem(i,j,k)) << " " << std::real(D_yy_.kelem(i,j,k)) << " " << std::real(D_zz_.kelem(i,j,k)) << std::endl;
-                                            
-            //                             }
-            //                             //goto endloop;
-            //                         }
-            //                     }
-            //                 }
-            //             }                    endloop: ;
-            //         }
-            //     }
-            // }
+            //... approximate infinite lattice by inerpolating to sites not convered by current resolution...
+            if( ilat==1 ){
+                for( size_t i=0; i<D_xx_.size(0); i++ ){
+                    for( size_t j=0; j<D_xx_.size(1); j++ ){
+                        for( size_t k=0; k<D_xx_.size(2); k++ ){
+                            if( std::real(mu1.kelem(i,j,k)) < 0.0001 ){
+                                mu1.kelem(i,j,k) = 0.25 * (
+                                    mu1.kelem((nlattice+i-1)%nlattice,j,k)+ mu1.kelem((i+1)%nlattice,j,k)
+                                    + mu1.kelem(i,(j+nlattice-1)%nlattice,k) + mu1.kelem(i,(j+1)%nlattice,k) );
+                            }
+                        }
+                    }
+                }
+            }else if( ilat==2 ){
+                for( size_t i=0; i<D_xx_.size(0); i++ ){
+                    for( size_t j=0; j<D_xx_.size(1); j++ ){
+                        for( size_t k=0; k<D_xx_.size(2); k++ ){
+                            if( std::real(mu1.kelem(i,j,k)) < 0.0001 ){
+                                mu1.kelem(i,j,k) = 0.5 * (
+                                    mu1.kelem(i,(j+nlattice-1)%nlattice,k)
+                                    + mu1.kelem(i,(j+1)%nlattice,k) );
+                            }
+                        }
+                    }
+                }
+                for( size_t i=0; i<D_xx_.size(0); i++ ){
+                    for( size_t j=0; j<D_xx_.size(1); j++ ){
+                        for( size_t k=0; k<D_xx_.size(2); k++ ){
+                            if( std::real(mu1.kelem(i,j,k)) < 0.0001 ){
+                                mu1.kelem(i,j,k) = 0.5 * (
+                                    mu1.kelem((nlattice+i-1)%nlattice,j,k)
+                                    + mu1.kelem((i+1)%nlattice,j,k) );
+                            }
+                        }
+                    }
+                }
+            }
         }
 
-        mu1.kelem(0,0,0) = 1.0;
+        
         mu1.Write_to_HDF5("debug.hdf5","mu1");
         D_xy_.Write_to_HDF5("debug.hdf5","mu2");
         D_xz_.Write_to_HDF5("debug.hdf5","mu3");
