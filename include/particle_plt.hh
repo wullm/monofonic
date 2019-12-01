@@ -29,13 +29,11 @@ private:
 
     void init_D()
     {
-        constexpr real_t pi = M_PI;
-        constexpr real_t twopi = 2.0*M_PI;
+        constexpr real_t pi     = M_PI;
+        constexpr real_t twopi  = 2.0*M_PI;
         constexpr real_t fourpi = 4.0*M_PI;
-        constexpr real_t sqrtpi = std::sqrt(M_PI);
-        constexpr real_t pi32   = std::pow(M_PI,1.5);
-
-        const int charge_multiplicity = 2;
+        const     real_t sqrtpi = std::sqrt(M_PI);
+        const     real_t pi32   = std::pow(M_PI,1.5);
 
         //! === vectors, reciprocals and normals for the SC lattice ===
         const int charge_fac_sc = 1;
@@ -98,14 +96,14 @@ private:
         };
         
         //! select the properties for the chosen lattice
-        const int ilat = 2; // 0 = sc, 1 = bcc, 2 = fcc
+        const int ilat = 1; // 0 = sc, 1 = bcc, 2 = fcc
 
         const auto mat_bravais    = (ilat==2)? mat_bravais_fcc : (ilat==1)? mat_bravais_bcc : mat_bravais_sc;
         const auto mat_reciprocal = (ilat==2)? mat_reciprocal_fcc : (ilat==1)? mat_reciprocal_bcc : mat_reciprocal_sc;
         const auto normals        = (ilat==2)? normals_fcc : (ilat==1)? normals_bcc : normals_sc;
         const auto charge_fac     = (ilat==2)? charge_fac_fcc : (ilat==1)? charge_fac_bcc : charge_fac_sc;
 
-        const size_t nlattice = ngrid_;//16;
+        const size_t nlattice = ngrid_;
         const real_t dx = 1.0/real_t(nlattice);
 
         const real_t eta = 4.0;//nlattice;//4.0; //2.0/ngrid_; // Ewald cutoff shall be 2 cells
@@ -120,6 +118,7 @@ private:
         //! just a Kronecker \delta_ij
         auto kronecker = []( int i, int j ) -> real_t { return (i==j)? 1.0 : 0.0; };
 
+        //! Ewald summation: short-range Green's function
         auto add_greensftide_sr = [&]( mat3<real_t>& D, const vec3<real_t>& d ) -> void {
             auto r = d.norm();
             if( r< 1e-14 ) return; // return zero for r=0
@@ -137,6 +136,7 @@ private:
             }
         };
 
+        //! Ewald summation: long-range Green's function
         auto add_greensftide_lr = [&]( mat3<real_t>& D, const vec3<real_t>& k, const vec3<real_t>& r ) -> void {
             real_t kmod2 = k.norm_squared();
             real_t term = std::exp(-kmod2/(4*alpha2))*std::cos(k.dot(r)) / kmod2 * fft_norm;
@@ -148,8 +148,20 @@ private:
                 }
             }
         };
+
+        //! checks if 'vec' is in the FBZ with FBZ normal vectors given in 'normals'
+        auto check_FBZ = []( const auto& normals, const auto& vec ) -> bool {
+            bool btest = true;
+            for( const auto& n : normals ){ 
+                if( n.dot( vec ) > 1.01 * n.dot(n) ){
+                    btest = false;
+                    break;
+                }
+            }
+            return btest;
+        };
         
-        constexpr ptrdiff_t lnumber = 4, knumber = 4;
+        constexpr ptrdiff_t lnumber = 3, knumber = 3;
         const int numb = 1;
 
         vectk_.assign(D_xx_.memsize(),vec3<real_t>());
@@ -247,8 +259,9 @@ private:
                 {
                     for( size_t k=0; k<D_xx_.size(2); k++ )
                     {
+                        auto idx = D_xx_.get_idx(i,j,k);
                         vec3<real_t> kv = D_xx_.get_k<real_t>(i,j,k);
-                        const real_t kmod  = kv.norm()/mapratio_/boxlen_;
+                        // const real_t kmod  = kv.norm()/mapratio_/boxlen_;
 
                         // put matrix elements into actual matrix
                         D(0,0) = std::real(D_xx_.kelem(i,j,k)) / fft_norm12;
@@ -269,46 +282,18 @@ private:
                         D_xz_.kelem(i,j,k) = evec3[1];
                         D_yz_.kelem(i,j,k) = evec3[2];
 
-
-                        vec3<real_t> a({0.,0.,0.});
-
-                        auto idx = D_xx_.get_idx(i,j,k);
-
-                        vec3<real_t> ar = D_xx_.get_k<real_t>(i,j,k) / (twopi*ngrid_);
-                        a = mat_reciprocal * ar;
+                        
+                        vec3<real_t> ar = kv / (twopi*ngrid_);
+                        vec3<real_t> a(mat_reciprocal * ar);
 
                         // translate the k-vectors into the "candidate" FBZ
-                        vec3<real_t> anum;
                         for( int l1=-numb; l1<=numb; ++l1 ){
-                            anum[0] = real_t(l1);
                             for( int l2=-numb; l2<=numb; ++l2 ){
-                                anum[1] = real_t(l2);
                                 for( int l3=-numb; l3<=numb; ++l3 ){
-                                    anum[2] = real_t(l3);
 
-                                    // vectk_[idx] = a;
-                                    vectk_[idx] = a + mat_reciprocal * anum;
+                                    vectk_[idx] = a + mat_reciprocal * vec3<real_t>({real_t(l1),real_t(l2),real_t(l3)});
 
-                                    // for( int l=0; l<3; l++ ){
-                                    //     for( int m=0; m<3; m++){
-                                    //         // project k on reciprocal basis
-                                    //         vectk_[idx][l] += anum[m]*bcc_reciprocal[m][l];
-                                    //     }
-                                    // }
-                                    // check if in first Brillouin zone
-                                    bool btest=true;
-                                    for( size_t l=0; l<normals.size(); ++l ){
-                                        real_t amod2 = 0.0;
-                                        real_t scalar = 0.0;
-                                        for( int m=0; m<3; m++ ){
-                                            amod2  += normals[l][m]*normals[l][m];
-                                            scalar += normals[l][m]*vectk_[idx][m];
-                                        }
-                                        //real_t amod = std::sqrt(amod2);
-                                        //if( scalar/amod > amod*1.0001 ){ btest=false; break; }
-                                        if( scalar > 1.01 * amod2 ){ btest=false; break; }
-                                    }
-                                    if( btest ){
+                                    if( check_FBZ( normals, vectk_[idx]) ){
                                         
                                         vecitk_[idx][0] = std::round(vectk_[idx][0]*(ngrid_)/twopi);
                                         vecitk_[idx][1] = std::round(vectk_[idx][1]*(ngrid_)/twopi);
@@ -318,10 +303,10 @@ private:
                                         ico_[idx][1] = std::round((ar[1]+l2) * ngrid_);
                                         ico_[idx][2] = std::round((ar[2]+l3) * ngrid_);
 
-                                        ofs2 << vectk_[idx].norm() << " " << kv.norm() << " " << std::real(D_xx_.kelem(i,j,k)) << " " << std::real(D_yy_.kelem(i,j,k)) << " " << std::real(D_zz_.kelem(i,j,k)) << std::endl;
-                                        // ofs2 << kv.x/twopi << ", " << kv.y/twopi << ", " << kv.z/twopi << ", " << vecitk_[idx].x << ", " << vecitk_[idx].y << ", " << vecitk_[idx].z << ", " << ico_[idx][0] << ", " << ico_[idx][1] << ", " << ico_[idx][2] << std::endl;
-                                        // ofs2 << kv.x/twopi << ", " << kv.y/twopi << ", " << kv.z/twopi << ", " << -vecitk_[idx].x << ", " << -vecitk_[idx].y << ", " << -vecitk_[idx].z << ", " << ico_[idx][0] << ", " << ico_[idx][1] << ", " << ico_[idx][2] << std::endl;
-                                        
+                                        #pragma omp critical
+                                        {
+                                            ofs2 << vectk_[idx].norm() << " " << kv.norm() << " " << std::real(D_xx_.kelem(i,j,k)) << " " << std::real(D_yy_.kelem(i,j,k)) << " " << std::real(D_zz_.kelem(i,j,k)) << std::endl;
+                                        }
                                         goto endloop;
                                     }
                                 }
@@ -331,8 +316,6 @@ private:
                 }
             }
         }
-
-        
 
         D_xx_.Write_to_HDF5("debug.hdf5","mu1");
         D_xy_.Write_to_HDF5("debug.hdf5","mu2");
