@@ -77,6 +77,9 @@ public:
 
     void Setup();
 
+    //! return the number of data_t elements that we store in the container
+    size_t memsize( void ) const { return ntot_; }
+
     //! return the (local) size of dimension i
     size_t size(size_t i) const { return sizes_[i]; }
 
