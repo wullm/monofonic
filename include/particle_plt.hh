@@ -29,33 +29,81 @@ private:
 
     void init_D()
     {
-        constexpr real_t pi = M_PI, twopi = 2.0*M_PI;
+        constexpr real_t pi = M_PI;
+        constexpr real_t twopi = 2.0*M_PI;
+        constexpr real_t fourpi = 4.0*M_PI;
+        constexpr real_t sqrtpi = std::sqrt(M_PI);
+        constexpr real_t pi32   = std::pow(M_PI,1.5);
 
         const int charge_multiplicity = 2;
 
-        const mat3<real_t> mat_bcc_bravais{
+        //! === vectors, reciprocals and normals for the SC lattice ===
+        const int charge_fac_sc = 1;
+        const mat3<real_t> mat_bravais_sc{
+            1.0, 0.0, 0.0,
+            0.0, 1.0, 0.0,
+            0.0, 0.0, 1.0, 
+        };
+        const mat3<real_t> mat_reciprocal_sc{
+            twopi, 0.0, 0.0,
+            0.0, twopi, 0.0,
+            0.0, 0.0, twopi,
+        };
+        const std::vector<vec3<real_t>> normals_sc{
+            {pi,0.,0.},{-pi,0.,0.},
+            {0.,pi,0.},{0.,-pi,0.},
+            {0.,0.,pi},{0.,0.,-pi},
+        };
+        
+
+        //! === vectors, reciprocals and normals for the BCC lattice ===
+        const int charge_fac_bcc = 2;
+        const mat3<real_t> mat_bravais_bcc{
             1.0, 0.0, 0.5,
             0.0, 1.0, 0.5,
             0.0, 0.0, 0.5, 
         };
-
-        const mat3<real_t> mat_bcc_reciprocal{
+        const mat3<real_t> mat_reciprocal_bcc{
             twopi, 0.0, 0.0,
             0.0, twopi, 0.0,
-            -twopi, -twopi, 2.0*twopi,
+            -twopi, -twopi, fourpi,
         };
-
-        const std::vector<vec3<real_t>> bcc_reciprocal{
-            {twopi,0.,-twopi}, {0.,twopi,-twopi}, {0.,0.,2*twopi}
-        };
-        
-        const std::vector<vec3<real_t>> bcc_normals{
+        const std::vector<vec3<real_t>> normals_bcc{
             {0.,pi,pi},{0.,-pi,pi},{0.,pi,-pi},{0.,-pi,-pi},
             {pi,0.,pi},{-pi,0.,pi},{pi,0.,-pi},{-pi,0.,-pi},
             {pi,pi,0.},{-pi,pi,0.},{pi,-pi,0.},{-pi,-pi,0.}
         };
-
         
+
+        //! === vectors, reciprocals and normals for the FCC lattice ===
+        const int charge_fac_fcc = 4;
+        const mat3<real_t> mat_bravais_fcc{
+            0.0, 0.5, 0.0,
+            0.5, 0.0, 1.0,
+            0.5, 0.5, 0.0, 
+        };
+        const mat3<real_t> mat_reciprocal_fcc{
+            -fourpi, fourpi, twopi,
+            0.0, 0.0, twopi,
+            fourpi, 0.0, -twopi,
+        };
+        const std::vector<vec3<real_t>> normals_fcc{
+            {twopi,0.,0.},{-twopi,0.,0.},
+            {0.,twopi,0.},{0.,-twopi,0.},
+            {0.,0.,twopi},{0.,0.,-twopi},
+            {+pi,+pi,+pi},{+pi,+pi,-pi},
+            {+pi,-pi,+pi},{+pi,-pi,-pi},
+            {-pi,+pi,+pi},{-pi,+pi,-pi},
+            {-pi,-pi,+pi},{-pi,-pi,-pi},
+        };
+        
+        //! select the properties for the chosen lattice
+        const int ilat = 2; // 0 = sc, 1 = bcc, 2 = fcc
+
+        const auto mat_bravais    = (ilat==2)? mat_bravais_fcc : (ilat==1)? mat_bravais_bcc : mat_bravais_sc;
+        const auto mat_reciprocal = (ilat==2)? mat_reciprocal_fcc : (ilat==1)? mat_reciprocal_bcc : mat_reciprocal_sc;
+        const auto normals        = (ilat==2)? normals_fcc : (ilat==1)? normals_bcc : normals_sc;
+        const auto charge_fac     = (ilat==2)? charge_fac_fcc : (ilat==1)? charge_fac_bcc : charge_fac_sc;
 
         const size_t nlattice = ngrid_;//16;
         const real_t dx = 1.0/real_t(nlattice);
@@ -64,11 +112,8 @@ private:
         const real_t alpha = 1.0/std::sqrt(2)/eta;
         const real_t alpha2 = alpha*alpha;
         const real_t alpha3 = alpha2*alpha;
-        const real_t sqrtpi = std::sqrt(M_PI);
-        const real_t fourpi = 4.0*M_PI;
-        const real_t pi32   = std::pow(M_PI,1.5);
         
-        const real_t charge = 1.0/std::pow(real_t(nlattice),3)/charge_multiplicity;
+        const real_t charge = 1.0/std::pow(real_t(nlattice),3)/charge_fac;
         const real_t fft_norm   = 1.0/std::pow(real_t(nlattice),3.0);
         const real_t fft_norm12 = 1.0/std::pow(real_t(nlattice),1.5);
 
@@ -122,7 +167,7 @@ private:
                     for( size_t k=0; k<nlattice; ++k ){
                         // compute lattice site vector from (i,j,k) multiplying Bravais base matrix, and wrap back to box
                         const vec3<real_t> x_ijk({dx*real_t(i),dx*real_t(j),dx*real_t(k)});
-                        const vec3<real_t> ar = (mat_bcc_bravais * x_ijk).wrap_abs();
+                        const vec3<real_t> ar = (mat_bravais * x_ijk).wrap_abs();
 
                         //... zero temporary matrix
                         matD.zero();        
@@ -132,7 +177,7 @@ private:
                             for( ptrdiff_t iy=-lnumber; iy<=lnumber; iy++ ){
                                 for( ptrdiff_t iz=-lnumber; iz<=lnumber; iz++ ){      
                                     const vec3<real_t> n_ijk({real_t(ix),real_t(iy),real_t(iz)});            
-                                    const vec3<real_t> dr(ar - mat_bcc_bravais * n_ijk);
+                                    const vec3<real_t> dr(ar - mat_bravais * n_ijk);
                                     add_greensftide_sr(matD, dr);
                                 }
                             }
@@ -144,7 +189,7 @@ private:
                                 for( ptrdiff_t iz=-knumber; iz<=knumber; iz++ ){                      
                                     if(std::abs(ix)+std::abs(iy)+std::abs(iz) != 0){
                                         const vec3<real_t> k_ijk({real_t(ix)/nlattice,real_t(iy)/nlattice,real_t(iz)/nlattice});
-                                        const vec3<real_t> ak( mat_bcc_reciprocal * k_ijk);
+                                        const vec3<real_t> ak( mat_reciprocal * k_ijk);
 
                                         add_greensftide_lr(matD, ak, ar );
                                     }
@@ -230,15 +275,7 @@ private:
                         auto idx = D_xx_.get_idx(i,j,k);
 
                         vec3<real_t> ar = D_xx_.get_k<real_t>(i,j,k) / (twopi*ngrid_);
-                        // vec3<real_t> kv = D_xx_.get_k<real_t>(i,j,k);
-                        
-                        for( int l=0; l<3; l++ ){
-                            a[l] = 0.0;
-                            for( int m=0; m<3; m++){
-                                // project k on reciprocal basis
-                                a[l] += ar[m]*bcc_reciprocal[m][l];
-                            }
-                        }
+                        a = mat_reciprocal * ar;
 
                         // translate the k-vectors into the "candidate" FBZ
                         vec3<real_t> anum;
@@ -249,22 +286,23 @@ private:
                                 for( int l3=-numb; l3<=numb; ++l3 ){
                                     anum[2] = real_t(l3);
 
-                                    vectk_[idx] = a;
+                                    // vectk_[idx] = a;
+                                    vectk_[idx] = a + mat_reciprocal * anum;
 
-                                    for( int l=0; l<3; l++ ){
-                                        for( int m=0; m<3; m++){
-                                            // project k on reciprocal basis
-                                            vectk_[idx][l] += anum[m]*bcc_reciprocal[m][l];
-                                        }
-                                    }
+                                    // for( int l=0; l<3; l++ ){
+                                    //     for( int m=0; m<3; m++){
+                                    //         // project k on reciprocal basis
+                                    //         vectk_[idx][l] += anum[m]*bcc_reciprocal[m][l];
+                                    //     }
+                                    // }
                                     // check if in first Brillouin zone
                                     bool btest=true;
-                                    for( size_t l=0; l<bcc_normals.size(); ++l ){
+                                    for( size_t l=0; l<normals.size(); ++l ){
                                         real_t amod2 = 0.0;
                                         real_t scalar = 0.0;
                                         for( int m=0; m<3; m++ ){
-                                            amod2  += bcc_normals[l][m]*bcc_normals[l][m];
-                                            scalar += bcc_normals[l][m]*vectk_[idx][m];
+                                            amod2  += normals[l][m]*normals[l][m];
+                                            scalar += normals[l][m]*vectk_[idx][m];
                                         }
                                         //real_t amod = std::sqrt(amod2);
                                         //if( scalar/amod > amod*1.0001 ){ btest=false; break; }
@@ -308,7 +346,7 @@ private:
     {
         constexpr real_t pi = M_PI, twopi = 2.0*M_PI;
 
-        const std::vector<vec3<real_t>> bcc_normals{
+        const std::vector<vec3<real_t>> normals_bcc{
             {0.,pi,pi},{0.,-pi,pi},{0.,pi,-pi},{0.,-pi,-pi},
             {pi,0.,pi},{-pi,0.,pi},{pi,0.,-pi},{-pi,0.,-pi},
             {pi,pi,0.},{-pi,pi,0.},{pi,-pi,0.},{-pi,-pi,0.}
