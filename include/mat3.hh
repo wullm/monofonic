@@ -157,3 +157,15 @@ vec3<T> operator*( const mat3<T> &A, const vec3<T> &v ) noexcept
     }
     return result;
 }
+
+// template<typename T>
+// vec3<T> operator*( const vec3<T> &v, const mat3<T> &A ) noexcept
+// {
+//     vec3<T> result = 0.0;
+//     for( int mu=0; mu<3; ++mu ){
+//         for( int nu=0; nu<3; ++nu ){
+//             result[nu] += v[mu]*A(mu,nu);
+//         }
+//     }
+//     return result;
+// }
