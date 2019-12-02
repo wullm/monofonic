@@ -12,6 +12,8 @@
   #include <fftw3.h>
 #endif
 
+#include <config_file.hh>
+
 #ifdef USE_SINGLEPRECISION
 using real_t = float;
 using complex_t = fftwf_complex;

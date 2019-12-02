@@ -168,7 +168,8 @@ int Run( ConfigFile& the_config )
     //--------------------------------------------------------------------
     // Create PLT gradient operator
     //--------------------------------------------------------------------
-    particle::lattice_gradient lg( the_config );
+    // particle::lattice_gradient lg( the_config );
+    op::fourier_gradient lg( the_config );
 
     //--------------------------------------------------------------------
     std::vector<cosmo_species> species_list;

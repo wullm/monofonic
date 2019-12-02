@@ -761,10 +761,10 @@ public:
         return D_zz_.get_cic_kspace({ix,iy,iz});
     }
 
-    inline ccomplex_t vfac_corr( std::array<size_t,3> ijk ) const
+    inline real_t vfac_corr( std::array<size_t,3> ijk ) const
     {
         real_t ix = ijk[0]*mapratio_, iy = ijk[1]*mapratio_, iz = ijk[2]*mapratio_;
-        return D_xy_.get_cic_kspace({ix,iy,iz});
+        return std::real(D_xy_.get_cic_kspace({ix,iy,iz}));
     }
 
 };
