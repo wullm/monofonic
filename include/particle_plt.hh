@@ -12,7 +12,7 @@
 #include <grid_fft.hh>
 #include <mat3.hh>
 
-// #define PRODUCTION
+#define PRODUCTION
 
 namespace particle{
 //! implement Marcos et al. PLT calculation
@@ -26,6 +26,14 @@ private:
     Grid_FFT<real_t,false> grad_x_, grad_y_, grad_z_;
     std::vector<vec3<real_t>> vectk_;
     std::vector<vec3<int>> ico_, vecitk_;
+
+    bool is_even( int i ){ return (i%2)==0; }
+
+    bool is_in( int i, int j, int k, const mat3<int>& M ){
+        vec3<int> v({i,j,k});
+        auto vv = M * v;
+        return is_even(vv.x)&&is_even(vv.y)&&is_even(vv.z);
+    }
 
     void init_D( lattice lattice_type )
     {
@@ -47,6 +55,11 @@ private:
             0.0, twopi, 0.0,
             0.0, 0.0, twopi,
         };
+        const mat3<int> mat_invrecip_sc{
+            2, 0, 0,
+            0, 2, 0,
+            0, 0, 2,
+        };
         const std::vector<vec3<real_t>> normals_sc{
             {pi,0.,0.},{-pi,0.,0.},
             {0.,pi,0.},{0.,-pi,0.},
@@ -65,6 +78,11 @@ private:
             twopi, 0.0, 0.0,
             0.0, twopi, 0.0,
             -twopi, -twopi, fourpi,
+        };
+        const mat3<int> mat_invrecip_bcc{
+            2, 0, 0,
+            0, 2, 0,
+            1, 1, 1,
         };
         const std::vector<vec3<real_t>> normals_bcc{
             {0.,pi,pi},{0.,-pi,pi},{0.,pi,-pi},{0.,-pi,-pi},
@@ -85,6 +103,11 @@ private:
             0.0, 0.0, twopi,
             fourpi, 0.0, -twopi,
         };
+        const mat3<int> mat_invrecip_fcc{
+            0, 1, 1,
+            1, 0, 1,
+            0, 2, 0,
+        };
         const std::vector<vec3<real_t>> normals_fcc{
             {twopi,0.,0.},{-twopi,0.,0.},
             {0.,twopi,0.},{0.,-twopi,0.},
@@ -100,6 +123,7 @@ private:
 
         const auto mat_bravais     = (ilat==2)? mat_bravais_fcc : (ilat==1)? mat_bravais_bcc : mat_bravais_sc;
         const auto mat_reciprocal  = (ilat==2)? mat_reciprocal_fcc : (ilat==1)? mat_reciprocal_bcc : mat_reciprocal_sc;
+        const auto mat_invrecip    = (ilat==2)? mat_invrecip_fcc : (ilat==1)? mat_invrecip_bcc : mat_invrecip_sc;
         const auto normals         = (ilat==2)? normals_fcc : (ilat==1)? normals_bcc : normals_sc;
         const auto charge_fac      = (ilat==2)? charge_fac_fcc : (ilat==1)? charge_fac_bcc : charge_fac_sc;
 
@@ -300,9 +324,8 @@ private:
 
                             // compute eigenstructure of matrix
                             D.eigen(eval, evec1, evec2, evec3);
+                            evec3 /= (twopi*ngrid_);
 
-                            auto vvv =  evec3 / (twopi*ngrid_);
-                            
                             // now determine to which modes on the regular lattice this contributes
                             vec3<real_t> ar1 = kv / (twopi*ngrid_);
                             vec3<real_t> ar2 = -kv / (twopi*ngrid_);
@@ -324,17 +347,17 @@ private:
                                             int ix = std::round(vectk.x*(ngrid_)/twopi);
                                             int iy = std::round(vectk.y*(ngrid_)/twopi);
                                             int iz = std::round(vectk.z*(ngrid_)/twopi);
-
-                                            if( ix >= -nlattice/2 && iy >= -nlattice/2 && iz >= 0 &&
-                                                ix < nlattice/2 && iy < nlattice/2 && iz <= nlattice/2){
+                                            if( ix > -nlattice/2 && iy > -nlattice/2 && iz >= 0 &&
+                                                ix <= nlattice/2 && iy <= nlattice/2 && iz <= nlattice/2){
                                                     ix = (ix<0)? ix+nlattice : ix;
                                                     iy = (iy<0)? iy+nlattice : iy;
+                                                    real_t sign = (evec3.dot(vectk) >= 0.0)?1.0:-1.0;
                                                     D_xx_.kelem(ix,iy,iz) = eval[2];
                                                     D_xy_.kelem(ix,iy,iz) = eval[1];
                                                     D_xz_.kelem(ix,iy,iz) = eval[0];
-                                                    D_yy_.kelem(ix,iy,iz) = vvv.x;
-                                                    D_yz_.kelem(ix,iy,iz) = vvv.y;
-                                                    D_zz_.kelem(ix,iy,iz) = vvv.z;
+                                                    D_yy_.kelem(ix,iy,iz) = evec3.x*sign;
+                                                    D_yz_.kelem(ix,iy,iz) = evec3.y*sign;
+                                                    D_zz_.kelem(ix,iy,iz) = evec3.z*sign;
                                             }
                                         }
                                         // second half of Fourier space (due to real trafo we only have half in memory)
@@ -345,17 +368,17 @@ private:
                                             int ix = std::round(vectk.x*(ngrid_)/twopi);
                                             int iy = std::round(vectk.y*(ngrid_)/twopi);
                                             int iz = std::round(vectk.z*(ngrid_)/twopi);
-
-                                            if( ix >= -nlattice/2 && iy >= -nlattice/2 && iz >= 0 &&
-                                                ix < nlattice/2 && iy < nlattice/2 && iz <= nlattice/2){
+                                            if( ix > -nlattice/2 && iy > -nlattice/2 && iz >= 0 &&
+                                                ix <= nlattice/2 && iy <= nlattice/2 && iz <= nlattice/2){
                                                     ix = (ix<0)? ix+nlattice : ix;
                                                     iy = (iy<0)? iy+nlattice : iy;
+                                                    real_t sign = (evec3.dot(vectk) >= 0.0)?1.0:-1.0;
                                                     D_xx_.kelem(ix,iy,iz) = eval[2];
                                                     D_xy_.kelem(ix,iy,iz) = eval[1];
                                                     D_xz_.kelem(ix,iy,iz) = eval[0];
-                                                    D_yy_.kelem(ix,iy,iz) = vvv.x;
-                                                    D_yz_.kelem(ix,iy,iz) = vvv.y;
-                                                    D_zz_.kelem(ix,iy,iz) = vvv.z;
+                                                    D_yy_.kelem(ix,iy,iz) = evec3.x*sign;
+                                                    D_yz_.kelem(ix,iy,iz) = evec3.y*sign;
+                                                    D_zz_.kelem(ix,iy,iz) = evec3.z*sign;
                                             }
                                         }
                                     } //l3
@@ -369,6 +392,10 @@ private:
             D_xx_.kelem(0,0,0) = 1.0;
             D_xy_.kelem(0,0,0) = 0.0;
             D_xz_.kelem(0,0,0) = 0.0;
+
+            D_yy_.kelem(0,0,0) = 1.0;
+            D_yz_.kelem(0,0,0) = 0.0;
+            D_zz_.kelem(0,0,0) = 0.0;
         }
 
         //... approximate infinite lattice by inerpolating to sites not convered by current resolution...
@@ -377,11 +404,20 @@ private:
             for( size_t i=0; i<D_xx_.size(0); i++ ){
                 for( size_t j=0; j<D_xx_.size(1); j++ ){
                     for( size_t k=0; k<D_xx_.size(2); k++ ){
-                        if( std::real(D_xx_.kelem(i,j,k)) < 0.01 ){
+                        if( !is_in(i,j,k,mat_invrecip_bcc)  ){
                             auto avg = [&]( const auto& D ) -> ccomplex_t {
-                                return 0.25 * (
-                                    D.kelem((i+nlattice-1)%nlattice,j,k)+ D.kelem((i+1)%nlattice,j,k)
-                                    + D.kelem(i,(j+nlattice-1)%nlattice,k) + D.kelem(i,(j+1)%nlattice,k) );
+                                if( k>0 && k< size_t(nlattice/2) ) return 1.0/6.0 * (
+                                        D.kelem((i+nlattice-1)%nlattice,j,k)+ D.kelem((i+1)%nlattice,j,k)
+                                        + D.kelem(i,(j+nlattice-1)%nlattice,k) + D.kelem(i,(j+1)%nlattice,k) 
+                                        + D.kelem(i,j,k-1) + D.kelem(i,j,k+1) );
+                                if( k==0 ) return 1.0/6.0 * (
+                                        D.kelem((i+nlattice-1)%nlattice,j,k)+ D.kelem((i+1)%nlattice,j,k)
+                                        + D.kelem(i,(j+nlattice-1)%nlattice,k) + D.kelem(i,(j+1)%nlattice,k) 
+                                        + D.kelem(i,j,k+1) + D.kelem(i,j,k+1) );
+                                return 1.0/6.0 * (
+                                        D.kelem((i+nlattice-1)%nlattice,j,k)+ D.kelem((i+1)%nlattice,j,k)
+                                        + D.kelem(i,(j+nlattice-1)%nlattice,k) + D.kelem(i,(j+1)%nlattice,k) 
+                                        + D.kelem(i,j,k-1) + D.kelem(i,j,k-1) );
                             };
                         
                             D_xx_.kelem(i,j,k) = avg( D_xx_ );
@@ -399,30 +435,17 @@ private:
             for( size_t i=0; i<D_xx_.size(0); i++ ){
                 for( size_t j=0; j<D_xx_.size(1); j++ ){
                     for( size_t k=0; k<D_xx_.size(2); k++ ){
-                        if( std::abs(D_xx_.kelem(i,j,k)) < 0.01 ){
+                        if( !is_in( i, j, k, mat_invrecip_fcc)  ){
                             auto avg = [&]( const auto& D ) -> ccomplex_t{
-                                return 0.5 * ( D.kelem(i,(j+nlattice-1)%nlattice,k) + D.kelem(i,(j+1)%nlattice,k) );
-                            };
-
-                            D_xx_.kelem(i,j,k) = avg( D_xx_ );
-                            D_xy_.kelem(i,j,k) = avg( D_xy_ );
-                            D_xz_.kelem(i,j,k) = avg( D_xz_ );
-                            D_yy_.kelem(i,j,k) = avg( D_yy_ );
-                            D_yz_.kelem(i,j,k) = avg( D_yz_ );
-                            D_zz_.kelem(i,j,k) = avg( D_zz_ );
-                        }
-                    }
-                }
-            }
-            #pragma omp parallel for
-            for( size_t i=0; i<D_xx_.size(0); i++ ){
-                for( size_t j=0; j<D_xx_.size(1); j++ ){
-                    for( size_t k=0; k<D_xx_.size(2); k++ ){
-                        if( std::abs(D_xx_.kelem(i,j,k)) < 0.01 ){
-                            auto avg = [&]( const auto& D ) -> ccomplex_t{
-                                return 0.5 * ( D.kelem((nlattice+i-1)%nlattice,j,k)+ D.kelem((i+1)%nlattice,j,k) );
-                            };
-
+                                if( is_in( (i+1)%nlattice, j, k, mat_invrecip_fcc ) ){
+                                    return 0.5 * ( D.kelem((i+nlattice-1)%nlattice,j,k) + D.kelem((i+1)%nlattice,j,k) );
+                                }else if( is_in( i, (j+1)%nlattice, k, mat_invrecip_fcc ) ){
+                                    return 0.5 * ( D.kelem(i,(j+nlattice-1)%nlattice,k) + D.kelem(i,(j+1)%nlattice,k) );
+                                }//else//
+                                if( k>0 && k< size_t(nlattice/2) ) return 0.5 * ( D.kelem(i,j,k-1) + D.kelem(i,j,k+1) );
+                                if( k==0 ) return D.kelem(i,j,k+1);
+                                return D.kelem(i,j,k-1);
+                            };  
                             D_xx_.kelem(i,j,k) = avg( D_xx_ );
                             D_xy_.kelem(i,j,k) = avg( D_xy_ );
                             D_xz_.kelem(i,j,k) = avg( D_xz_ );
@@ -441,33 +464,62 @@ private:
             for( size_t j=0; j<D_xx_.size(1); j++ ){
                 for( size_t k=0; k<D_xx_.size(2); k++ )
                 {
+                    int ii = (i>size_t(nlattice/2))? int(i)-nlattice : i;
+                    int jj = (j>size_t(nlattice/2))? int(j)-nlattice : j;
+                    
                     vec3<real_t> kv = D_xx_.get_k<real_t>(i,j,k);
                     const real_t kmod  = kv.norm()/mapratio_/boxlen_;
 
                     double mu1 = std::real(D_xx_.kelem(i,j,k));
-                    double mu2 = std::real(D_xy_.kelem(i,j,k));
-                    double mu3 = std::real(D_xz_.kelem(i,j,k));
+                    // double mu2 = std::real(D_xy_.kelem(i,j,k));
+                    // double mu3 = std::real(D_xz_.kelem(i,j,k));
 
-                    vec<real_t> evec1({std::real(D_yy_.kelem(i,j,k)),std::real(D_yz_.kelem(i,j,k)),std::real(D_zz_.kelem(i,j,k))})
- 
-                    // store in diagonal components of D_ij
-                    D_xx_.kelem(i,j,k) =  ccomplex_t(0.0,kmod) * evec1.x;
-                    D_yy_.kelem(i,j,k) =  ccomplex_t(0.0,kmod) * evec1.y;
-                    D_zz_.kelem(i,j,k) =  ccomplex_t(0.0,kmod) * evec1.z;
+                    vec3<real_t> evec1({std::real(D_yy_.kelem(i,j,k)),std::real(D_yz_.kelem(i,j,k)),std::real(D_zz_.kelem(i,j,k))});
+                    evec1 /= evec1.norm();
 
-                    auto norm = (kv.norm()/kv.dot(evec1));
-                    if ( std::abs(kv.dot(evec1)) < 1e-10 || kv.norm() < 1e-10 ) norm = 0.0;
+                    if(std::abs(ii)+std::abs(jj)+k<8){
+                        // small k modes, use usual pseudospectral derivative
+                        // -- store in diagonal components of D_ij
+                        D_xx_.kelem(i,j,k) = ccomplex_t(0.0,kv.x/mapratio_/boxlen_);
+                        D_yy_.kelem(i,j,k) = ccomplex_t(0.0,kv.y/mapratio_/boxlen_);
+                        D_zz_.kelem(i,j,k) = ccomplex_t(0.0,kv.z/mapratio_/boxlen_);
 
-                    D_xx_.kelem(i,j,k) *= norm;
-                    D_yy_.kelem(i,j,k) *= norm;
-                    D_zz_.kelem(i,j,k) *= norm;
+                        // spatially dependent correction to vfact = \dot{D_+}/D_+
+                        D_xy_.kelem(i,j,k) = 1.0;
+                    }else{
+                        // large k modes, use interpolated PLT results
+                        // -- store in diagonal components of D_ij
+                        D_xx_.kelem(i,j,k) =  ccomplex_t(0.0,evec1.x * kmod);
+                        D_yy_.kelem(i,j,k) =  ccomplex_t(0.0,evec1.y * kmod);
+                        D_zz_.kelem(i,j,k) =  ccomplex_t(0.0,evec1.z * kmod);
 
-                    // spatially dependent correction to vfact = \dot{D_+}/D_+
-                    D_xy_.kelem(i,j,k) = 1.0/(0.25*(std::sqrt(1.+24*mu1)-1.));
+                        // re-normalise to that longitudinal amplitude is exact
+                        auto kv_dot_e1 = (kv.norm()>1e-8)?kv.dot(evec1):kv.norm();
+                        auto norm = (kv.norm()/kv_dot_e1);
+                        D_xx_.kelem(i,j,k) *= norm;
+                        D_yy_.kelem(i,j,k) *= norm;
+                        D_zz_.kelem(i,j,k) *= norm;
+
+                        // spatially dependent correction to vfact = \dot{D_+}/D_+
+                        D_xy_.kelem(i,j,k) = 1.0/(0.25*(std::sqrt(1.+24*mu1)-1.));
+                    }
+                    if( i==size_t(nlattice/2) ) D_xx_.kelem(i,j,k)=0.0;
+                    if( j==size_t(nlattice/2) ) D_yy_.kelem(i,j,k)=0.0;
+                    if( k==size_t(nlattice/2) ) D_zz_.kelem(i,j,k)=0.0;
                 }
             }
         }
         D_xy_.kelem(0,0,0) = 1.0;
+        D_xx_.kelem(0,0,0) = 0.0;
+        D_yy_.kelem(0,0,0) = 0.0;
+        D_zz_.kelem(0,0,0) = 0.0;
+
+        // unlink("debug.hdf5");
+        // D_xy_.Write_to_HDF5("debug.hdf5","mu1");
+        // D_xx_.Write_to_HDF5("debug.hdf5","e1x");
+        // D_yy_.Write_to_HDF5("debug.hdf5","e1y");
+        // D_zz_.Write_to_HDF5("debug.hdf5","e1z");
+
 #else
         D_xx_.Write_to_HDF5("debug.hdf5","mu1");
         D_xy_.Write_to_HDF5("debug.hdf5","mu2");
@@ -475,10 +527,7 @@ private:
         D_yy_.Write_to_HDF5("debug.hdf5","e1x");
         D_yz_.Write_to_HDF5("debug.hdf5","e1y");
         D_zz_.Write_to_HDF5("debug.hdf5","e1z");
-#endif
-
-        
-        
+#endif   
     }
 
     void init_D__old()

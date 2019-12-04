@@ -51,9 +51,6 @@ public:
     // assignment operator
     vec3<T>& operator=( const vec3<T>& v ) noexcept { data_=v.data_; return *this; }
 
-    // assignment operator
-    const vec3<T>& operator=( const vec3<T>& v ) const noexcept{ data_=v.data_; return *this; }
-
     //! implementation of summation of vec3
     vec3<T> operator+( const vec3<T>& v ) const noexcept{ return vec3<T>({x+v.x,y+v.y,z+v.z}); }
 
@@ -70,14 +67,17 @@ public:
     vec3<T> operator/( T s ) const noexcept{ return vec3<T>({x/s,y/s,z/s}); }
 
     //! implementation of += operator
-    vec3<T>& operator+=( const vec3<T>& v ) const noexcept{ x+=v.x; y+=v.y; z+=v.z; return *this; }
+    vec3<T>& operator+=( const vec3<T>& v ) noexcept{ x+=v.x; y+=v.y; z+=v.z; return *this; }
 
     //! implementation of -= operator
-    vec3<T>& operator-=( const vec3<T>& v ) const noexcept{ x-=v.x; y-=v.y; z-=v.z; return *this; }
+    vec3<T>& operator-=( const vec3<T>& v ) noexcept{ x-=v.x; y-=v.y; z-=v.z; return *this; }
 
     //! multiply with scalar
-    vec3<T>& operator*=( T s ) const noexcept{ x*=s; y*=s; z*=s; return *this; }
+    vec3<T>& operator*=( T s ) noexcept{ x*=s; y*=s; z*=s; return *this; }
     
+    //! divide by scalar
+    vec3<T>& operator/=( T s ) noexcept{ x/=s; y/=s; z/=s; return *this; }
+
     //! compute dot product with another vector
     T dot(const vec3<T> &a) const noexcept
     {

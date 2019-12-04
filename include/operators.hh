@@ -28,13 +28,13 @@ inline auto subtract_twice_from( field& g ){return [&g](auto i, auto v){ g[i] -=
 class fourier_gradient{
 private:
     real_t boxlen_, k0_;
-    ptrdiff_t n_, nhalf_;
+    size_t n_, nhalf_;
 public:
     explicit fourier_gradient( const ConfigFile& the_config )
     : boxlen_( the_config.GetValue<double>("setup", "BoxLength") ), 
+      k0_(2.0*M_PI/boxlen_),
       n_( the_config.GetValue<size_t>("setup","GridRes") ),
-      nhalf_( n_/2 ),
-      k0_(2.0*M_PI/boxlen_)
+      nhalf_( n_/2 )
     {}
 
     inline ccomplex_t gradient( const int idim, std::array<size_t,3> ijk ) const
