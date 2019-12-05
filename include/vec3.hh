@@ -101,6 +101,14 @@ public:
         for( auto& x : data_ ) x = (x<-p/2)? x+p : (x>=p/2)? x-p : x;
         return *this;
     }
+
+    //! ordering, allows 3d sorting of vec3s
+    bool operator<( const vec3<T>& o ) const noexcept{
+        if( x!=o.x ) return x<o.x?true:false;
+        if( y!=o.y ) return y<o.y?true:false;
+        if( z!=o.z ) return z<o.z?true:false;
+        return false;
+    }
 };
 
 //! multiplication with scalar

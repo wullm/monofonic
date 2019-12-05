@@ -7,6 +7,7 @@
 #include <fstream>
 
 #include <random>
+#include <map>
 
 #include <particle_generator.hh>
 #include <grid_fft.hh>
@@ -15,7 +16,7 @@
 #define PRODUCTION
 
 namespace particle{
-//! implement Marcos et al. PLT calculation
+//! implement Joyce, Marcos et al. PLT calculation
 
 class lattice_gradient{
 private:
@@ -271,189 +272,161 @@ private:
 
         std::ofstream ofs2("test_brillouin.txt");
 #endif
-        {
-            //!=== Make temporary copies before resorting to std. Fourier grid ========!//
-            Grid_FFT<real_t,false> 
-                temp1({ngrid_, ngrid_, ngrid_}, {1.0,1.0,1.0}),
-                temp2({ngrid_, ngrid_, ngrid_}, {1.0,1.0,1.0}),
-                temp3({ngrid_, ngrid_, ngrid_}, {1.0,1.0,1.0});
-
-            temp1.FourierTransformForward(false);
-            temp2.FourierTransformForward(false);
-            temp3.FourierTransformForward(false);
+        using map_t = std::map<vec3<int>,size_t>;
+        map_t iimap;
             
-            #pragma omp parallel for
+        //!=== Make temporary copies before resorting to std. Fourier grid ========!//
+        Grid_FFT<real_t,false> 
+            temp1({ngrid_, ngrid_, ngrid_}, {1.0,1.0,1.0}),
+            temp2({ngrid_, ngrid_, ngrid_}, {1.0,1.0,1.0}),
+            temp3({ngrid_, ngrid_, ngrid_}, {1.0,1.0,1.0});
+
+        temp1.FourierTransformForward(false);
+        temp2.FourierTransformForward(false);
+        temp3.FourierTransformForward(false);
+            
+        #pragma omp parallel for
+        for( size_t i=0; i<D_xx_.size(0); i++ )
+        {
+            for( size_t j=0; j<D_xx_.size(1); j++ )
+            {
+                for( size_t k=0; k<D_xx_.size(2); k++ )
+                {
+                    temp1.kelem(i,j,k) = ccomplex_t(std::real(D_xx_.kelem(i,j,k)),std::real(D_xy_.kelem(i,j,k)));
+                    temp2.kelem(i,j,k) = ccomplex_t(std::real(D_xz_.kelem(i,j,k)),std::real(D_yy_.kelem(i,j,k)));
+                    temp3.kelem(i,j,k) = ccomplex_t(std::real(D_yz_.kelem(i,j,k)),std::real(D_zz_.kelem(i,j,k)));
+                }
+            }
+        }
+        D_xx_.zero(); D_xy_.zero(); D_xz_.zero();
+        D_yy_.zero(); D_yz_.zero(); D_zz_.zero();
+
+        
+        //!=== Diagonalise and resort to std. Fourier grid ========!//
+        #pragma omp parallel 
+        {
+            // thread private matrix representation
+            mat3<real_t> D;
+            vec3<real_t> eval, evec1, evec2, evec3;
+
+            #pragma omp for
             for( size_t i=0; i<D_xx_.size(0); i++ )
             {
                 for( size_t j=0; j<D_xx_.size(1); j++ )
                 {
                     for( size_t k=0; k<D_xx_.size(2); k++ )
                     {
-                        temp1.kelem(i,j,k) = ccomplex_t(std::real(D_xx_.kelem(i,j,k)),std::real(D_xy_.kelem(i,j,k)));
-                        temp2.kelem(i,j,k) = ccomplex_t(std::real(D_xz_.kelem(i,j,k)),std::real(D_yy_.kelem(i,j,k)));
-                        temp3.kelem(i,j,k) = ccomplex_t(std::real(D_yz_.kelem(i,j,k)),std::real(D_zz_.kelem(i,j,k)));
-                    }
-                }
-            }
-            D_xx_.zero(); D_xy_.zero(); D_xz_.zero();
-            D_yy_.zero(); D_yz_.zero(); D_zz_.zero();
-            
-            //!=== Diagonalise and resort to std. Fourier grid ========!//
-            #pragma omp parallel 
-            {
-                // thread private matrix representation
-                mat3<real_t> D;
-                vec3<real_t> eval, evec1, evec2, evec3;
+                        vec3<real_t> kv = D_xx_.get_k<real_t>(i,j,k);
+                        
+                        // put matrix elements into actual matrix
+                        D(0,0) = std::real(temp1.kelem(i,j,k)) / fft_norm12;
+                        D(0,1) = D(1,0) = std::imag(temp1.kelem(i,j,k)) / fft_norm12;
+                        D(0,2) = D(2,0) = std::real(temp2.kelem(i,j,k)) / fft_norm12;
+                        D(1,1) = std::imag(temp2.kelem(i,j,k)) / fft_norm12;
+                        D(1,2) = D(2,1) = std::real(temp3.kelem(i,j,k)) / fft_norm12;
+                        D(2,2) = std::imag(temp3.kelem(i,j,k)) / fft_norm12;
 
-                #pragma omp for
-                for( size_t i=0; i<D_xx_.size(0); i++ )
-                {
-                    for( size_t j=0; j<D_xx_.size(1); j++ )
-                    {
-                        for( size_t k=0; k<D_xx_.size(2); k++ )
-                        {
-                            vec3<real_t> kv = D_xx_.get_k<real_t>(i,j,k);
-                            
-                            // put matrix elements into actual matrix
-                            D(0,0) = std::real(temp1.kelem(i,j,k)) / fft_norm12;
-                            D(0,1) = D(1,0) = std::imag(temp1.kelem(i,j,k)) / fft_norm12;
-                            D(0,2) = D(2,0) = std::real(temp2.kelem(i,j,k)) / fft_norm12;
-                            D(1,1) = std::imag(temp2.kelem(i,j,k)) / fft_norm12;
-                            D(1,2) = D(2,1) = std::real(temp3.kelem(i,j,k)) / fft_norm12;
-                            D(2,2) = std::imag(temp3.kelem(i,j,k)) / fft_norm12;
+                        // compute eigenstructure of matrix
+                        D.eigen(eval, evec1, evec2, evec3);
+                        evec3 /= (twopi*ngrid_);
 
-                            // compute eigenstructure of matrix
-                            D.eigen(eval, evec1, evec2, evec3);
-                            evec3 /= (twopi*ngrid_);
-
-                            // now determine to which modes on the regular lattice this contributes
-                            vec3<real_t> ar1 = kv / (twopi*ngrid_);
-                            vec3<real_t> ar2 = -kv / (twopi*ngrid_);
-                            
-                            vec3<real_t> a1(mat_reciprocal * ar1);
-                            vec3<real_t> a2(mat_reciprocal * ar2);
-
-                            // translate the k-vectors into the "candidate" FBZ
-                            for( int l1=-numb; l1<=numb; ++l1 ){
-                                for( int l2=-numb; l2<=numb; ++l2 ){
-                                    for( int l3=-numb; l3<=numb; ++l3 ){
+                        // now determine to which modes on the regular lattice this contributes
+                        vec3<real_t> ar = kv / (twopi*ngrid_);
+                        vec3<real_t> a(mat_reciprocal * ar);
+                        
+                        // translate the k-vectors into the "candidate" FBZ
+                        for( int l1=-numb; l1<=numb; ++l1 ){
+                            for( int l2=-numb; l2<=numb; ++l2 ){
+                                for( int l3=-numb; l3<=numb; ++l3 ){
+                                    // need both halfs of Fourier space since we use real transforms
+                                    for( int isign=0; isign<=1; ++isign ){
+                                        real_t sign = (isign==0)? +1.0 : -1.0;
                                         const vec3<real_t> vshift({real_t(l1),real_t(l2),real_t(l3)});
 
-                                        // first half of Fourier space (due to real trafo we only have half in memory)
-                                        vec3<real_t> vectk = a1 + mat_reciprocal * vshift;
+                                        vec3<real_t> vectk = sign * a + mat_reciprocal * vshift;
 
                                         if( check_FBZ( normals, vectk ) )
                                         {
                                             int ix = std::round(vectk.x*(ngrid_)/twopi);
                                             int iy = std::round(vectk.y*(ngrid_)/twopi);
                                             int iz = std::round(vectk.z*(ngrid_)/twopi);
-                                            if( ix > -nlattice/2 && iy > -nlattice/2 && iz >= 0 &&
-                                                ix <= nlattice/2 && iy <= nlattice/2 && iz <= nlattice/2){
-                                                    ix = (ix<0)? ix+nlattice : ix;
-                                                    iy = (iy<0)? iy+nlattice : iy;
-                                                    real_t sign = (evec3.dot(vectk) >= 0.0)?1.0:-1.0;
-                                                    D_xx_.kelem(ix,iy,iz) = eval[2];
-                                                    D_xy_.kelem(ix,iy,iz) = eval[1];
-                                                    D_xz_.kelem(ix,iy,iz) = eval[0];
-                                                    D_yy_.kelem(ix,iy,iz) = evec3.x*sign;
-                                                    D_yz_.kelem(ix,iy,iz) = evec3.y*sign;
-                                                    D_zz_.kelem(ix,iy,iz) = evec3.z*sign;
-                                            }
+
+                                            #pragma omp critical
+                                            {iimap.insert( std::pair<vec3<int>,size_t>({ix,iy,iz}, D_xx_.get_idx(i,j,k)) );}
+
+                                            temp1.kelem(i,j,k) = ccomplex_t(eval[2],eval[1]);
+                                            temp2.kelem(i,j,k) = ccomplex_t(eval[0],evec3.x);
+                                            temp3.kelem(i,j,k) = ccomplex_t(evec3.y,evec3.z);
                                         }
-                                        // second half of Fourier space (due to real trafo we only have half in memory)
-                                        vectk = a2 + mat_reciprocal * vshift;
-
-                                        if( check_FBZ( normals, vectk ) )
-                                        {
-                                            int ix = std::round(vectk.x*(ngrid_)/twopi);
-                                            int iy = std::round(vectk.y*(ngrid_)/twopi);
-                                            int iz = std::round(vectk.z*(ngrid_)/twopi);
-                                            if( ix > -nlattice/2 && iy > -nlattice/2 && iz >= 0 &&
-                                                ix <= nlattice/2 && iy <= nlattice/2 && iz <= nlattice/2){
-                                                    ix = (ix<0)? ix+nlattice : ix;
-                                                    iy = (iy<0)? iy+nlattice : iy;
-                                                    real_t sign = (evec3.dot(vectk) >= 0.0)?1.0:-1.0;
-                                                    D_xx_.kelem(ix,iy,iz) = eval[2];
-                                                    D_xy_.kelem(ix,iy,iz) = eval[1];
-                                                    D_xz_.kelem(ix,iy,iz) = eval[0];
-                                                    D_yy_.kelem(ix,iy,iz) = evec3.x*sign;
-                                                    D_yz_.kelem(ix,iy,iz) = evec3.y*sign;
-                                                    D_zz_.kelem(ix,iy,iz) = evec3.z*sign;
-                                            }
-                                        }
-                                    } //l3
-                                } //l2
-                            } //l1
-                        } //k
-                    } //j
-                } //i
-            }
-
-            D_xx_.kelem(0,0,0) = 1.0;
-            D_xy_.kelem(0,0,0) = 0.0;
-            D_xz_.kelem(0,0,0) = 0.0;
-
-            D_yy_.kelem(0,0,0) = 1.0;
-            D_yz_.kelem(0,0,0) = 0.0;
-            D_zz_.kelem(0,0,0) = 0.0;
+                                    }//sign
+                                } //l3
+                            } //l2
+                        } //l1
+                    } //k
+                } //j
+            } //i
         }
 
+        D_xx_.kelem(0,0,0) = 1.0;
+        D_xy_.kelem(0,0,0) = 0.0;
+        D_xz_.kelem(0,0,0) = 0.0;
+
+        D_yy_.kelem(0,0,0) = 1.0;
+        D_yz_.kelem(0,0,0) = 0.0;
+        D_zz_.kelem(0,0,0) = 0.0;
+
         //... approximate infinite lattice by inerpolating to sites not convered by current resolution...
-        if( ilat==1 ){
-            #pragma omp parallel for
-            for( size_t i=0; i<D_xx_.size(0); i++ ){
-                for( size_t j=0; j<D_xx_.size(1); j++ ){
-                    for( size_t k=0; k<D_xx_.size(2); k++ ){
-                        if( !is_in(i,j,k,mat_invrecip_bcc)  ){
-                            auto avg = [&]( const auto& D ) -> ccomplex_t {
-                                if( k>0 && k< size_t(nlattice/2) ) return 1.0/6.0 * (
-                                        D.kelem((i+nlattice-1)%nlattice,j,k)+ D.kelem((i+1)%nlattice,j,k)
-                                        + D.kelem(i,(j+nlattice-1)%nlattice,k) + D.kelem(i,(j+1)%nlattice,k) 
-                                        + D.kelem(i,j,k-1) + D.kelem(i,j,k+1) );
-                                if( k==0 ) return 1.0/6.0 * (
-                                        D.kelem((i+nlattice-1)%nlattice,j,k)+ D.kelem((i+1)%nlattice,j,k)
-                                        + D.kelem(i,(j+nlattice-1)%nlattice,k) + D.kelem(i,(j+1)%nlattice,k) 
-                                        + D.kelem(i,j,k+1) + D.kelem(i,j,k+1) );
-                                return 1.0/6.0 * (
-                                        D.kelem((i+nlattice-1)%nlattice,j,k)+ D.kelem((i+1)%nlattice,j,k)
-                                        + D.kelem(i,(j+nlattice-1)%nlattice,k) + D.kelem(i,(j+1)%nlattice,k) 
-                                        + D.kelem(i,j,k-1) + D.kelem(i,j,k-1) );
+        #pragma omp parallel for
+        for( size_t i=0; i<D_xx_.size(0); i++ ){
+            for( size_t j=0; j<D_xx_.size(1); j++ ){
+                for( size_t k=0; k<D_xx_.size(2); k++ ){
+                    int ii = (int(i)>nlattice/2)? int(i)-nlattice : int(i);
+                    int jj = (int(j)>nlattice/2)? int(j)-nlattice : int(j);
+                    int kk = (int(k)>nlattice/2)? int(k)-nlattice : int(k);
+                    vec3<real_t> kv({real_t(ii),real_t(jj),real_t(kk)});
+
+                    auto align_with_k = [&]( const vec3<real_t>& v ) -> vec3<real_t>{
+                        return v*((v.dot(kv)<0.0)?-1.0:1.0);
+                    };
+
+                    vec3<real_t> v, l;
+                    map_t::iterator it;
+                    
+                    if( !is_in(i,j,k,mat_invrecip)  ){
+                        auto average_lv = [&]( const auto& t1, const auto& t2, const auto& t3, vec3<real_t>& v, vec3<real_t>& l ) {
+                            v = 0.0; l = 0.0;
+                            int count(0);
+                            
+                            auto add_lv = [&]( auto it ) -> void {
+                                auto q = it->second;++count;
+                                l += vec3<real_t>({std::real(t1.kelem(q)),std::imag(t1.kelem(q)),std::real(t2.kelem(q))});
+                                v += align_with_k(vec3<real_t>({std::imag(t2.kelem(q)),std::real(t3.kelem(q)),std::imag(t3.kelem(q))}));
                             };
+                            map_t::iterator it;
+                            if( (it = iimap.find({ii-1,jj,kk}))!=iimap.end() ){ add_lv(it); }
+                            if( (it = iimap.find({ii+1,jj,kk}))!=iimap.end() ){ add_lv(it); }
+                            if( (it = iimap.find({ii,jj-1,kk}))!=iimap.end() ){ add_lv(it); }
+                            if( (it = iimap.find({ii,jj+1,kk}))!=iimap.end() ){ add_lv(it); }
+                            if( (it = iimap.find({ii,jj,kk-1}))!=iimap.end() ){ add_lv(it); }
+                            if( (it = iimap.find({ii,jj,kk+1}))!=iimap.end() ){ add_lv(it); }
+                            l/=real_t(count); v/=real_t(count);
+                        };
                         
-                            D_xx_.kelem(i,j,k) = avg( D_xx_ );
-                            D_xy_.kelem(i,j,k) = avg( D_xy_ );
-                            D_xz_.kelem(i,j,k) = avg( D_xz_ );
-                            D_yy_.kelem(i,j,k) = avg( D_yy_ );
-                            D_yz_.kelem(i,j,k) = avg( D_yz_ );
-                            D_zz_.kelem(i,j,k) = avg( D_zz_ );
+                        average_lv(temp1,temp2,temp3,v,l);
+                        
+                    }else{
+                        if( (it = iimap.find({ii,jj,kk}))!=iimap.end() ){
+                            auto q = it->second;
+                            l = vec3<real_t>({std::real(temp1.kelem(q)),std::imag(temp1.kelem(q)),std::real(temp2.kelem(q))});
+                            v = align_with_k(vec3<real_t>({std::imag(temp2.kelem(q)),std::real(temp3.kelem(q)),std::imag(temp3.kelem(q))}));
                         }
                     }
-                }
-            }
-        }else if( ilat==2 ){
-            #pragma omp parallel for
-            for( size_t i=0; i<D_xx_.size(0); i++ ){
-                for( size_t j=0; j<D_xx_.size(1); j++ ){
-                    for( size_t k=0; k<D_xx_.size(2); k++ ){
-                        if( !is_in( i, j, k, mat_invrecip_fcc)  ){
-                            auto avg = [&]( const auto& D ) -> ccomplex_t{
-                                if( is_in( (i+1)%nlattice, j, k, mat_invrecip_fcc ) ){
-                                    return 0.5 * ( D.kelem((i+nlattice-1)%nlattice,j,k) + D.kelem((i+1)%nlattice,j,k) );
-                                }else if( is_in( i, (j+1)%nlattice, k, mat_invrecip_fcc ) ){
-                                    return 0.5 * ( D.kelem(i,(j+nlattice-1)%nlattice,k) + D.kelem(i,(j+1)%nlattice,k) );
-                                }//else//
-                                if( k>0 && k< size_t(nlattice/2) ) return 0.5 * ( D.kelem(i,j,k-1) + D.kelem(i,j,k+1) );
-                                if( k==0 ) return D.kelem(i,j,k+1);
-                                return D.kelem(i,j,k-1);
-                            };  
-                            D_xx_.kelem(i,j,k) = avg( D_xx_ );
-                            D_xy_.kelem(i,j,k) = avg( D_xy_ );
-                            D_xz_.kelem(i,j,k) = avg( D_xz_ );
-                            D_yy_.kelem(i,j,k) = avg( D_yy_ );
-                            D_yz_.kelem(i,j,k) = avg( D_yz_ );
-                            D_zz_.kelem(i,j,k) = avg( D_zz_ );
-                        }
-                    }
+                    D_xx_.kelem(i,j,k) = l[0];
+                    D_xy_.kelem(i,j,k) = l[1];
+                    D_xz_.kelem(i,j,k) = l[2];
+                    D_yy_.kelem(i,j,k) = v[0];
+                    D_yz_.kelem(i,j,k) = v[1];
+                    D_zz_.kelem(i,j,k) = v[2];
                 }
             }
         }
@@ -494,8 +467,7 @@ private:
                         D_zz_.kelem(i,j,k) =  ccomplex_t(0.0,evec1.z * kmod);
 
                         // re-normalise to that longitudinal amplitude is exact
-                        auto kv_dot_e1 = (kv.norm()>1e-8)?kv.dot(evec1):kv.norm();
-                        auto norm = (kv.norm()/kv_dot_e1);
+                        auto norm = (kv.norm()/kv.dot(evec1));
                         D_xx_.kelem(i,j,k) *= norm;
                         D_yy_.kelem(i,j,k) *= norm;
                         D_zz_.kelem(i,j,k) *= norm;
@@ -503,9 +475,9 @@ private:
                         // spatially dependent correction to vfact = \dot{D_+}/D_+
                         D_xy_.kelem(i,j,k) = 1.0/(0.25*(std::sqrt(1.+24*mu1)-1.));
                     }
-                    if( i==size_t(nlattice/2) ) D_xx_.kelem(i,j,k)=0.0;
-                    if( j==size_t(nlattice/2) ) D_yy_.kelem(i,j,k)=0.0;
-                    if( k==size_t(nlattice/2) ) D_zz_.kelem(i,j,k)=0.0;
+                    // if( i==size_t(nlattice/2) ) D_xx_.kelem(i,j,k)=0.0;
+                    // if( j==size_t(nlattice/2) ) D_yy_.kelem(i,j,k)=0.0;
+                    // if( k==size_t(nlattice/2) ) D_zz_.kelem(i,j,k)=0.0;
                 }
             }
         }
