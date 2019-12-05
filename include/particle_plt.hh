@@ -475,9 +475,9 @@ private:
                         // spatially dependent correction to vfact = \dot{D_+}/D_+
                         D_xy_.kelem(i,j,k) = 1.0/(0.25*(std::sqrt(1.+24*mu1)-1.));
                     }
-                    // if( i==size_t(nlattice/2) ) D_xx_.kelem(i,j,k)=0.0;
-                    // if( j==size_t(nlattice/2) ) D_yy_.kelem(i,j,k)=0.0;
-                    // if( k==size_t(nlattice/2) ) D_zz_.kelem(i,j,k)=0.0;
+                    if( i==size_t(nlattice/2) ) D_xx_.kelem(i,j,k)=0.0;
+                    if( j==size_t(nlattice/2) ) D_yy_.kelem(i,j,k)=0.0;
+                    if( k==size_t(nlattice/2) ) D_zz_.kelem(i,j,k)=0.0;
                 }
             }
         }
