@@ -176,14 +176,12 @@ private:
 
         //! checks if 'vec' is in the FBZ with FBZ normal vectors given in 'normals'
         auto check_FBZ = []( const auto& normals, const auto& vec ) -> bool {
-            bool btest = true;
             for( const auto& n : normals ){ 
                 if( n.dot( vec ) > 1.0001 * n.dot(n) ){
-                    btest = false;
-                    break;
+                    return false;
                 }
             }
-            return btest;
+            return true;
         };
         
         constexpr ptrdiff_t lnumber = 3, knumber = 3;
@@ -340,7 +338,7 @@ private:
                                 for( int l3=-numb; l3<=numb; ++l3 ){
                                     // need both halfs of Fourier space since we use real transforms
                                     for( int isign=0; isign<=1; ++isign ){
-                                        real_t sign = (isign==0)? +1.0 : -1.0;
+                                        const real_t sign = 2.0*real_t(isign)-1.0; 
                                         const vec3<real_t> vshift({real_t(l1),real_t(l2),real_t(l3)});
 
                                         vec3<real_t> vectk = sign * a + mat_reciprocal * vshift;
