@@ -51,7 +51,9 @@ endif(ENABLE_MPI)
 
 ########################################################################################################################
 # FFTW
-cmake_policy(SET CMP0074 NEW)
+if(POLICY CMP0074)
+    cmake_policy(SET CMP0074 NEW)
+endif()
 if(ENABLE_MPI)
   find_package(FFTW3 COMPONENTS SINGLE DOUBLE OPENMP THREADS MPI)
 else()
