@@ -70,6 +70,18 @@ int Run( ConfigFile& the_config )
     //--------------------------------------------------------------------------------------------------------
     //! do baryon ICs?
     const bool bDoBaryons = the_config.GetValueSafe<bool>("setup", "DoBaryons", false );
+    std::map< cosmo_species, double > Omega;
+    if( bDoBaryons ){
+        double Om = the_config.GetValue<double>("cosmology", "Omega_m");
+        double Ob = the_config.GetValue<double>("cosmology", "Omega_b");
+        Omega[cosmo_species::dm] = Om-Ob;
+        Omega[cosmo_species::baryon] = Ob;
+    }else{
+        double Om = the_config.GetValue<double>("cosmology", "Omega_m");
+        double Ob = the_config.GetValue<double>("cosmology", "Omega_b");
+        Omega[cosmo_species::dm] = Om;
+        Omega[cosmo_species::baryon] = 0.0;
+    }
 
     //--------------------------------------------------------------------------------------------------------
     //! add beyond box tidal field modes following Schmidt et al. (2018) [https://arxiv.org/abs/1803.03274]
@@ -440,6 +452,9 @@ int Run( ConfigFile& the_config )
                 //===================================================================================
                 particle::container particles;
 
+                bool shifted_lattice = (this_species == cosmo_species::baryon &&
+                                        the_output_plugin->write_species_as(this_species) == output_type::particles) ? true : false;
+
                 // if output plugin wants particles, then we need to store them, along with their IDs
                 if( the_output_plugin->write_species_as( this_species ) == output_type::particles )
                 {
@@ -472,7 +487,7 @@ int Run( ConfigFile& the_config )
                     // if we write particle data, store particle data in particle structure
                     if( the_output_plugin->write_species_as( this_species ) == output_type::particles )
                     {
-                        particle::set_positions( particles, lattice_type, idim, lunit, the_output_plugin->has_64bit_reals(), tmp );
+                        particle::set_positions( particles, lattice_type, shifted_lattice, idim, lunit, the_output_plugin->has_64bit_reals(), tmp );
                     } 
                     // otherwise write out the grid data directly to the output plugin
                     // else if( the_output_plugin->write_species_as( cosmo_species::dm ) == output_type::field_lagrangian )
@@ -518,7 +533,7 @@ int Run( ConfigFile& the_config )
                     // if we write particle data, store particle data in particle structure
                     if( the_output_plugin->write_species_as( this_species ) == output_type::particles )
                     {
-                        particle::set_velocities( particles, lattice_type, idim, the_output_plugin->has_64bit_reals(), tmp );
+                        particle::set_velocities( particles, lattice_type, shifted_lattice, idim, the_output_plugin->has_64bit_reals(), tmp );
                     }
                     // otherwise write out the grid data directly to the output plugin
                     else if( the_output_plugin->write_species_as( this_species ) == output_type::field_lagrangian )
@@ -530,7 +545,7 @@ int Run( ConfigFile& the_config )
 
                 if( the_output_plugin->write_species_as( this_species ) == output_type::particles )
                 {
-                    the_output_plugin->write_particle_data( particles, this_species );
+                    the_output_plugin->write_particle_data( particles, this_species, Omega[this_species] );
                 }
                 
                 if( the_output_plugin->write_species_as( this_species ) == output_type::field_lagrangian )

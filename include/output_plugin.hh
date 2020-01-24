@@ -45,7 +45,7 @@ public:
 	virtual ~output_plugin(){}
 
 	//! routine to write particle data for a species
-	virtual void write_particle_data(const particle::container &pc, const cosmo_species &s ) {};
+	virtual void write_particle_data(const particle::container &pc, const cosmo_species &s, double Omega_species ) {};
 
 	//! routine to write gridded fluid component data for a species
 	virtual void write_grid_data(const Grid_FFT<real_t> &g, const cosmo_species &s, const fluid_component &c ) {};

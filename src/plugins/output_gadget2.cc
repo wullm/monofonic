@@ -3,7 +3,7 @@
 
 constexpr int empty_fill_bytes{56};
 
-template<typename write_real_t>
+template <typename write_real_t>
 class gadget2_output_plugin : public output_plugin
 {
 public:
@@ -38,40 +38,44 @@ protected:
 
 public:
 	//! constructor
-	explicit gadget2_output_plugin(ConfigFile &cf )
-	: output_plugin(cf, "GADGET-2")
+	explicit gadget2_output_plugin(ConfigFile &cf)
+			: output_plugin(cf, "GADGET-2")
 	{
 		num_files_ = 1;
 #ifdef USE_MPI
 		// use as many output files as we have MPI tasks
 		MPI_Comm_size(MPI_COMM_WORLD, &num_files_);
 #endif
-		real_t astart = 1.0/(1.0+cf_.GetValue<double>("setup", "zstart"));
+		real_t astart = 1.0 / (1.0 + cf_.GetValue<double>("setup", "zstart"));
 		lunit_ = cf_.GetValue<double>("setup", "BoxLength");
 		vunit_ = lunit_ / std::sqrt(astart);
-		blongids_ = cf_.GetValueSafe<bool>("output","UseLongids",false);
+		blongids_ = cf_.GetValueSafe<bool>("output", "UseLongids", false);
 	}
 
-    output_type write_species_as( const cosmo_species & ) const { return output_type::particles; }
+	output_type write_species_as(const cosmo_species &) const { return output_type::particles; }
 
 	real_t position_unit() const { return lunit_; }
 
 	real_t velocity_unit() const { return vunit_; }
 
-	bool has_64bit_reals() const{
-		if( typeid(write_real_t)==typeid(double) ) return true;
-		return false;
-	}
-
-	bool has_64bit_ids() const{
-		if( blongids_ ) return true;
-		return false;
-	}
-
-	void write_particle_data(const particle::container &pc, const cosmo_species &s )
+	bool has_64bit_reals() const
 	{
-			// fill the Gadget-2 header
-		memset(reinterpret_cast<void*>(&this_header_),0,sizeof(header));
+		if (typeid(write_real_t) == typeid(double))
+			return true;
+		return false;
+	}
+
+	bool has_64bit_ids() const
+	{
+		if (blongids_)
+			return true;
+		return false;
+	}
+
+	void write_particle_data(const particle::container &pc, const cosmo_species &s, double Omega_species)
+	{
+		// fill the Gadget-2 header
+		memset(reinterpret_cast<void *>(&this_header_), 0, sizeof(header));
 
 		for (int i = 0; i < 6; ++i)
 		{
@@ -113,15 +117,15 @@ public:
 
 		//... set masses
 		double rhoc = 27.7519737; // in h^2 1e10 M_sol / Mpc^3
-		double boxmass = this_header_.Omega0 * rhoc * std::pow(this_header_.BoxSize,3);
+		double boxmass = Omega_species * rhoc * std::pow(this_header_.BoxSize, 3);
 		this_header_.mass[1] = boxmass / pc.get_global_num_particles();
-	
+
 		std::string fname = fname_;
 		int thisrank = 0;
-		
+
 #ifdef USE_MPI
-		MPI_Comm_rank(MPI_COMM_WORLD,&thisrank);
-		if( num_files_ > 1 )
+		MPI_Comm_rank(MPI_COMM_WORLD, &thisrank);
+		if (num_files_ > 1)
 			fname += "." + std::to_string(thisrank);
 #endif
 		uint32_t blocksz;
@@ -130,52 +134,56 @@ public:
 		csoca::ilog << "Writer \'" << this->interface_name_ << "\' : Writing data for " << pc.get_global_num_particles() << " particles." << std::endl;
 
 		blocksz = sizeof(header);
-		ofs.write( reinterpret_cast<char*>(&blocksz), sizeof(uint32_t) );
-		ofs.write( reinterpret_cast<char*>(&this_header_), sizeof(header) );
-		ofs.write( reinterpret_cast<char*>(&blocksz), sizeof(uint32_t) );
-		
-		// we write double precision 
-		if( this->has_64bit_reals() ){
+		ofs.write(reinterpret_cast<char *>(&blocksz), sizeof(uint32_t));
+		ofs.write(reinterpret_cast<char *>(&this_header_), sizeof(header));
+		ofs.write(reinterpret_cast<char *>(&blocksz), sizeof(uint32_t));
+
+		// we write double precision
+		if (this->has_64bit_reals())
+		{
 			blocksz = 3 * sizeof(double) * pc.get_local_num_particles();
-			ofs.write( reinterpret_cast<char*>(&blocksz), sizeof(uint32_t) );
-			ofs.write( reinterpret_cast<const char*>(pc.get_pos64_ptr()), blocksz );
-			ofs.write( reinterpret_cast<char*>(&blocksz), sizeof(uint32_t) );
+			ofs.write(reinterpret_cast<char *>(&blocksz), sizeof(uint32_t));
+			ofs.write(reinterpret_cast<const char *>(pc.get_pos64_ptr()), blocksz);
+			ofs.write(reinterpret_cast<char *>(&blocksz), sizeof(uint32_t));
 
-			ofs.write( reinterpret_cast<char*>(&blocksz), sizeof(uint32_t) );
-			ofs.write( reinterpret_cast<const char*>(pc.get_vel64_ptr()), blocksz );
-			ofs.write( reinterpret_cast<char*>(&blocksz), sizeof(uint32_t) );
-		}else{
+			ofs.write(reinterpret_cast<char *>(&blocksz), sizeof(uint32_t));
+			ofs.write(reinterpret_cast<const char *>(pc.get_vel64_ptr()), blocksz);
+			ofs.write(reinterpret_cast<char *>(&blocksz), sizeof(uint32_t));
+		}
+		else
+		{
 			blocksz = 3 * sizeof(float) * pc.get_local_num_particles();
-			ofs.write( reinterpret_cast<char*>(&blocksz), sizeof(uint32_t) );
-			ofs.write( reinterpret_cast<const char*>(pc.get_pos32_ptr()), blocksz );
-			ofs.write( reinterpret_cast<char*>(&blocksz), sizeof(uint32_t) );
+			ofs.write(reinterpret_cast<char *>(&blocksz), sizeof(uint32_t));
+			ofs.write(reinterpret_cast<const char *>(pc.get_pos32_ptr()), blocksz);
+			ofs.write(reinterpret_cast<char *>(&blocksz), sizeof(uint32_t));
 
-			ofs.write( reinterpret_cast<char*>(&blocksz), sizeof(uint32_t) );
-			ofs.write( reinterpret_cast<const char*>(pc.get_vel32_ptr()), blocksz );
-			ofs.write( reinterpret_cast<char*>(&blocksz), sizeof(uint32_t) );
+			ofs.write(reinterpret_cast<char *>(&blocksz), sizeof(uint32_t));
+			ofs.write(reinterpret_cast<const char *>(pc.get_vel32_ptr()), blocksz);
+			ofs.write(reinterpret_cast<char *>(&blocksz), sizeof(uint32_t));
 		}
-		
+
 		// we write long IDs
-		if( this->has_64bit_ids() ){
+		if (this->has_64bit_ids())
+		{
 			blocksz = sizeof(uint64_t) * pc.get_local_num_particles();
-			ofs.write( reinterpret_cast<char*>(&blocksz), sizeof(uint32_t) );
-			ofs.write( reinterpret_cast<const char*>(pc.get_ids64_ptr()), blocksz );
-			ofs.write( reinterpret_cast<char*>(&blocksz), sizeof(uint32_t) );
-		}else{
-			blocksz = sizeof(uint32_t) * pc.get_local_num_particles();
-			ofs.write( reinterpret_cast<char*>(&blocksz), sizeof(uint32_t) );
-			ofs.write( reinterpret_cast<const char*>(pc.get_ids32_ptr()), blocksz );
-			ofs.write( reinterpret_cast<char*>(&blocksz), sizeof(uint32_t) );
+			ofs.write(reinterpret_cast<char *>(&blocksz), sizeof(uint32_t));
+			ofs.write(reinterpret_cast<const char *>(pc.get_ids64_ptr()), blocksz);
+			ofs.write(reinterpret_cast<char *>(&blocksz), sizeof(uint32_t));
 		}
-		
+		else
+		{
+			blocksz = sizeof(uint32_t) * pc.get_local_num_particles();
+			ofs.write(reinterpret_cast<char *>(&blocksz), sizeof(uint32_t));
+			ofs.write(reinterpret_cast<const char *>(pc.get_ids32_ptr()), blocksz);
+			ofs.write(reinterpret_cast<char *>(&blocksz), sizeof(uint32_t));
+		}
 	}
 };
 
-
 namespace
 {
-	output_plugin_creator_concrete<gadget2_output_plugin<float>> creator1("gadget2"); 
+output_plugin_creator_concrete<gadget2_output_plugin<float>> creator1("gadget2");
 #if !defined(USE_SINGLEPRECISION)
-	output_plugin_creator_concrete<gadget2_output_plugin<double>> creator3("gadget2_double"); 
+output_plugin_creator_concrete<gadget2_output_plugin<double>> creator3("gadget2_double");
 #endif
 } // namespace
