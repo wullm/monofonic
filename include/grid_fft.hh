@@ -563,6 +563,27 @@ public:
         }
     }
 
+    template <typename functional, typename grid1_t>
+    void assign_function_of_grids_kdep(const functional &f, const grid1_t &g)
+    {
+        assert(g.size(0) == size(0) && g.size(1) == size(1)); // && g.size(2) == size(2) );
+        
+#pragma omp parallel for
+        for (size_t i = 0; i < sizes_[0]; ++i)
+        {
+            for (size_t j = 0; j < sizes_[1]; ++j)
+            {
+                for (size_t k = 0; k < sizes_[2]; ++k)
+                {
+                    auto &elem = this->kelem(i, j, k);
+                    const auto &elemg = g.kelem(i, j, k);
+                    
+                    elem = f(this->get_k<real_t>(i, j, k), elemg);
+                }
+            }
+        }
+    }
+
     template <typename functional, typename grid1_t, typename grid2_t>
     void assign_function_of_grids_kdep(const functional &f, const grid1_t &g1, const grid2_t &g2)
     {

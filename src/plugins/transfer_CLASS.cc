@@ -22,9 +22,15 @@
 class transfer_CLASS_plugin : public TransferFunction_plugin {
 
 private:
+    //... target redshift tables
     std::vector<double> tab_lnk_, tab_dtot_, tab_dc_, tab_db_, tab_ttot_, tab_tc_, tab_tb_;
     gsl_interp_accel *gsl_ia_dtot_, *gsl_ia_dc_, *gsl_ia_db_, *gsl_ia_ttot_, *gsl_ia_tc_, *gsl_ia_tb_;
     gsl_spline *gsl_sp_dtot_, *gsl_sp_dc_, *gsl_sp_db_, *gsl_sp_ttot_, *gsl_sp_tc_, *gsl_sp_tb_;
+
+    //... starting redshift tables
+    std::vector<double> tab_lnk0_, tab_dtot0_, tab_dc0_, tab_db0_, tab_ttot0_, tab_tc0_, tab_tb0_;
+    gsl_interp_accel *gsl_ia_dtot0_, *gsl_ia_dc0_, *gsl_ia_db0_, *gsl_ia_ttot0_, *gsl_ia_tc0_, *gsl_ia_tb0_;
+    gsl_spline *gsl_sp_dtot0_, *gsl_sp_dc0_, *gsl_sp_db0_, *gsl_sp_ttot0_, *gsl_sp_tc0_, *gsl_sp_tb0_;
 
     // single fluid growing/decaying mode decomposition
     gsl_interp_accel *gsl_ia_Cplus_, *gsl_ia_Cminus_;
@@ -85,8 +91,11 @@ private:
 
         std::unique_ptr<ClassEngine> CE = std::make_unique<ClassEngine>(pars, false);
 
+        CE->getTk(zstart_, tab_lnk0_, tab_dc0_, tab_db0_, d_ncdm, tab_dtot0_,
+                tab_tc0_, tab_tb0_, t_ncdm, tab_ttot0_, phi, psi );
+
         CE->getTk(ztarget_, tab_lnk_, tab_dc_, tab_db_, d_ncdm, tab_dtot_,
-                tab_tc_, tab_tb_, t_ncdm, tab_ttot_, phi, psi );
+                  tab_tc_, tab_tb_, t_ncdm, tab_ttot_, phi, psi);
 
         wtime = get_wtime() - wtime;
         csoca::ilog << "   took " << wtime << " s / " << tab_lnk_.size() << " modes."  << std::endl;
@@ -110,12 +119,12 @@ public:
 
     this->ClassEngine_get_data();
     
-    gsl_ia_dtot_ = gsl_interp_accel_alloc();
-    gsl_ia_dc_   = gsl_interp_accel_alloc();
-    gsl_ia_db_   = gsl_interp_accel_alloc();
-    gsl_ia_ttot_ = gsl_interp_accel_alloc();
-    gsl_ia_tc_   = gsl_interp_accel_alloc();
-    gsl_ia_tb_   = gsl_interp_accel_alloc();
+    gsl_ia_dtot_ = gsl_interp_accel_alloc();  gsl_ia_dtot0_ = gsl_interp_accel_alloc();
+    gsl_ia_dc_   = gsl_interp_accel_alloc();  gsl_ia_dc0_   = gsl_interp_accel_alloc();
+    gsl_ia_db_   = gsl_interp_accel_alloc();  gsl_ia_db0_   = gsl_interp_accel_alloc();
+    gsl_ia_ttot_ = gsl_interp_accel_alloc();  gsl_ia_ttot0_ = gsl_interp_accel_alloc();
+    gsl_ia_tc_   = gsl_interp_accel_alloc();  gsl_ia_tc0_   = gsl_interp_accel_alloc();
+    gsl_ia_tb_   = gsl_interp_accel_alloc();  gsl_ia_tb0_   = gsl_interp_accel_alloc();
 
     gsl_sp_dtot_ = gsl_spline_alloc(gsl_interp_cspline, tab_lnk_.size());
     gsl_sp_dc_   = gsl_spline_alloc(gsl_interp_cspline, tab_lnk_.size());
@@ -124,12 +133,26 @@ public:
     gsl_sp_tc_   = gsl_spline_alloc(gsl_interp_cspline, tab_lnk_.size());
     gsl_sp_tb_   = gsl_spline_alloc(gsl_interp_cspline, tab_lnk_.size());
 
+    gsl_sp_dtot0_ = gsl_spline_alloc(gsl_interp_cspline, tab_lnk_.size());
+    gsl_sp_dc0_   = gsl_spline_alloc(gsl_interp_cspline, tab_lnk_.size());
+    gsl_sp_db0_   = gsl_spline_alloc(gsl_interp_cspline, tab_lnk_.size());
+    gsl_sp_ttot0_ = gsl_spline_alloc(gsl_interp_cspline, tab_lnk_.size());
+    gsl_sp_tc0_   = gsl_spline_alloc(gsl_interp_cspline, tab_lnk_.size());
+    gsl_sp_tb0_   = gsl_spline_alloc(gsl_interp_cspline, tab_lnk_.size());
+
     gsl_spline_init(gsl_sp_dtot_, &tab_lnk_[0], &tab_dtot_[0], tab_lnk_.size());
     gsl_spline_init(gsl_sp_dc_,   &tab_lnk_[0], &tab_dc_[0],   tab_lnk_.size());
     gsl_spline_init(gsl_sp_db_,   &tab_lnk_[0], &tab_db_[0],   tab_lnk_.size());
     gsl_spline_init(gsl_sp_ttot_, &tab_lnk_[0], &tab_ttot_[0], tab_lnk_.size());
     gsl_spline_init(gsl_sp_tc_,   &tab_lnk_[0], &tab_tc_[0],   tab_lnk_.size());
     gsl_spline_init(gsl_sp_tb_,   &tab_lnk_[0], &tab_tb_[0],   tab_lnk_.size());
+
+    gsl_spline_init(gsl_sp_dtot0_, &tab_lnk0_[0], &tab_dtot0_[0], tab_lnk0_.size());
+    gsl_spline_init(gsl_sp_dc0_,   &tab_lnk0_[0], &tab_dc0_[0],   tab_lnk0_.size());
+    gsl_spline_init(gsl_sp_db0_,   &tab_lnk0_[0], &tab_db0_[0],   tab_lnk0_.size());
+    gsl_spline_init(gsl_sp_ttot0_, &tab_lnk0_[0], &tab_ttot0_[0], tab_lnk0_.size());
+    gsl_spline_init(gsl_sp_tc0_,   &tab_lnk0_[0], &tab_tc0_[0],   tab_lnk0_.size());
+    gsl_spline_init(gsl_sp_tb0_,   &tab_lnk0_[0], &tab_tb0_[0],   tab_lnk0_.size());
 
     //--------------------------------------------------------------------------
     // single fluid growing/decaying mode decomposition
@@ -165,19 +188,19 @@ public:
   }
     
   ~transfer_CLASS_plugin(){
-    gsl_spline_free(gsl_sp_dtot_);
-    gsl_spline_free(gsl_sp_dc_);
-    gsl_spline_free(gsl_sp_db_);
-    gsl_spline_free(gsl_sp_ttot_);
-    gsl_spline_free(gsl_sp_tc_);
-    gsl_spline_free(gsl_sp_tb_);
+    gsl_spline_free(gsl_sp_dtot_);   gsl_spline_free(gsl_sp_dtot0_);  
+    gsl_spline_free(gsl_sp_dc_);     gsl_spline_free(gsl_sp_dc0_);
+    gsl_spline_free(gsl_sp_db_);     gsl_spline_free(gsl_sp_db0_);
+    gsl_spline_free(gsl_sp_ttot_);   gsl_spline_free(gsl_sp_ttot0_);  
+    gsl_spline_free(gsl_sp_tc_);     gsl_spline_free(gsl_sp_tc0_);
+    gsl_spline_free(gsl_sp_tb_);     gsl_spline_free(gsl_sp_tb0_);
 
-    gsl_interp_accel_free(gsl_ia_dtot_);
-    gsl_interp_accel_free(gsl_ia_dc_);
-    gsl_interp_accel_free(gsl_ia_db_);
-    gsl_interp_accel_free(gsl_ia_ttot_);
-    gsl_interp_accel_free(gsl_ia_tc_);
-    gsl_interp_accel_free(gsl_ia_tb_);
+    gsl_interp_accel_free(gsl_ia_dtot_);  gsl_interp_accel_free(gsl_ia_dtot0_);  
+    gsl_interp_accel_free(gsl_ia_dc_);    gsl_interp_accel_free(gsl_ia_dc0_);
+    gsl_interp_accel_free(gsl_ia_db_);    gsl_interp_accel_free(gsl_ia_db0_);
+    gsl_interp_accel_free(gsl_ia_ttot_);  gsl_interp_accel_free(gsl_ia_ttot0_);  
+    gsl_interp_accel_free(gsl_ia_tc_);    gsl_interp_accel_free(gsl_ia_tc0_);
+    gsl_interp_accel_free(gsl_ia_tb_);    gsl_interp_accel_free(gsl_ia_tb0_);
   }
 
   inline double compute(double k, tf_type type) const {
@@ -190,6 +213,13 @@ public:
           case vtotal:  splineT = gsl_sp_ttot_; accT = gsl_ia_ttot_; break;
           case vcdm:    splineT = gsl_sp_tc_;   accT = gsl_ia_tc_;   break;
           case vbaryon: splineT = gsl_sp_tb_;   accT = gsl_ia_tb_;   break;
+          
+          case total0:  splineT = gsl_sp_dtot0_;accT = gsl_ia_dtot0_;break;
+          case cdm0:    splineT = gsl_sp_dc0_;  accT = gsl_ia_dc0_;  break;
+          case baryon0: splineT = gsl_sp_db0_;  accT = gsl_ia_db0_;  break;
+          case vtotal0: splineT = gsl_sp_ttot0_;accT = gsl_ia_ttot0_;break;
+          case vcdm0:   splineT = gsl_sp_tc0_;  accT = gsl_ia_tc0_;  break;
+          case vbaryon0:splineT = gsl_sp_tb0_;  accT = gsl_ia_tb0_;  break;
           default:
             throw std::runtime_error("Invalid type requested in transfer function evaluation");
       }

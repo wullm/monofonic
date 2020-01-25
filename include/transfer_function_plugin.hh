@@ -13,7 +13,12 @@ enum tf_type
     vtotal,
     vcdm,
     vbaryon,
-    total0
+    total0,
+    cdm0,
+    baryon0,
+    vtotal0,
+    vcdm0,
+    vbaryon0,
 };
 
 class TransferFunction_plugin
