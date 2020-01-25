@@ -9,6 +9,7 @@
 #include <string>
 #include <vector>
 #include <memory>
+#include <sstream>
 
 #include <ClassEngine.hh>
 
@@ -44,10 +45,13 @@ private:
 
         csoca::ilog << "Computing TF via ClassEngine..." << std::endl << " ztarget = " << ztarget_ << ", zstart = " << zstart_ << " ..." << std::flush;
         double wtime = get_wtime();
+
+        std::stringstream zlist;
+        zlist << zstart_ << ", " << zstart_; 
         
         ClassParams pars;
         pars.add("extra metric transfer functions", "yes");
-        pars.add("z_pk",ztarget_);
+        pars.add("z_max_pk",zlist.str());
         pars.add("P_k_max_h/Mpc", kmax_);
         
         pars.add("h",h_);
@@ -213,7 +217,7 @@ public:
           case vtotal:  splineT = gsl_sp_ttot_; accT = gsl_ia_ttot_; break;
           case vcdm:    splineT = gsl_sp_tc_;   accT = gsl_ia_tc_;   break;
           case vbaryon: splineT = gsl_sp_tb_;   accT = gsl_ia_tb_;   break;
-          
+
           case total0:  splineT = gsl_sp_dtot0_;accT = gsl_ia_dtot0_;break;
           case cdm0:    splineT = gsl_sp_dc0_;  accT = gsl_ia_dc0_;  break;
           case baryon0: splineT = gsl_sp_db0_;  accT = gsl_ia_db0_;  break;
