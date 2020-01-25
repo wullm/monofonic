@@ -81,23 +81,33 @@ public:
 
             // write power spectrum to a file
             std::ofstream ofs(fname.c_str());
-            std::stringstream ss; ss << " (a=" << a <<")";
+            std::stringstream ss; ss << " ,a=" << a <<"";
             ofs << "# " << std::setw(18) << "k [h/Mpc]"
-                        << std::setw(20) << ("P_dtot(k)"+ss.str()) 
-                        << std::setw(20) << ("P_dcdm(k)"+ss.str())
-                        << std::setw(20) << ("P_dbar(k)"+ss.str())
-                        << std::setw(20) << ("P_dtot(K) (a=1)")
-                        << std::setw(20) << ("P_tcdm(k)"+ss.str()) 
-                        << std::setw(20) << ("P_tbar(k)"+ss.str())
+                        << std::setw(20) << ("P_dtot(k"+ss.str()+"|BS)") 
+                        << std::setw(20) << ("P_dcdm(k"+ss.str()+"|BS)")
+                        << std::setw(20) << ("P_dbar(k"+ss.str()+"|BS)")
+                        << std::setw(20) << ("P_tcdm(k"+ss.str()+"|BS)") 
+                        << std::setw(20) << ("P_tbar(k"+ss.str()+"|BS)")
+                        << std::setw(20) << ("P_dtot(k"+ss.str()+")") 
+                        << std::setw(20) << ("P_dcdm(k"+ss.str()+")")
+                        << std::setw(20) << ("P_dbar(k"+ss.str()+")")
+                        << std::setw(20) << ("P_tcdm(k"+ss.str()+")") 
+                        << std::setw(20) << ("P_tbar(k"+ss.str()+")")
+                        << std::setw(20) << ("P_dtot(K,a=1)")
                         << std::endl;
             for( double k=kmin; k<transfer_function_->get_kmax(); k*=1.05 ){
                 ofs << std::setw(20) << std::setprecision(10) << k
                     << std::setw(20) << std::setprecision(10) << std::pow(this->GetAmplitude(k, total) * Dplus0, 2.0)
                     << std::setw(20) << std::setprecision(10) << std::pow(this->GetAmplitude(k, cdm) * Dplus0, 2.0)
                     << std::setw(20) << std::setprecision(10) << std::pow(this->GetAmplitude(k, baryon) * Dplus0, 2.0)
-                    << std::setw(20) << std::setprecision(10) << std::pow(this->GetAmplitude(k, total), 2.0)
                     << std::setw(20) << std::setprecision(10) << std::pow(this->GetAmplitude(k, vcdm) * Dplus0, 2.0)
                     << std::setw(20) << std::setprecision(10) << std::pow(this->GetAmplitude(k, vbaryon) * Dplus0, 2.0)
+                    << std::setw(20) << std::setprecision(10) << std::pow(this->GetAmplitude(k, total0), 2.0)
+                    << std::setw(20) << std::setprecision(10) << std::pow(this->GetAmplitude(k, cdm0), 2.0)
+                    << std::setw(20) << std::setprecision(10) << std::pow(this->GetAmplitude(k, baryon0), 2.0)
+                    << std::setw(20) << std::setprecision(10) << std::pow(this->GetAmplitude(k, vcdm0), 2.0)
+                    << std::setw(20) << std::setprecision(10) << std::pow(this->GetAmplitude(k, vbaryon0), 2.0)
+                    << std::setw(20) << std::setprecision(10) << std::pow(this->GetAmplitude(k, total), 2.0)
                     << std::endl;
             }
         }

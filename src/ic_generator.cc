@@ -182,6 +182,11 @@ int Run( ConfigFile& the_config )
     the_random_number_generator->Fill_Grid(wnoise);
 
     wnoise.FourierTransformForward();
+    wnoise.apply_function_k( [&](auto wn){
+        if (bDoFixing)
+            wn = (std::abs(wn) != 0.0) ? wn / std::abs(wn) : wn;
+        return wn / volfac;
+    });
 
 
     //--------------------------------------------------------------------
@@ -207,39 +212,36 @@ int Run( ConfigFile& the_config )
     if (bDoBaryons)
         species_list.push_back(cosmo_species::baryon);
 
-        //======================================================================
-        //... compute 1LPT displacement potential ....
-        //======================================================================
-        // phi = - delta / k^2
+    //======================================================================
+    //... compute 1LPT displacement potential ....
+    //======================================================================
+    // phi = - delta / k^2
 
     csoca::ilog << "-------------------------------------------------------------------------------" << std::endl;
     csoca::ilog << "Generating white noise field...." << std::endl;
 
-        double wtime = get_wtime();
-        csoca::ilog << std::setw(40) << std::setfill('.') << std::left << "Computing phi(1) term" << std::flush;
+    double wtime = get_wtime();
+    csoca::ilog << std::setw(40) << std::setfill('.') << std::left << "Computing phi(1) term" << std::flush;
 
     phi.FourierTransformForward(false);
     phi.assign_function_of_grids_kdep([&](auto k, auto wn) {
-            real_t kmod = k.norm();
-        if (bDoFixing)
-            wn = (std::abs(wn) != 0.0) ? wn / std::abs(wn) : wn;
+        real_t kmod = k.norm();
         ccomplex_t delta = wn * the_cosmo_calc->GetAmplitude(kmod, total);
-            return -delta / (kmod * kmod) / volfac;
-    },
-                                      wnoise);
+        return -delta / (kmod * kmod);
+    }, wnoise);
 
-        phi.zero_DC_mode();
+    phi.zero_DC_mode();
 
     csoca::ilog << std::setw(20) << std::setfill(' ') << std::right << "took " << get_wtime() - wtime << "s" << std::endl;
-        
-        //======================================================================
-        //... compute 2LPT displacement potential ....
-        //======================================================================
+
+    //======================================================================
+    //... compute 2LPT displacement potential ....
+    //======================================================================
     if (LPTorder > 1)
     {
-            wtime = get_wtime();
-            csoca::ilog << std::setw(40) << std::setfill('.') << std::left << "Computing phi(2) term" << std::flush;
-            phi2.FourierTransformForward(false);
+        wtime = get_wtime();
+        csoca::ilog << std::setw(40) << std::setfill('.') << std::left << "Computing phi(2) term" << std::flush;
+        phi2.FourierTransformForward(false);
         Conv.convolve_SumOfHessians(phi, {0, 0}, phi, {1, 1}, {2, 2}, op::assign_to(phi2));
         Conv.convolve_Hessians(phi, {1, 1}, phi, {2, 2}, op::add_to(phi2));
         Conv.convolve_Hessians(phi, {0, 1}, phi, {0, 1}, op::subtract_from(phi2));
@@ -249,119 +251,119 @@ int Run( ConfigFile& the_config )
         if (bAddExternalTides)
         {
             phi2.assign_function_of_grids_kdep([&](vec3<real_t> kvec, ccomplex_t pphi, ccomplex_t pphi2) {
-                    // sign in front of f_aniso is reversed since phi1 = -phi
+                // sign in front of f_aniso is reversed since phi1 = -phi
                 return pphi2 + f_aniso * (kvec[0] * kvec[0] * lss_aniso_lambda[0] + kvec[1] * kvec[1] * lss_aniso_lambda[1] + kvec[2] * kvec[2] * lss_aniso_lambda[2]) * pphi;
             },
                                                phi, phi2);
-            }
+        }
 
-            phi2.apply_InverseLaplacian();
+        phi2.apply_InverseLaplacian();
         csoca::ilog << std::setw(20) << std::setfill(' ') << std::right << "took " << get_wtime() - wtime << "s" << std::endl;
 
         if (bAddExternalTides)
         {
-                csoca::wlog << "Added external tide contribution to phi(2)... Make sure your N-body code supports this!" << std::endl;
-                csoca::wlog << " lss_aniso = (" << lss_aniso_lambda[0] << ", " << lss_aniso_lambda[1] << ", " << lss_aniso_lambda[2] << ")" << std::endl;
-            }
+            csoca::wlog << "Added external tide contribution to phi(2)... Make sure your N-body code supports this!" << std::endl;
+            csoca::wlog << " lss_aniso = (" << lss_aniso_lambda[0] << ", " << lss_aniso_lambda[1] << ", " << lss_aniso_lambda[2] << ")" << std::endl;
         }
+    }
 
-        //======================================================================
-        //... compute 3LPT displacement potential
-        //======================================================================
+    //======================================================================
+    //... compute 3LPT displacement potential
+    //======================================================================
     if (LPTorder > 2)
     {
-            //... 3a term ...
-            wtime = get_wtime();
-            csoca::ilog << std::setw(40) << std::setfill('.') << std::left << "Computing phi(3a) term" << std::flush;
-            phi3a.FourierTransformForward(false);
+        //... 3a term ...
+        wtime = get_wtime();
+        csoca::ilog << std::setw(40) << std::setfill('.') << std::left << "Computing phi(3a) term" << std::flush;
+        phi3a.FourierTransformForward(false);
         Conv.convolve_Hessians(phi, {0, 0}, phi, {1, 1}, phi, {2, 2}, op::assign_to(phi3a));
         Conv.convolve_Hessians(phi, {0, 1}, phi, {0, 2}, phi, {1, 2}, op::add_twice_to(phi3a));
         Conv.convolve_Hessians(phi, {1, 2}, phi, {1, 2}, phi, {0, 0}, op::subtract_from(phi3a));
         Conv.convolve_Hessians(phi, {0, 2}, phi, {0, 2}, phi, {1, 1}, op::subtract_from(phi3a));
         Conv.convolve_Hessians(phi, {0, 1}, phi, {0, 1}, phi, {2, 2}, op::subtract_from(phi3a));
-            phi3a.apply_InverseLaplacian();
+        phi3a.apply_InverseLaplacian();
         csoca::ilog << std::setw(20) << std::setfill(' ') << std::right << "took " << get_wtime() - wtime << "s" << std::endl;
 
-            //... 3b term ...
-            wtime = get_wtime();
-            csoca::ilog << std::setw(40) << std::setfill('.') << std::left << "Computing phi(3b) term" << std::flush;
-            phi3b.FourierTransformForward(false);
+        //... 3b term ...
+        wtime = get_wtime();
+        csoca::ilog << std::setw(40) << std::setfill('.') << std::left << "Computing phi(3b) term" << std::flush;
+        phi3b.FourierTransformForward(false);
         Conv.convolve_SumOfHessians(phi, {0, 0}, phi2, {1, 1}, {2, 2}, op::assign_to(phi3b));
         Conv.convolve_SumOfHessians(phi, {1, 1}, phi2, {2, 2}, {0, 0}, op::add_to(phi3b));
         Conv.convolve_SumOfHessians(phi, {2, 2}, phi2, {0, 0}, {1, 1}, op::add_to(phi3b));
         Conv.convolve_Hessians(phi, {0, 1}, phi2, {0, 1}, op::subtract_twice_from(phi3b));
         Conv.convolve_Hessians(phi, {0, 2}, phi2, {0, 2}, op::subtract_twice_from(phi3b));
         Conv.convolve_Hessians(phi, {1, 2}, phi2, {1, 2}, op::subtract_twice_from(phi3b));
-            phi3b.apply_InverseLaplacian();
-            phi3b *= 0.5; // factor 1/2 from definition of phi(3b)!
+        phi3b.apply_InverseLaplacian();
+        phi3b *= 0.5; // factor 1/2 from definition of phi(3b)!
         csoca::ilog << std::setw(20) << std::setfill(' ') << std::right << "took " << get_wtime() - wtime << "s" << std::endl;
 
-            //... transversal term ...
-            wtime = get_wtime();
-            csoca::ilog << std::setw(40) << std::setfill('.') << std::left << "Computing A(3) term" << std::flush;
+        //... transversal term ...
+        wtime = get_wtime();
+        csoca::ilog << std::setw(40) << std::setfill('.') << std::left << "Computing A(3) term" << std::flush;
         for (int idim = 0; idim < 3; ++idim)
         {
-                // cyclic rotations of indices
+            // cyclic rotations of indices
             int idimp = (idim + 1) % 3, idimpp = (idim + 2) % 3;
-                A3[idim]->FourierTransformForward(false);
+            A3[idim]->FourierTransformForward(false);
             Conv.convolve_Hessians(phi2, {idim, idimp}, phi, {idim, idimpp}, op::assign_to(*A3[idim]));
             Conv.convolve_Hessians(phi2, {idim, idimpp}, phi, {idim, idimp}, op::subtract_from(*A3[idim]));
             Conv.convolve_DifferenceOfHessians(phi, {idimp, idimpp}, phi2, {idimp, idimp}, {idimpp, idimpp}, op::add_to(*A3[idim]));
             Conv.convolve_DifferenceOfHessians(phi2, {idimp, idimpp}, phi, {idimp, idimp}, {idimpp, idimpp}, op::subtract_from(*A3[idim]));
-                A3[idim]->apply_InverseLaplacian();
-            }
-        csoca::ilog << std::setw(20) << std::setfill(' ') << std::right << "took " << get_wtime() - wtime << "s" << std::endl;
+            A3[idim]->apply_InverseLaplacian();
         }
+        csoca::ilog << std::setw(20) << std::setfill(' ') << std::right << "took " << get_wtime() - wtime << "s" << std::endl;
+    }
 
-        // if( bSymplecticPT ){
-        //     //... transversal term ...
-        //     wtime = get_wtime();
-        //     csoca::ilog << std::setw(40) << std::setfill('.') << std::left << "Computing vNLO(3) term" << std::flush;
-        //     for( int idim=0; idim<3; ++idim ){
-        //         // cyclic rotations of indices
-        //         A3[idim]->FourierTransformForward(false);
-        //         Conv.convolve_Gradient_and_Hessian( phi, {0},  phi2, {idim,0}, assign_to(*A3[idim]) );
-        //         Conv.convolve_Gradient_and_Hessian( phi, {1},  phi2, {idim,1}, add_to(*A3[idim]) );
-        //         Conv.convolve_Gradient_and_Hessian( phi, {2},  phi2, {idim,2}, add_to(*A3[idim]) );
-        //     }
-        //     csoca::ilog << std::setw(20) << std::setfill(' ') << std::right << "took " << get_wtime()-wtime << "s" << std::endl;
+    // if( bSymplecticPT ){
+    //     //... transversal term ...
+    //     wtime = get_wtime();
+    //     csoca::ilog << std::setw(40) << std::setfill('.') << std::left << "Computing vNLO(3) term" << std::flush;
+    //     for( int idim=0; idim<3; ++idim ){
+    //         // cyclic rotations of indices
+    //         A3[idim]->FourierTransformForward(false);
+    //         Conv.convolve_Gradient_and_Hessian( phi, {0},  phi2, {idim,0}, assign_to(*A3[idim]) );
+    //         Conv.convolve_Gradient_and_Hessian( phi, {1},  phi2, {idim,1}, add_to(*A3[idim]) );
+    //         Conv.convolve_Gradient_and_Hessian( phi, {2},  phi2, {idim,2}, add_to(*A3[idim]) );
+    //     }
+    //     csoca::ilog << std::setw(20) << std::setfill(' ') << std::right << "took " << get_wtime()-wtime << "s" << std::endl;
 
-        // }
+    // }
 
-        ///... scale all potentials with respective growth factors
-        phi *= g1;
-        phi2 *= g2;
-        phi3a *= g3a;
-        phi3b *= g3b;
-        (*A3[0]) *= g3c;
-        (*A3[1]) *= g3c;
-        (*A3[2]) *= g3c;
+    ///... scale all potentials with respective growth factors
+    phi *= g1;
+    phi2 *= g2;
+    phi3a *= g3a;
+    phi3b *= g3b;
+    (*A3[0]) *= g3c;
+    (*A3[1]) *= g3c;
+    (*A3[2]) *= g3c;
 
-        csoca::ilog << "-------------------------------------------------------------------------------" << std::endl;
+    csoca::ilog << "-------------------------------------------------------------------------------" << std::endl;
 
-        ///////////////////////////////////////////////////////////////////////
-        // we store the densities here if we compute them
-        //======================================================================
+    ///////////////////////////////////////////////////////////////////////
+    // we store the densities here if we compute them
+    //======================================================================
 
-        // Testing
-        const std::string testing = the_config.GetValueSafe<std::string>("testing", "test", "none");
+    // Testing
+    const std::string testing = the_config.GetValueSafe<std::string>("testing", "test", "none");
 
     if (testing != "none")
     {
-            csoca::wlog << "you are running in testing mode. No ICs, only diagnostic output will be written out!" << std::endl;
+        csoca::wlog << "you are running in testing mode. No ICs, only diagnostic output will be written out!" << std::endl;
         if (testing == "potentials_and_densities"){
-                testing::output_potentials_and_densities(the_config, ngrid, boxlen, phi, phi2, phi3a, phi3b, A3);
+            testing::output_potentials_and_densities(the_config, ngrid, boxlen, phi, phi2, phi3a, phi3b, A3);
         }
         else if (testing == "velocity_displacement_symmetries"){
-                testing::output_velocity_displacement_symmetries(the_config, ngrid, boxlen, vfac, Dplus0, phi, phi2, phi3a, phi3b, A3);
+            testing::output_velocity_displacement_symmetries(the_config, ngrid, boxlen, vfac, Dplus0, phi, phi2, phi3a, phi3b, A3);
         }
         else if (testing == "convergence"){
-                testing::output_convergence(the_config, the_cosmo_calc.get(), ngrid, boxlen, vfac, Dplus0, phi, phi2, phi3a, phi3b, A3);
+            testing::output_convergence(the_config, the_cosmo_calc.get(), ngrid, boxlen, vfac, Dplus0, phi, phi2, phi3a, phi3b, A3);
         }
         else{
-                csoca::flog << "unknown test '" << testing << "'" << std::endl;
-                std::abort();
-            }
+            csoca::flog << "unknown test '" << testing << "'" << std::endl;
+            std::abort();
+        }
     }
 
     for( auto& this_species : species_list )
@@ -492,9 +494,20 @@ int Run( ConfigFile& the_config )
                                 // divide by Lbox, because displacement is in box units for output plugin
                                 tmp.kelem(idx) = lunit / boxlen * ( lg.gradient(idim,tmp.get_k3(i,j,k)) * phitot 
                                     + lg.gradient(idimp,tmp.get_k3(i,j,k)) * A3[idimpp]->kelem(idx) - lg.gradient(idimpp,tmp.get_k3(i,j,k)) * A3[idimp]->kelem(idx) );
+
+                                if( bDoBaryons ){
+                                    vec3<real_t> kvec = phi.get_k<real_t>(i,j,k);
+                                    real_t k2 = kvec.norm_squared(), kmod = std::sqrt(k2);
+                                    double ampldiff = ((this_species == cosmo_species::dm)? the_cosmo_calc->GetAmplitude(kmod, cdm0) :
+                                     (this_species == cosmo_species::baryon)? the_cosmo_calc->GetAmplitude(kmod, baryon0) : 
+                                     the_cosmo_calc->GetAmplitude(kmod, total)*g1) - the_cosmo_calc->GetAmplitude(kmod, total)*g1;
+
+                                    tmp.kelem(idx) += lg.gradient(idim, tmp.get_k3(i,j,k)) * wnoise.kelem(idx) * lunit * ampldiff / k2 / boxlen;
+                                }
                             }
                         }
                     }
+                    tmp.zero_DC_mode();
                     tmp.FourierTransformBackward();
 
                     // if we write particle data, store particle data in particle structure
@@ -530,8 +543,18 @@ int Run( ConfigFile& the_config )
                                 tmp.kelem(idx) = vunit / boxlen * ( lg.gradient(idim,tmp.get_k3(i,j,k)) * phitot_v 
                                         + vfac3 * (lg.gradient(idimp,tmp.get_k3(i,j,k)) * A3[idimpp]->kelem(idx) - lg.gradient(idimpp,tmp.get_k3(i,j,k)) * A3[idimp]->kelem(idx)) );
 
+                                if( bDoBaryons ){
+                                    vec3<real_t> kvec = phi.get_k<real_t>(i,j,k);
+                                    real_t k2 = kvec.norm_squared(), kmod = std::sqrt(k2);
+                                    double ampldiff = ((this_species == cosmo_species::dm)? -the_cosmo_calc->GetAmplitude(kmod, vcdm0) :
+                                     (this_species == cosmo_species::baryon)? -the_cosmo_calc->GetAmplitude(kmod, vbaryon0) : 
+                                     the_cosmo_calc->GetAmplitude(kmod, total)*g1) - the_cosmo_calc->GetAmplitude(kmod, total)*g1;
+                                    tmp.kelem(idx) += lg.gradient(idim, tmp.get_k3(i,j,k)) * wnoise.kelem(idx) * vfac1 * vunit / boxlen * ampldiff / k2 ;
+                                }
+
                                 // correct velocity with PLT mode growth rate
                                 tmp.kelem(idx) *= lg.vfac_corr(tmp.get_k3(i,j,k));
+
 
                                 if( bAddExternalTides ){
                                     // modify velocities with anisotropic expansion factor**2
@@ -544,6 +567,7 @@ int Run( ConfigFile& the_config )
                             }
                         }
                     }
+                    tmp.zero_DC_mode();
                     tmp.FourierTransformBackward();
 
                     // if we write particle data, store particle data in particle structure
