@@ -434,5 +434,5 @@ namespace
 TransferFunction_plugin_creator_concrete<transfer_eisenstein_plugin> creator("eisenstein");
 TransferFunction_plugin_creator_concrete<transfer_eisenstein_wdm_plugin> creator2("eisenstein_wdm");
 TransferFunction_plugin_creator_concrete<transfer_eisenstein_cdmbino_plugin> creator3("eisenstein_cdmbino");
-TransferFunction_plugin_creator_concrete<transfer_eisenstein_cutoff_plugin> creator4("eisenstein_cutoff");
+// TransferFunction_plugin_creator_concrete<transfer_eisenstein_cutoff_plugin> creator4("eisenstein_cutoff");
 } // namespace

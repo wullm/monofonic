@@ -10,6 +10,7 @@
 
 #include <general.hh>
 #include <ic_generator.hh>
+#include <particle_plt.hh>
 
 
 // initialise with "default" values
@@ -182,6 +183,8 @@ int main( int argc, char** argv )
     // do the job...
     ///////////////////////////////////////////////////////////////////////
     ic_generator::Run( the_config );
+
+    // particle::test_plt();
     ///////////////////////////////////////////////////////////////////////
 
 #if defined(USE_MPI)

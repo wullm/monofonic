@@ -127,12 +127,17 @@ public:
         return pNorm * scale * scale * TransferSq(k) * pow((double)k, (double)cosmo_param_.nspect);
     }
 
-    inline static double H_of_a(double a, void *Params)
+    inline static double H_of_a(double a, const void *Params)
     {
-        CosmologyParameters *cosm = (CosmologyParameters *)Params;
+        const CosmologyParameters *cosm = (CosmologyParameters *)Params;
         double a2 = a * a;
         double Ha = sqrt(cosm->Omega_m / (a2 * a) + cosm->Omega_k / a2 + cosm->Omega_DE * pow(a, -3. * (1. + cosm->w_0 + cosm->w_a)) * exp(-3. * (1.0 - a) * cosm->w_a));
         return Ha;
+    }
+
+    inline double H_of_a( double a ) const
+    {
+        return 100.0 * this->H_of_a(a,reinterpret_cast<const void*>(&this->cosmo_param_));
     }
 
     inline static double Hprime_of_a(double a, void *Params) 
@@ -168,10 +173,7 @@ public:
 	 */
 	inline real_t CalcGrowthRate( real_t a )
 	{
-        #warning CalcGrowthRate is only correct if dark energy is a cosmological constant, need to upgrade calculator...
-		real_t y = cosmo_param_.Omega_m*(1.0/a-1.0) + cosmo_param_.Omega_DE*(a*a-1.0) + 1.0;
-		real_t fact = integrate( &fIntegrand, 1e-6, a, (void*)&cosmo_param_ );
-		return (cosmo_param_.Omega_DE*a*a-0.5*cosmo_param_.Omega_m/a)/y - 1.0 + a*fIntegrand(a,(void*)&cosmo_param_)/fact;
+        return CalcVFact(a) / H_of_a(a) / a;
 	}
 
     //! Computes the linear theory growth factor D+

@@ -25,7 +25,11 @@ public:
     //! copy constructor
     vec3( const vec3<T> &v)
     : data_(v.data_), x(data_[0]),y(data_[1]),z(data_[2]){}
-    
+
+    //! copy constructor for non-const reference, needed to avoid variadic template being called for non-const reference
+    vec3( vec3<T>& v)
+    : data_(v.data_), x(data_[0]),y(data_[1]),z(data_[2]){}
+
     //! move constructor
     vec3( vec3<T> &&v)
     : data_(std::move(v.data_)), x(data_[0]), y(data_[1]), z(data_[2]){}
@@ -33,43 +37,78 @@ public:
     //! construct vec3 from initializer list
     template<typename ...E>
     vec3(E&&...e) 
-    : data_{{std::forward<E>(e)...}}, x(data_[0]), y(data_[1]), z(data_[2]){}
+    : data_{{std::forward<E>(e)...}}, x{data_[0]}, y{data_[1]}, z{data_[2]}
+    {}
+    // vec3( T a, T b, T c ) 
+    // : data_{{a,b,c}}, x(data_[0]), y(data_[1]), z(data_[2]){}
     
-    //! braket index access to vector components
-    T &operator[](size_t i){ return data_[i];}
+    //! bracket index access to vector components
+    T &operator[](size_t i) noexcept{ return data_[i];}
     
-    //! const braket index access to vector components
-    const T &operator[](size_t i) const { return data_[i]; }
+    //! const bracket index access to vector components
+    const T &operator[](size_t i) const noexcept { return data_[i]; }
+
+    // assignment operator
+    vec3<T>& operator=( const vec3<T>& v ) noexcept { data_=v.data_; return *this; }
 
     //! implementation of summation of vec3
-    vec3<T> operator+( const vec3<T>& v ) const{ return vec3<T>({x+v.x,y+v.y,z+v.z}); }
+    vec3<T> operator+( const vec3<T>& v ) const noexcept{ return vec3<T>({x+v.x,y+v.y,z+v.z}); }
 
     //! implementation of difference of vec3
-    vec3<T> operator-( const vec3<T>& v ) const{ return vec3<T>({x-v.x,y-v.y,z-v.z}); }
+    vec3<T> operator-( const vec3<T>& v ) const noexcept{ return vec3<T>({x-v.x,y-v.y,z-v.z}); }
+
+    //! implementation of unary negative
+    vec3<T> operator-() const noexcept{ return vec3<T>({-x,-y,-z}); }
 
     //! implementation of scalar multiplication
-    vec3<T> operator*( T s ) const{ return vec3<T>({x*s,y*s,z*s}); }
+    vec3<T> operator*( T s ) const noexcept{ return vec3<T>({x*s,y*s,z*s}); }
+
+    //! implementation of scalar division
+    vec3<T> operator/( T s ) const noexcept{ return vec3<T>({x/s,y/s,z/s}); }
 
     //! implementation of += operator
-    vec3<T>& operator+=( const vec3<T>& v ) const{ x+=v.x; y+=v.y; z+=v.z; return *this; }
+    vec3<T>& operator+=( const vec3<T>& v ) noexcept{ x+=v.x; y+=v.y; z+=v.z; return *this; }
 
     //! implementation of -= operator
-    vec3<T>& operator-=( const vec3<T>& v ) const{ x-=v.x; y-=v.y; z-=v.z; return *this; }
+    vec3<T>& operator-=( const vec3<T>& v ) noexcept{ x-=v.x; y-=v.y; z-=v.z; return *this; }
 
     //! multiply with scalar
-    vec3<T>& operator*=( T s ) const{ x*=s; y*=s; z*=s; return *this; }
+    vec3<T>& operator*=( T s ) noexcept{ x*=s; y*=s; z*=s; return *this; }
     
+    //! divide by scalar
+    vec3<T>& operator/=( T s ) noexcept{ x/=s; y/=s; z/=s; return *this; }
+
     //! compute dot product with another vector
-    T dot(const vec3<T> &a) const 
+    T dot(const vec3<T> &a) const noexcept
     {
         return data_[0] * a.data_[0] + data_[1] * a.data_[1] + data_[2] * a.data_[2];
     }
     
     //! returns 2-norm squared of vector
-    T norm_squared(void) const { return this->dot(*this); }
+    T norm_squared(void) const noexcept { return this->dot(*this); }
 
     //! returns 2-norm of vector
-    T norm(void) const { return std::sqrt( this->norm_squared() ); }
+    T norm(void) const noexcept { return std::sqrt( this->norm_squared() ); }
+
+    //! wrap absolute vector to box of size p
+    vec3<T>& wrap_abs( T p = 1.0 ) noexcept{
+        for( auto& x : data_ ) x = std::fmod( 2*p + x, p );
+        return *this;
+    }
+
+    //! wrap relative vector to box of size p
+    vec3<T>& wrap_rel( T p = 1.0 ) noexcept{
+        for( auto& x : data_ ) x = (x<-p/2)? x+p : (x>=p/2)? x-p : x;
+        return *this;
+    }
+
+    //! ordering, allows 3d sorting of vec3s
+    bool operator<( const vec3<T>& o ) const noexcept{
+        if( x!=o.x ) return x<o.x?true:false;
+        if( y!=o.y ) return y<o.y?true:false;
+        if( z!=o.z ) return z<o.z?true:false;
+        return false;
+    }
 };
 
 //! multiplication with scalar
