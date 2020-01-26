@@ -65,6 +65,18 @@ private:
         pars.add("Omega_fld",0.0);
         pars.add("Omega_scf",0.0);
 
+        // massive neutrinos
+#if 1
+        //default off
+        pars.add("N_ncdm",0);
+#else
+        // change above to enable
+        pars.add("N_ur",0);
+        pars.add("N_ncdm",1);
+        pars.add("m_ncdm","0.4");
+        pars.add("T_ncdm",0.71611);
+#endif
+
         pars.add("A_s",2.42e-9);
         pars.add("n_s",.961); // this doesn't matter for TF
         pars.add("output","dTk,vTk");
