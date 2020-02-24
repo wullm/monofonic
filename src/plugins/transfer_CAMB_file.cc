@@ -340,5 +340,5 @@ public:
 
 namespace
 {
-TransferFunction_plugin_creator_concrete<transfer_CAMB_file_plugin> creator("file_CAMB");
+TransferFunction_plugin_creator_concrete<transfer_CAMB_file_plugin> creator("CAMB_file");
 }

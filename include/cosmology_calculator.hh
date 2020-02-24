@@ -81,23 +81,33 @@ public:
 
             // write power spectrum to a file
             std::ofstream ofs(fname.c_str());
-            std::stringstream ss; ss << " (a=" << a <<")";
+            std::stringstream ss; ss << " ,a=" << a <<"";
             ofs << "# " << std::setw(18) << "k [h/Mpc]"
-                        << std::setw(20) << ("P_dtot(k)"+ss.str()) 
-                        << std::setw(20) << ("P_dcdm(k)"+ss.str())
-                        << std::setw(20) << ("P_dbar(k)"+ss.str())
-                        << std::setw(20) << ("P_dtot(K) (a=1)")
-                        << std::setw(20) << ("P_tcdm(k)"+ss.str()) 
-                        << std::setw(20) << ("P_tbar(k)"+ss.str())
+                        << std::setw(20) << ("P_dtot(k"+ss.str()+"|BS)") 
+                        << std::setw(20) << ("P_dcdm(k"+ss.str()+"|BS)")
+                        << std::setw(20) << ("P_dbar(k"+ss.str()+"|BS)")
+                        << std::setw(20) << ("P_tcdm(k"+ss.str()+"|BS)") 
+                        << std::setw(20) << ("P_tbar(k"+ss.str()+"|BS)")
+                        << std::setw(20) << ("P_dtot(k"+ss.str()+")") 
+                        << std::setw(20) << ("P_dcdm(k"+ss.str()+")")
+                        << std::setw(20) << ("P_dbar(k"+ss.str()+")")
+                        << std::setw(20) << ("P_tcdm(k"+ss.str()+")") 
+                        << std::setw(20) << ("P_tbar(k"+ss.str()+")")
+                        << std::setw(20) << ("P_dtot(K,a=1)")
                         << std::endl;
             for( double k=kmin; k<transfer_function_->get_kmax(); k*=1.05 ){
                 ofs << std::setw(20) << std::setprecision(10) << k
                     << std::setw(20) << std::setprecision(10) << std::pow(this->GetAmplitude(k, total) * Dplus0, 2.0)
                     << std::setw(20) << std::setprecision(10) << std::pow(this->GetAmplitude(k, cdm) * Dplus0, 2.0)
                     << std::setw(20) << std::setprecision(10) << std::pow(this->GetAmplitude(k, baryon) * Dplus0, 2.0)
-                    << std::setw(20) << std::setprecision(10) << std::pow(this->GetAmplitude(k, total), 2.0)
                     << std::setw(20) << std::setprecision(10) << std::pow(this->GetAmplitude(k, vcdm) * Dplus0, 2.0)
                     << std::setw(20) << std::setprecision(10) << std::pow(this->GetAmplitude(k, vbaryon) * Dplus0, 2.0)
+                    << std::setw(20) << std::setprecision(10) << std::pow(this->GetAmplitude(k, total0), 2.0)
+                    << std::setw(20) << std::setprecision(10) << std::pow(this->GetAmplitude(k, cdm0), 2.0)
+                    << std::setw(20) << std::setprecision(10) << std::pow(this->GetAmplitude(k, baryon0), 2.0)
+                    << std::setw(20) << std::setprecision(10) << std::pow(this->GetAmplitude(k, vcdm0), 2.0)
+                    << std::setw(20) << std::setprecision(10) << std::pow(this->GetAmplitude(k, vbaryon0), 2.0)
+                    << std::setw(20) << std::setprecision(10) << std::pow(this->GetAmplitude(k, total), 2.0)
                     << std::endl;
             }
         }
@@ -127,12 +137,17 @@ public:
         return pNorm * scale * scale * TransferSq(k) * pow((double)k, (double)cosmo_param_.nspect);
     }
 
-    inline static double H_of_a(double a, void *Params)
+    inline static double H_of_a(double a, const void *Params)
     {
-        CosmologyParameters *cosm = (CosmologyParameters *)Params;
+        const CosmologyParameters *cosm = (CosmologyParameters *)Params;
         double a2 = a * a;
         double Ha = sqrt(cosm->Omega_m / (a2 * a) + cosm->Omega_k / a2 + cosm->Omega_DE * pow(a, -3. * (1. + cosm->w_0 + cosm->w_a)) * exp(-3. * (1.0 - a) * cosm->w_a));
         return Ha;
+    }
+
+    inline double H_of_a( double a ) const
+    {
+        return 100.0 * this->H_of_a(a,reinterpret_cast<const void*>(&this->cosmo_param_));
     }
 
     inline static double Hprime_of_a(double a, void *Params) 
@@ -168,10 +183,7 @@ public:
 	 */
 	inline real_t CalcGrowthRate( real_t a )
 	{
-        #warning CalcGrowthRate is only correct if dark energy is a cosmological constant, need to upgrade calculator...
-		real_t y = cosmo_param_.Omega_m*(1.0/a-1.0) + cosmo_param_.Omega_DE*(a*a-1.0) + 1.0;
-		real_t fact = integrate( &fIntegrand, 1e-6, a, (void*)&cosmo_param_ );
-		return (cosmo_param_.Omega_DE*a*a-0.5*cosmo_param_.Omega_m/a)/y - 1.0 + a*fIntegrand(a,(void*)&cosmo_param_)/fact;
+        return CalcVFact(a) / H_of_a(a) / a;
 	}
 
     //! Computes the linear theory growth factor D+

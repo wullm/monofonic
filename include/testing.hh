@@ -1,3 +1,10 @@
+/*******************************************************************\
+ testing.hh - This file is part of MUSIC2 -
+ a code to generate initial conditions for cosmological simulations 
+ 
+ CHANGELOG (only majors, for details see repo):
+    10/2019 - Michael Michaux & Oliver Hahn - first implementation
+\*******************************************************************/
 #pragma once
 
 #include <array>

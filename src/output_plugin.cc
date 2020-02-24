@@ -30,6 +30,7 @@ void print_output_plugins()
 			csoca::ilog << "\t\'" << it->first << "\'\n";
 		++it;
 	}
+	csoca::ilog << std::endl;
 }
 
 std::unique_ptr<output_plugin> select_output_plugin( ConfigFile& cf )
