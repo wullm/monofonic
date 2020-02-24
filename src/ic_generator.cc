@@ -85,7 +85,7 @@ int Run( ConfigFile& the_config )
 
     //--------------------------------------------------------------------------------------------------------
     //! do constrained ICs?
-    const bool bAddConstrainedModes =  the_config.ContainsKey("setup", "ConstraintField" );
+    const bool bAddConstrainedModes =  the_config.ContainsKey("setup", "ConstraintFieldFile" );
 
     //--------------------------------------------------------------------------------------------------------
     //! add beyond box tidal field modes following Schmidt et al. (2018) [https://arxiv.org/abs/1803.03274]
@@ -198,10 +198,12 @@ int Run( ConfigFile& the_config )
     //--------------------------------------------------------------------
     if( bAddConstrainedModes ){
         Grid_FFT<real_t,false> cwnoise({8,8,8}, {boxlen,boxlen,boxlen});
-        cwnoise.Read_from_HDF5( the_config.GetValue<std::string>("setup", "ConstraintField"), "wnoise" );
+        cwnoise.Read_from_HDF5( the_config.GetValue<std::string>("setup", "ConstraintFieldFile"), 
+                the_config.GetValue<std::string>("setup", "ConstraintFieldName") );
         cwnoise.FourierTransformForward();
 
         // TODO: copy over modes
+
     }
 
 

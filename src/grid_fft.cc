@@ -358,6 +358,7 @@ void Grid_FFT<data_t,bdistributed>::Read_from_HDF5(const std::string Filename, c
     csoca::ilog << "Read external constraint data of dimensions " << dimsize[0] << "**3." << std::endl;
 
     for( size_t i=0; i<3; ++i ) this->n_[i] = dimsize[i];
+    this->space_ = rspace_id;
 
     if (data_ != nullptr)
     {
@@ -367,6 +368,8 @@ void Grid_FFT<data_t,bdistributed>::Read_from_HDF5(const std::string Filename, c
     
 
     //... copy data to internal array ...
+    double sum1{0.0}, sum2{0.0};
+    #pragma omp parallel for reduction(+:sum1,sum2)
     for (size_t i = 0; i < size(0); ++i)
     {
         for (size_t j = 0; j < size(1); ++j)
@@ -374,9 +377,14 @@ void Grid_FFT<data_t,bdistributed>::Read_from_HDF5(const std::string Filename, c
             for (size_t k = 0; k < size(2); ++k)
             {
                 this->relem(i,j,k) = Data[ (i*size(1) + j)*size(2)+k ];
+                sum2 += std::real(this->relem(i,j,k)*this->relem(i,j,k));
+                sum1 += std::real(this->relem(i,j,k));
             }
         }
-    }    
+    }
+    sum1 /= Data.size();
+    sum2 /= Data.size();
+    csoca::ilog << "Constraint field has <W>=" << sum1 << ", <W^2>-<W>^2=" << std::sqrt(sum2-sum1*sum1) << std::endl;
 }
 
 template <typename data_t,bool bdistributed>
