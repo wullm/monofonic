@@ -200,7 +200,8 @@ void Grid_FFT<data_t>::FourierTransformForward(bool do_transform)
         {
             double wtime = get_wtime();
             csoca::dlog.Print("[FFT] Calling Grid_FFT::to_kspace (%lux%lux%lu)", sizes_[0], sizes_[1], sizes_[2]);
-            FFTW_API(execute)(plan_);
+            FFTW_API(execute)
+            (plan_);
             this->ApplyNorm();
 
             wtime = get_wtime() - wtime;
@@ -232,7 +233,8 @@ void Grid_FFT<data_t>::FourierTransformBackward(bool do_transform)
             csoca::dlog.Print("[FFT] Calling Grid_FFT::to_rspace (%dx%dx%d)\n", sizes_[0], sizes_[1], sizes_[2]);
             double wtime = get_wtime();
 
-            FFTW_API(execute)(iplan_);
+            FFTW_API(execute)
+            (iplan_);
             this->ApplyNorm();
 
             wtime = get_wtime() - wtime;
@@ -267,6 +269,126 @@ void create_hdf5(std::string Filename)
     HDF_FileID =
         H5Fcreate(Filename.c_str(), H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT);
     H5Fclose(HDF_FileID);
+}
+
+template <typename T>
+hid_t hdf5_get_data_type(void)
+{
+    if (typeid(T) == typeid(int))
+        return H5T_NATIVE_INT;
+
+    if (typeid(T) == typeid(unsigned))
+        return H5T_NATIVE_UINT;
+
+    if (typeid(T) == typeid(float))
+        return H5T_NATIVE_FLOAT;
+
+    if (typeid(T) == typeid(double))
+        return H5T_NATIVE_DOUBLE;
+
+    if (typeid(T) == typeid(long long))
+        return H5T_NATIVE_LLONG;
+
+    if (typeid(T) == typeid(unsigned long long))
+        return H5T_NATIVE_ULLONG;
+
+    if (typeid(T) == typeid(size_t))
+        return H5T_NATIVE_ULLONG;
+
+    std::cerr << " - Error: [HDF_IO] trying to evaluate unsupported type in GetDataType\n\n";
+    return -1;
+}
+
+template <typename data_t>
+void Grid_FFT<data_t>::Read_from_HDF5(const std::string Filename, const std::string ObjName)
+{
+    hid_t HDF_Type = hdf5_get_data_type<data_t>();
+
+    hid_t HDF_FileID = H5Fopen(Filename.c_str(), H5F_ACC_RDONLY, H5P_DEFAULT);
+
+    //... save old error handler
+    herr_t (*old_func)(void *);
+    void *old_client_data;
+
+    H5Eget_auto(&old_func, &old_client_data);
+
+    //... turn off error handling by hdf5 library
+    H5Eset_auto(NULL, NULL);
+
+    //... probe dataset opening
+    hid_t HDF_DatasetID = H5Dopen(HDF_FileID, ObjName.c_str());
+
+    //... restore previous error handler
+    H5Eset_auto(old_func, old_client_data);
+
+    //... dataset did not exist or was empty
+    if (HDF_DatasetID < 0)
+    {
+        csoca::wlog << " - Warning: dataset \'" << ObjName.c_str() << "\' does not exist or is empty.\n";
+        H5Fclose(HDF_FileID);
+        abort();
+    }
+
+    //... get space associated with dataset and its extensions
+    hid_t HDF_DataspaceID = H5Dget_space(HDF_DatasetID);
+
+    int ndims = H5Sget_simple_extent_ndims(HDF_DataspaceID);
+
+    hsize_t dimsize[3];
+
+    H5Sget_simple_extent_dims(HDF_DataspaceID, dimsize, NULL);
+
+    hsize_t HDF_StorageSize = 1;
+    for (int i = 0; i < ndims; ++i)
+        HDF_StorageSize *= dimsize[i];
+
+    //... adjust the array size to hold the data
+    std::vector<data_t> Data;
+    Data.reserve(HDF_StorageSize);
+    Data.assign(HDF_StorageSize, (data_t)0);
+
+    if (Data.capacity() < HDF_StorageSize)
+    {
+        csoca::elog << "Not enough memory to store all data in HDFReadDataset!\n";
+        abort();
+    }
+
+    //... read the dataset
+    H5Dread(HDF_DatasetID, HDF_Type, H5S_ALL, H5S_ALL, H5P_DEFAULT, &Data[0]);
+
+    if (Data.size() != HDF_StorageSize)
+    {
+        csoca::elog << "Something went wrong while reading!\n";
+        abort();
+    }
+
+    H5Sclose(HDF_DataspaceID);
+    H5Dclose(HDF_DatasetID);
+    H5Fclose(HDF_FileID);
+
+    assert( dimsize[0] == dimsize[1] && dimsize[0] == dimsize[2] );
+    csoca::ilog << "Read external constraint data of dimensions " << dimsize[0] << "**3." << std::endl;
+
+    for( size_t i=0; i<3; ++i ) this->n_[i] = dimsize[i];
+
+    if (data_ != nullptr)
+    {
+        fftw_free(data_);
+    }
+    this->Setup();
+    
+
+    //... copy data to internal array ...
+    for (size_t i = 0; i < size(0); ++i)
+    {
+        for (size_t j = 0; j < size(1); ++j)
+        {
+            for (size_t k = 0; k < size(2); ++k)
+            {
+                this->relem(i,j,k) = Data[ (i*size(1) + j)*size(2)+k ];
+            }
+        }
+    }    
 }
 
 template <typename data_t>
@@ -551,7 +673,7 @@ void Grid_FFT<data_t>::Write_PowerSpectrum(std::string ofname)
     std::vector<double> bin_k, bin_P, bin_eP;
     std::vector<size_t> bin_count;
     int nbins = 4 * std::max(nhalf_[0], std::max(nhalf_[1], nhalf_[2]));
-    this->Compute_PowerSpectrum(bin_k, bin_P, bin_eP, bin_count );
+    this->Compute_PowerSpectrum(bin_k, bin_P, bin_eP, bin_count);
 #if defined(USE_MPI)
     if (CONFIG::MPI_task_rank == 0)
     {
@@ -577,7 +699,7 @@ void Grid_FFT<data_t>::Write_PowerSpectrum(std::string ofname)
 }
 
 template <typename data_t>
-void Grid_FFT<data_t>::Compute_PowerSpectrum(std::vector<double> &bin_k, std::vector<double> &bin_P, std::vector<double> &bin_eP, std::vector<size_t> &bin_count )
+void Grid_FFT<data_t>::Compute_PowerSpectrum(std::vector<double> &bin_k, std::vector<double> &bin_P, std::vector<double> &bin_eP, std::vector<size_t> &bin_count)
 {
     this->FourierTransformForward();
 

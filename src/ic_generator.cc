@@ -69,6 +69,10 @@ int Run( ConfigFile& the_config )
     const bool bDoBaryons = the_config.GetValueSafe<bool>("setup", "DoBaryons", false );
 
     //--------------------------------------------------------------------------------------------------------
+    //! do constrained ICs?
+    const bool bAddConstrainedModes =  the_config.ContainsKey("setup", "ConstraintField" );
+
+    //--------------------------------------------------------------------------------------------------------
     //! add beyond box tidal field modes following Schmidt et al. (2018) [https://arxiv.org/abs/1803.03274]
     bool bAddExternalTides = the_config.ContainsKey("cosmology", "LSS_aniso_lx") 
                            & the_config.ContainsKey("cosmology", "LSS_aniso_ly") 
@@ -184,9 +188,21 @@ int Run( ConfigFile& the_config )
         // Fill the grid with a Gaussian white noise field
         //--------------------------------------------------------------------
         the_random_number_generator->Fill_Grid( phi );
-
         phi.FourierTransformForward();
 
+        //--------------------------------------------------------------------
+        // with the unconstrained noise in Fourier space, add constrained 
+        // modes for low k
+        //--------------------------------------------------------------------
+        if( bAddConstrainedModes ){
+            auto cfield_fname = the_config.GetValue<std::string>("setup", "ConstraintField" );
+            
+        }
+
+
+        //--------------------------------------------------------------------
+        // Apply power spectrum
+        //--------------------------------------------------------------------
         phi.apply_function_k_dep([&](auto x, auto k) -> ccomplex_t {
             real_t kmod = k.norm();
             if( bDoFixing ) x = (std::abs(x)!=0.0)? x / std::abs(x) : x; 
