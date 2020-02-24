@@ -279,6 +279,11 @@ hid_t hdf5_get_data_type(void)
 template <typename data_t,bool bdistributed>
 void Grid_FFT<data_t,bdistributed>::Read_from_HDF5(const std::string Filename, const std::string ObjName)
 {
+    if( bdistributed ){
+        csoca::elog << "Attempt to read from HDF5 into MPI-distributed array. This is not supported yet!" << std::endl;
+        abort();
+    }
+
     hid_t HDF_Type = hdf5_get_data_type<data_t>();
 
     hid_t HDF_FileID = H5Fopen(Filename.c_str(), H5F_ACC_RDONLY, H5P_DEFAULT);
@@ -301,7 +306,7 @@ void Grid_FFT<data_t,bdistributed>::Read_from_HDF5(const std::string Filename, c
     //... dataset did not exist or was empty
     if (HDF_DatasetID < 0)
     {
-        csoca::wlog << " - Warning: dataset \'" << ObjName.c_str() << "\' does not exist or is empty.\n";
+        csoca::elog << "Dataset \'" << ObjName.c_str() << "\' does not exist or is empty." << std::endl;
         H5Fclose(HDF_FileID);
         abort();
     }
@@ -326,7 +331,10 @@ void Grid_FFT<data_t,bdistributed>::Read_from_HDF5(const std::string Filename, c
 
     if (Data.capacity() < HDF_StorageSize)
     {
-        csoca::elog << "Not enough memory to store all data in HDFReadDataset!\n";
+        csoca::elog << "Not enough memory to store all data in HDFReadDataset!" << std::endl;
+        H5Sclose(HDF_DataspaceID);
+        H5Dclose(HDF_DatasetID);
+        H5Fclose(HDF_FileID);
         abort();
     }
 
@@ -335,7 +343,10 @@ void Grid_FFT<data_t,bdistributed>::Read_from_HDF5(const std::string Filename, c
 
     if (Data.size() != HDF_StorageSize)
     {
-        csoca::elog << "Something went wrong while reading!\n";
+        csoca::elog << "Something went wrong while reading!" << std::endl;
+        H5Sclose(HDF_DataspaceID);
+        H5Dclose(HDF_DatasetID);
+        H5Fclose(HDF_FileID);
         abort();
     }
 

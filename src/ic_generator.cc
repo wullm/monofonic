@@ -194,6 +194,18 @@ int Run( ConfigFile& the_config )
 
 
     //--------------------------------------------------------------------
+    // Use externally specified large scale modes from constraints in case
+    //--------------------------------------------------------------------
+    if( bAddConstrainedModes ){
+        Grid_FFT<real_t,false> cwnoise({8,8,8}, {boxlen,boxlen,boxlen});
+        cwnoise.Read_from_HDF5( the_config.GetValue<std::string>("setup", "ConstraintField"), "wnoise" );
+        cwnoise.FourierTransformForward();
+
+        // TODO: copy over modes
+    }
+
+
+    //--------------------------------------------------------------------
     // Compute the LPT terms....
     //--------------------------------------------------------------------
 
