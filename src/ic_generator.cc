@@ -186,12 +186,6 @@ int Run( ConfigFile& the_config )
     the_random_number_generator->Fill_Grid(wnoise);
 
     wnoise.FourierTransformForward();
-    wnoise.apply_function_k( [&](auto wn){
-        if (bDoFixing)
-            wn = (std::abs(wn) != 0.0) ? wn / std::abs(wn) : wn;
-        return wn / volfac;
-    });
-
 
     //--------------------------------------------------------------------
     // Use externally specified large scale modes from constraints in case
@@ -202,9 +196,68 @@ int Run( ConfigFile& the_config )
                 the_config.GetValue<std::string>("setup", "ConstraintFieldName") );
         cwnoise.FourierTransformForward();
 
+        size_t ngrid_c = cwnoise.size(0), ngrid_c_2 = ngrid_c/2;
+
         // TODO: copy over modes
+        double rs1{0.0},rs2{0.0},is1{0.0},is2{0.0};
+        double nrs1{0.0},nrs2{0.0},nis1{0.0},nis2{0.0};
+        double renormfac = std::pow(real_t(ngrid)/real_t(ngrid_c),1.5);
+        size_t count{0};
+
+        csoca::ilog << "renormfac = " << renormfac << " " << ngrid << " " << ngrid_c << std::endl;
+
+        #pragma omp parallel for reduction(+:rs1,rs2,is1,is2,nrs1,nrs2,nis1,nis2,count)
+        for( size_t i=0; i<ngrid_c; ++i ){
+            size_t il = size_t(-1);
+            if( il<cwnoise.nhalf_[0] ) il = i;
+            if( il>cwnoise.nhalf_[0] ) il = ngrid-ngrid_c_2+i;
+            if( il == size_t(-1) ) continue;
+            if( il<size_t(wnoise.local_1_start_) || il>=size_t(wnoise.local_1_start_+wnoise.local_1_size_)) continue;
+            il -= wnoise.local_1_start_;
+            for( size_t j=0; j<ngrid_c; ++j ){
+                size_t jl = size_t(-1);
+                if( jl<cwnoise.nhalf_[1] ) jl = j;
+                if( jl>cwnoise.nhalf_[1] ) jl = ngrid-ngrid_c_2+j;
+                for( size_t k=0; k<ngrid_c/2+1; ++k ){
+                    size_t kl = size_t(-1);
+                    if( kl<cwnoise.nhalf_[2] ) kl = k;
+                    if( kl>cwnoise.nhalf_[2] ) kl = ngrid-ngrid_c_2+k;
+                    if( kl == size_t(-1) ) continue;
+
+                    ++count;
+
+                    nrs1 += std::real(cwnoise.kelem(i,j,k) * renormfac);
+                    nrs2 += std::real(cwnoise.kelem(i,j,k))*std::real(cwnoise.kelem(i,j,k)) * renormfac * renormfac;
+                    nis1 += std::imag(cwnoise.kelem(i,j,k) * renormfac);
+                    nis2 += std::imag(cwnoise.kelem(i,j,k))*std::imag(cwnoise.kelem(i,j,k)) * renormfac * renormfac;
+
+                    rs1 += std::real(wnoise.kelem(il,jl,kl));
+                    rs2 += std::real(wnoise.kelem(il,jl,kl))*std::real(wnoise.kelem(il,jl,kl));
+                    is1 += std::imag(wnoise.kelem(il,jl,kl));
+                    is2 += std::imag(wnoise.kelem(il,jl,kl))*std::imag(wnoise.kelem(il,jl,kl));
+                    
+                    wnoise.kelem(il,jl,kl) = cwnoise.kelem(i,j,k) * renormfac;
+                }
+            }
+        }
+
+        csoca::ilog << "old field: real part: <w>=" << rs1/count << " <w^2>-<w>^2=" << rs2/count-rs1*rs1/count/count << std::endl;
+        csoca::ilog << "old field: imag part: <w>=" << is1/count << " <w^2>-<w>^2=" << is2/count-is1*is1/count/count << std::endl;
+        csoca::ilog << "new field: real part: <w>=" << nrs1/count << " <w^2>-<w>^2=" << nrs2/count-nrs1*nrs1/count/count << std::endl;
+        csoca::ilog << "new field: imag part: <w>=" << nis1/count << " <w^2>-<w>^2=" << nis2/count-nis1*nis1/count/count << std::endl;
+
 
     }
+
+    //--------------------------------------------------------------------
+    // Apply Normalisation factor and Angulo&Pontzen fixing or not
+    //--------------------------------------------------------------------
+
+    wnoise.apply_function_k( [&](auto wn){
+        if (bDoFixing)
+            wn = (std::abs(wn) != 0.0) ? wn / std::abs(wn) : wn;
+        return wn / volfac;
+    });
 
 
     //--------------------------------------------------------------------
