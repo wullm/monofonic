@@ -184,7 +184,7 @@ int Run( ConfigFile& the_config )
     csoca::ilog << "Generating white noise field...." << std::endl;
 
     the_random_number_generator->Fill_Grid(wnoise);
-
+    
     wnoise.FourierTransformForward();
 
     //--------------------------------------------------------------------
@@ -206,17 +206,18 @@ int Run( ConfigFile& the_config )
         #pragma omp parallel for reduction(+:rs1,rs2,is1,is2,nrs1,nrs2,nis1,nis2,count)
         for( size_t i=0; i<ngrid_c; ++i ){
             size_t il = size_t(-1);
-            if( i<ngrid_c_2 && i<wnoise.nhalf_[0] ) il = i;
-            if( i>ngrid_c_2 && i+ngrid-ngrid_c_2>ngrid/2) il = ngrid-ngrid_c_2+i;
+            if( i<ngrid_c_2 && i<ngrid/2 ) il = i;
+            if( i>ngrid_c_2 && i+ngrid-ngrid_c>ngrid/2) il = ngrid-ngrid_c+i;
             if( il == size_t(-1) ) continue;
             if( il<size_t(wnoise.local_1_start_) || il>=size_t(wnoise.local_1_start_+wnoise.local_1_size_)) continue;
             il -= wnoise.local_1_start_;
             for( size_t j=0; j<ngrid_c; ++j ){
                 size_t jl = size_t(-1);
-                if( j<ngrid_c_2 && i<wnoise.nhalf_[1] ) jl = j;
-                if( j>ngrid_c_2 && j+ngrid-ngrid_c_2>ngrid/2 ) jl = ngrid-ngrid_c_2+j;
+                if( j<ngrid_c_2 && j<ngrid/2 ) jl = j;
+                if( j>ngrid_c_2 && j+ngrid-ngrid_c>ngrid/2 ) jl = ngrid-ngrid_c+j;
                 if( jl == size_t(-1) ) continue;
                 for( size_t k=0; k<ngrid_c/2+1; ++k ){
+                    if( k>ngrid/2 ) continue;
                     size_t kl = k;
                     
                     ++count;
@@ -231,17 +232,20 @@ int Run( ConfigFile& the_config )
                     is1 += std::imag(wnoise.kelem(il,jl,kl));
                     is2 += std::imag(wnoise.kelem(il,jl,kl))*std::imag(wnoise.kelem(il,jl,kl));
                     
+                #if defined(USE_MPI)
+                    wnoise.kelem(il,jl,kl) = cwnoise.kelem(j,i,k);
+                #else
                     wnoise.kelem(il,jl,kl) = cwnoise.kelem(i,j,k);
+                #endif
                 }
             }
         }
 
-        csoca::ilog << "  ... old field: re <w>=" << rs1/count << " <w^2>-<w>^2=" << rs2/count-rs1*rs1/count/count << std::endl;
-        csoca::ilog << "  ... old field: im <w>=" << is1/count << " <w^2>-<w>^2=" << is2/count-is1*is1/count/count << std::endl;
-        csoca::ilog << "  ... new field: re <w>=" << nrs1/count << " <w^2>-<w>^2=" << nrs2/count-nrs1*nrs1/count/count << std::endl;
-        csoca::ilog << "  ... new field: im <w>=" << nis1/count << " <w^2>-<w>^2=" << nis2/count-nis1*nis1/count/count << std::endl;
-
-
+        // csoca::ilog << "  ... old field: re <w>=" << rs1/count << " <w^2>-<w>^2=" << rs2/count-rs1*rs1/count/count << std::endl;
+        // csoca::ilog << "  ... old field: im <w>=" << is1/count << " <w^2>-<w>^2=" << is2/count-is1*is1/count/count << std::endl;
+        // csoca::ilog << "  ... new field: re <w>=" << nrs1/count << " <w^2>-<w>^2=" << nrs2/count-nrs1*nrs1/count/count << std::endl;
+        // csoca::ilog << "  ... new field: im <w>=" << nis1/count << " <w^2>-<w>^2=" << nis2/count-nis1*nis1/count/count << std::endl;
+        csoca::ilog << "White noise field large-scale modes overwritten with external field." << std::endl;
     }
 
     //--------------------------------------------------------------------
