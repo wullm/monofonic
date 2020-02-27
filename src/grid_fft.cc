@@ -384,7 +384,20 @@ void Grid_FFT<data_t,bdistributed>::Read_from_HDF5(const std::string Filename, c
     }
     sum1 /= Data.size();
     sum2 /= Data.size();
-    csoca::ilog << "Constraint field has <W>=" << sum1 << ", <W^2>-<W>^2=" << std::sqrt(sum2-sum1*sum1) << std::endl;
+    auto stdw = std::sqrt(sum2-sum1*sum1);
+    csoca::ilog << "Constraint field has <W>=" << sum1 << ", <W^2>-<W>^2=" << stdw << std::endl;
+
+    #pragma omp parallel for reduction(+:sum1,sum2)
+    for (size_t i = 0; i < size(0); ++i)
+    {
+        for (size_t j = 0; j < size(1); ++j)
+        {
+            for (size_t k = 0; k < size(2); ++k)
+            {
+                this->relem(i,j,k) /= stdw;
+            }
+        }
+    }
 }
 
 template <typename data_t,bool bdistributed>
