@@ -468,40 +468,26 @@ private:
                     }else{
                         // large k modes, use interpolated PLT results
                         // -- store in diagonal components of D_ij
-                        // D_xx_.kelem(i,j,k) =  ccomplex_t(0.0,evec1.x * kmod);
-                        // D_yy_.kelem(i,j,k) =  ccomplex_t(0.0,evec1.y * kmod);
-                        // D_zz_.kelem(i,j,k) =  ccomplex_t(0.0,evec1.z * kmod);
+                        auto norm = (kv.norm()/kv.dot(evec1));
+                        D_xx_.kelem(i,j,k) =  ccomplex_t(0.0,evec1.x * kmod);
+                        D_yy_.kelem(i,j,k) =  ccomplex_t(0.0,evec1.y * kmod);
+                        D_zz_.kelem(i,j,k) =  ccomplex_t(0.0,evec1.z * kmod);
 
                         // // re-normalise to that longitudinal amplitude is exact
-                        evec1 = kv;
-                        auto norm = (kv.norm()/kv.dot(evec1));
-                        // D_xx_.kelem(i,j,k) *= norm;
-                        // D_yy_.kelem(i,j,k) *= norm;
-                        // D_zz_.kelem(i,j,k) *= norm;
-
-                        ///////////////////////////////////
-                        // project onto spherical coordinate vectors
+                        // //evec1 = kv;
+                        // auto norm = (kv.norm()/kv.dot(evec1));
+                        // //evec1 = evec1 * (1.0/boxlen_);
                         
-                        real_t kr = kv.norm(), kphi = std::atan2(kv.y,kv.x), ktheta = std::acos( kv.z / kr );
-                        real_t st = std::sin(ktheta), ct = std::cos(ktheta), sp = std::sin(kphi), cp = std::cos(kphi);
-                        vec3<real_t> e_r( st*cp, st*sp, ct), e_theta( ct*cp, ct*sp, -st), e_phi( -sp, cp, 0.0 );
+                        // ///////////////////////////////////
+                        // // project onto spherical coordinate vectors
+                        
+                        // real_t kr = kv.norm(), kphi = std::atan2(kv.y,kv.x), ktheta = std::acos( kv.z / kr );
+                        // real_t st = std::sin(ktheta), ct = std::cos(ktheta), sp = std::sin(kphi), cp = std::cos(kphi);
+                        // vec3<real_t> e_r( st*cp, st*sp, ct), e_theta( ct*cp, ct*sp, -st), e_phi( -sp, cp, 0.0 );
 
-                        //vec3<real_t> e_r( 1.0, 0.0, 0.0 ), e_theta( 0.0, 1.0, 0.0 ), e_phi( 0.0, 0.0, 1.0 );
-
-                        D_xx_.kelem(i,j,k) = ccomplex_t(0.0,kmod*norm * evec1.dot( e_r ) );
-                        D_yy_.kelem(i,j,k) = ccomplex_t(0.0,kmod*norm * evec1.dot( e_theta ) );
-                        D_zz_.kelem(i,j,k) = ccomplex_t(0.0,kmod*norm * evec1.dot( e_phi ) );
-
-                        real_t eve1p1 = kmod*norm * evec1.dot( e_r );
-                        real_t eve1p2 = kmod*norm * evec1.dot( e_theta );
-                        real_t eve1p3 = kmod*norm * evec1.dot( e_phi );
-
-                        auto rvec = eve1p1 * e_r + eve1p2 * e_theta + eve1p3 * e_phi;
-
-                        // std::cerr << D_xx_.kelem(i,j,k) << " " << D_yy_.kelem(i,j,k)  << " " << D_zz_.kelem(i,j,k) << std::endl;
-
-                        //std::cerr << rvec.x << " " << evec1.x * kmod*norm << std::endl;
-
+                        // D_xx_.kelem(i,j,k) = ccomplex_t( 0.0, evec1.dot( e_r )); //kmod*norm
+                        // D_yy_.kelem(i,j,k) = ccomplex_t( 0.0, evec1.dot( e_theta )); //kmod*norm
+                        // D_zz_.kelem(i,j,k) = ccomplex_t( 0.0, evec1.dot( e_phi )); //kmod*norm
 
                         // spatially dependent correction to vfact = \dot{D_+}/D_+
                         D_xy_.kelem(i,j,k) = 1.0/(0.25*(std::sqrt(1.+24*mu1)-1.));
@@ -579,45 +565,28 @@ public:
     {
         real_t ix = ijk[0]*mapratio_, iy = ijk[1]*mapratio_, iz = ijk[2]*mapratio_;
 
-        // if( idim == 0 )    return D_xx_.get_cic_kspace({ix,iy,iz});
-        // else if( idim == 1 ) return D_yy_.get_cic_kspace({ix,iy,iz});
-        // return D_zz_.get_cic_kspace({ix,iy,iz});
+        if( idim == 0 )    return D_xx_.get_cic_kspace({ix,iy,iz});
+        else if( idim == 1 ) return D_yy_.get_cic_kspace({ix,iy,iz});
+        return D_zz_.get_cic_kspace({ix,iy,iz});
 
-        ///////
-        // auto kv = D_xx_.get_k<real_t>( static_cast<size_t>(ix), static_cast<size_t>(iy), static_cast<size_t>(iz) );
-        auto kv = D_xx_.get_k<real_t>( ix, iy, iz ) / mapratio_;
+        // auto kv = D_xx_.get_k<real_t>( ix, iy, iz ) / boxlen_;
 
-        // project onto spherical coordinate vectors
-        //real_t kr = kv.norm(), kphi = kr > 0.0? std::atan2(kv.y,kv.x) : 0.0, ktheta = kr>0.0? std::acos( kv.z / kr ) : 0.0;
+        // // project onto spherical coordinate vectors
+        // auto D_r = D_xx_.get_cic_kspace({ix,iy,iz});
+        // auto D_theta = D_yy_.get_cic_kspace({ix,iy,iz});
+        // auto D_phi = D_zz_.get_cic_kspace({ix,iy,iz});
         
+        // real_t kr = kv.norm(), kphi = kr>0.0? std::atan2(kv.y,kv.x) : 0.0, ktheta = kr>0.0? std::acos( kv.z / kr ) : 0.0;
+        // real_t st = std::sin(ktheta), ct = std::cos(ktheta), sp = std::sin(kphi), cp = std::cos(kphi);
         // vec3<real_t> e_r( st*cp, st*sp, ct), e_theta( ct*cp, ct*sp, -st), e_phi( -sp, cp, 0.0 );
-        auto D_r = D_xx_.get_cic_kspace({ix,iy,iz});
-        auto D_theta = D_yy_.get_cic_kspace({ix,iy,iz});
-        auto D_phi = D_zz_.get_cic_kspace({ix,iy,iz});
-        real_t kr = kv.norm(), kphi = kr>0.0? std::atan2(kv.y,kv.x) : 0.0, ktheta = kr>0.0? std::acos( kv.z / kr ) : 0.0;
-        real_t st = std::sin(ktheta), ct = std::cos(ktheta), sp = std::sin(kphi), cp = std::cos(kphi);
-                        
-                        //real_t st = std::sin(ktheta), ct = std::cos(ktheta), sp = std::sin(kphi), cp = std::cos(kphi);
-        vec3<real_t> e_r( st*cp, st*sp, ct), e_theta( ct*cp, ct*sp, -st), e_phi( -sp, cp, 0.0 );
-
-        vec3<real_t> evec3 = D_r.imag() * e_r + D_theta.imag() * e_theta + D_phi.imag() * e_phi;
-
-        assert(!std::isnan(std::imag(D_r * st * cp + D_theta * ct * cp - D_phi * sp)));
-        assert(!std::isnan(std::imag(D_r  * st * sp + D_theta * ct * sp + D_phi * cp)));
-        assert(!std::isnan(std::imag(D_r  * ct - D_theta * st)));
-        assert(!std::isnan(std::real(D_r * st * cp + D_theta * ct * cp - D_phi * sp)));
-        assert(!std::isnan(std::real(D_r  * st * sp + D_theta * ct * sp + D_phi * cp)));
-        assert(!std::isnan(std::real(D_r  * ct - D_theta * st)));
-
-        // std::cerr << kv.x/boxlen_ << " " << kv.y/boxlen_ << " " << kv.z/boxlen_  << " -- " << D_r * st * cp + D_theta * ct * cp - D_phi * sp << " " << D_r  * st * sp + D_theta * ct * sp + D_phi * cp << " " << (D_r  * ct - D_theta * st ) << std::endl;
-
-        if( idim == 0 ){
-            return D_r * st * cp + D_theta * ct * cp - D_phi * sp; 
-        }
-        else if( idim == 1 ){
-            return D_r  * st * sp + D_theta * ct * sp + D_phi * cp; 
-        }
-        return D_r  * ct - D_theta * st; 
+        
+        // if( idim == 0 ){
+        //     return D_r * st * cp + D_theta * ct * cp - D_phi * sp; 
+        // }
+        // else if( idim == 1 ){
+        //     return D_r  * st * sp + D_theta * ct * sp + D_phi * cp; 
+        // }
+        // return D_r  * ct - D_theta * st; 
     }
 
     inline real_t vfac_corr( std::array<size_t,3> ijk  ) const
