@@ -498,7 +498,7 @@ private:
 
                         auto rvec = eve1p1 * e_r + eve1p2 * e_theta + eve1p3 * e_phi;
 
-                        std::cerr << D_xx_.kelem(i,j,k) << " " << D_yy_.kelem(i,j,k)  << " " << D_zz_.kelem(i,j,k) << std::endl;
+                        // std::cerr << D_xx_.kelem(i,j,k) << " " << D_yy_.kelem(i,j,k)  << " " << D_zz_.kelem(i,j,k) << std::endl;
 
                         //std::cerr << rvec.x << " " << evec1.x * kmod*norm << std::endl;
 
@@ -612,12 +612,12 @@ public:
         // std::cerr << kv.x/boxlen_ << " " << kv.y/boxlen_ << " " << kv.z/boxlen_  << " -- " << D_r * st * cp + D_theta * ct * cp - D_phi * sp << " " << D_r  * st * sp + D_theta * ct * sp + D_phi * cp << " " << (D_r  * ct - D_theta * st ) << std::endl;
 
         if( idim == 0 ){
-            return ccomplex_t( 0.0, evec3.x );//D_r; //D_r * st * cp + D_theta * ct * cp - D_phi * sp; 
+            return D_r * st * cp + D_theta * ct * cp - D_phi * sp; 
         }
         else if( idim == 1 ){
-            return ccomplex_t( 0.0, evec3.y );;//D_theta; //D_r  * st * sp + D_theta * ct * sp + D_phi * cp; 
+            return D_r  * st * sp + D_theta * ct * sp + D_phi * cp; 
         }
-        return ccomplex_t( 0.0, evec3.z );//D_phi; //(D_r  * ct - D_theta * st ); 
+        return D_r  * ct - D_theta * st; 
     }
 
     inline real_t vfac_corr( std::array<size_t,3> ijk  ) const
