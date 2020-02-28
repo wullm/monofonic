@@ -193,7 +193,7 @@ int main( int argc, char** argv )
 #endif
 
     csoca::ilog << "-------------------------------------------------------------------------------" << std::endl;
-    csoca::ilog << "Done.\n" << std::endl;
+    csoca::ilog << "Done. Have a nice day!\n" << std::endl;
 
     return 0;
 }

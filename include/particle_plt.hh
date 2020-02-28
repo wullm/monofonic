@@ -9,9 +9,17 @@
 #include <random>
 #include <map>
 
+#include <cassert>
+
 #include <particle_generator.hh>
 #include <grid_fft.hh>
 #include <mat3.hh>
+
+#include <gsl/gsl_sf_hyperg.h>
+inline double Hypergeometric2F1( double a, double b, double c, double x )
+{
+  return gsl_sf_hyperg_2F1( a, b, c, x);
+}
 
 #define PRODUCTION
 
@@ -20,7 +28,7 @@ namespace particle{
 
 class lattice_gradient{
 private:
-    const real_t boxlen_;
+    const real_t boxlen_, XmL_, aini_;
     const size_t ngmapto_, ngrid_, ngrid32_;
     const real_t mapratio_;
     Grid_FFT<real_t,false> D_xx_, D_xy_, D_xz_, D_yy_, D_yz_, D_zz_;
@@ -448,7 +456,7 @@ private:
                     vec3<real_t> evec1({std::real(D_yy_.kelem(i,j,k)),std::real(D_yz_.kelem(i,j,k)),std::real(D_zz_.kelem(i,j,k))});
                     evec1 /= evec1.norm();
 
-                    if(std::abs(ii)+std::abs(jj)+k<8){
+                    if(false){//std::abs(ii)+std::abs(jj)+k<8){
                         // small k modes, use usual pseudospectral derivative
                         // -- store in diagonal components of D_ij
                         D_xx_.kelem(i,j,k) = ccomplex_t(0.0,kv.x/mapratio_/boxlen_);
@@ -460,15 +468,40 @@ private:
                     }else{
                         // large k modes, use interpolated PLT results
                         // -- store in diagonal components of D_ij
-                        D_xx_.kelem(i,j,k) =  ccomplex_t(0.0,evec1.x * kmod);
-                        D_yy_.kelem(i,j,k) =  ccomplex_t(0.0,evec1.y * kmod);
-                        D_zz_.kelem(i,j,k) =  ccomplex_t(0.0,evec1.z * kmod);
+                        // D_xx_.kelem(i,j,k) =  ccomplex_t(0.0,evec1.x * kmod);
+                        // D_yy_.kelem(i,j,k) =  ccomplex_t(0.0,evec1.y * kmod);
+                        // D_zz_.kelem(i,j,k) =  ccomplex_t(0.0,evec1.z * kmod);
 
-                        // re-normalise to that longitudinal amplitude is exact
+                        // // re-normalise to that longitudinal amplitude is exact
+                        evec1 = kv;
                         auto norm = (kv.norm()/kv.dot(evec1));
-                        D_xx_.kelem(i,j,k) *= norm;
-                        D_yy_.kelem(i,j,k) *= norm;
-                        D_zz_.kelem(i,j,k) *= norm;
+                        // D_xx_.kelem(i,j,k) *= norm;
+                        // D_yy_.kelem(i,j,k) *= norm;
+                        // D_zz_.kelem(i,j,k) *= norm;
+
+                        ///////////////////////////////////
+                        // project onto spherical coordinate vectors
+                        
+                        real_t kr = kv.norm(), kphi = std::atan2(kv.y,kv.x), ktheta = std::acos( kv.z / kr );
+                        real_t st = std::sin(ktheta), ct = std::cos(ktheta), sp = std::sin(kphi), cp = std::cos(kphi);
+                        vec3<real_t> e_r( st*cp, st*sp, ct), e_theta( ct*cp, ct*sp, -st), e_phi( -sp, cp, 0.0 );
+
+                        //vec3<real_t> e_r( 1.0, 0.0, 0.0 ), e_theta( 0.0, 1.0, 0.0 ), e_phi( 0.0, 0.0, 1.0 );
+
+                        D_xx_.kelem(i,j,k) = ccomplex_t(0.0,kmod*norm * evec1.dot( e_r ) );
+                        D_yy_.kelem(i,j,k) = ccomplex_t(0.0,kmod*norm * evec1.dot( e_theta ) );
+                        D_zz_.kelem(i,j,k) = ccomplex_t(0.0,kmod*norm * evec1.dot( e_phi ) );
+
+                        real_t eve1p1 = kmod*norm * evec1.dot( e_r );
+                        real_t eve1p2 = kmod*norm * evec1.dot( e_theta );
+                        real_t eve1p3 = kmod*norm * evec1.dot( e_phi );
+
+                        auto rvec = eve1p1 * e_r + eve1p2 * e_theta + eve1p3 * e_phi;
+
+                        std::cerr << D_xx_.kelem(i,j,k) << " " << D_yy_.kelem(i,j,k)  << " " << D_zz_.kelem(i,j,k) << std::endl;
+
+                        //std::cerr << rvec.x << " " << evec1.x * kmod*norm << std::endl;
+
 
                         // spatially dependent correction to vfact = \dot{D_+}/D_+
                         D_xy_.kelem(i,j,k) = 1.0/(0.25*(std::sqrt(1.+24*mu1)-1.));
@@ -500,244 +533,14 @@ private:
 #endif   
     }
 
-    void init_D__old()
-    {
-        constexpr real_t pi = M_PI, twopi = 2.0*M_PI;
-
-        const std::vector<vec3<real_t>> normals_bcc{
-            {0.,pi,pi},{0.,-pi,pi},{0.,pi,-pi},{0.,-pi,-pi},
-            {pi,0.,pi},{-pi,0.,pi},{pi,0.,-pi},{-pi,0.,-pi},
-            {pi,pi,0.},{-pi,pi,0.},{pi,-pi,0.},{-pi,-pi,0.}
-        };
-
-        const std::vector<vec3<real_t>> bcc_reciprocal{
-            {twopi,0.,-twopi}, {0.,twopi,-twopi}, {0.,0.,2*twopi}
-        };
-
-        const real_t eta = 2.0/ngrid_; // Ewald cutoff shall be 2 cells
-        const real_t alpha = 1.0/std::sqrt(2)/eta;
-        const real_t alpha2 = alpha*alpha;
-        const real_t alpha3 = alpha2*alpha;
-        const real_t sqrtpi = std::sqrt(M_PI);
-        const real_t pi32   = std::pow(M_PI,1.5);
-
-        //! just a Kronecker \delta_ij
-        auto kronecker = []( int i, int j ) -> real_t { return (i==j)? 1.0 : 0.0; };
-
-        //! short range component of Ewald sum, eq. (A2) of Marcos (2008)
-        auto greensftide_sr = [&]( int mu, int nu, const vec3<real_t>& vR, const vec3<real_t>& vP ) -> real_t {
-            auto d = vR-vP;
-            auto r = d.norm();
-            if( r< 1e-14 ) return 0.0; // let's return nonsense for r=0, and fix it later!
-            real_t val{0.0};
-            val -= d[mu]*d[nu]/(r*r) * alpha3/pi32 * std::exp(-alpha*alpha*r*r);
-            val += 1.0/(4.0*M_PI)*(kronecker(mu,nu)/std::pow(r,3) - 3.0 * (d[mu]*d[nu])/std::pow(r,5)) * 
-                (std::erfc(alpha*r) + 2.0*alpha/sqrtpi*std::exp(-alpha*alpha*r*r)*r);
-            return val;
-        };
-
-        //! sums mirrored copies of short-range component of Ewald sum
-        auto evaluate_D = [&]( int mu, int nu, const vec3<real_t>& v ) -> real_t{
-            real_t sr = 0.0;
-            constexpr int N = 3; // number of repeated copies ±N per dimension
-            int count = 0;
-            for( int i=-N; i<=N; ++i ){
-                for( int j=-N; j<=N; ++j ){
-                    for( int k=-N; k<=N; ++k ){
-                        if( std::abs(i)+std::abs(j)+std::abs(k) <= N ){
-                            //sr += greensftide_sr( mu, nu, v, {real_t(i),real_t(j),real_t(k)} );
-                            sr += greensftide_sr( mu, nu, v, {real_t(i),real_t(j),real_t(k)} );
-                            sr += greensftide_sr( mu, nu, v, {real_t(i)+0.5,real_t(j)+0.5,real_t(k)+0.5} );
-                            count += 2;
-
-                            // sr += greensftide_sr( mu, nu, v, {real_t(i)+0.5,real_t(j)+0.5,real_t(k)+0.5} )/16;
-                            // sr += greensftide_sr( mu, nu, v, {real_t(i)+0.5,real_t(j)+0.5,real_t(k)-0.5} )/16;
-                            // sr += greensftide_sr( mu, nu, v, {real_t(i)+0.5,real_t(j)-0.5,real_t(k)+0.5} )/16;
-                            // sr += greensftide_sr( mu, nu, v, {real_t(i)+0.5,real_t(j)-0.5,real_t(k)-0.5} )/16;
-                            // sr += greensftide_sr( mu, nu, v, {real_t(i)-0.5,real_t(j)+0.5,real_t(k)+0.5} )/16;
-                            // sr += greensftide_sr( mu, nu, v, {real_t(i)-0.5,real_t(j)+0.5,real_t(k)-0.5} )/16;
-                            // sr += greensftide_sr( mu, nu, v, {real_t(i)-0.5,real_t(j)-0.5,real_t(k)+0.5} )/16;
-                            // sr += greensftide_sr( mu, nu, v, {real_t(i)-0.5,real_t(j)-0.5,real_t(k)-0.5} )/16;
-                        }
-                    }
-                }
-            }
-            return sr / count;
-        };
-
-        //! fill D_ij array with short range evaluated function
-        #pragma omp parallel for
-        for( size_t i=0; i<ngrid_; i++ ){
-            vec3<real_t>  p;
-            p.x = real_t(i)/ngrid_;
-            for( size_t j=0; j<ngrid_; j++ ){
-                p.y = real_t(j)/ngrid_;
-                for( size_t k=0; k<ngrid_; k++ ){
-                    p.z = real_t(k)/ngrid_;
-                    D_xx_.relem(i,j,k) = evaluate_D(0,0,p);
-                    D_xy_.relem(i,j,k) = evaluate_D(0,1,p);
-                    D_xz_.relem(i,j,k) = evaluate_D(0,2,p);
-                    D_yy_.relem(i,j,k) = evaluate_D(1,1,p);
-                    D_yz_.relem(i,j,k) = evaluate_D(1,2,p);
-                    D_zz_.relem(i,j,k) = evaluate_D(2,2,p);
-                }   
-            }    
-        }
-        // fix r=0 with background density (added later in Fourier space)
-        D_xx_.relem(0,0,0) = 0.0;
-        D_xy_.relem(0,0,0) = 0.0;
-        D_xz_.relem(0,0,0) = 0.0;
-        D_yy_.relem(0,0,0) = 0.0;
-        D_yz_.relem(0,0,0) = 0.0;
-        D_zz_.relem(0,0,0) = 0.0;
-        
-
-        // Fourier transform all six components
-        D_xx_.FourierTransformForward();
-        D_xy_.FourierTransformForward();
-        D_xz_.FourierTransformForward();
-        D_yy_.FourierTransformForward();
-        D_yz_.FourierTransformForward();
-        D_zz_.FourierTransformForward();
-
-        const real_t rho0 = std::pow(real_t(ngrid_),1.5); //mass of one particle in Fourier space
-        const real_t nfac = 1.0/std::pow(real_t(ngrid_),1.5);
-
-        #pragma omp parallel
-        {
-            // thread private matrix representation
-            mat3<real_t> D;
-            vec3<real_t> eval, evec1, evec2, evec3;
-        
-            #pragma omp for
-            for( size_t i=0; i<D_xx_.size(0); i++ )
-            {
-                for( size_t j=0; j<D_xx_.size(1); j++ )
-                {
-                    for( size_t k=0; k<D_xx_.size(2); k++ )
-                    {
-                        vec3<real_t> kv = D_xx_.get_k<real_t>(i,j,k);
-                        auto& b=bcc_reciprocal;
-                        vec3<real_t> kvc = { b[0][0]*kvc[0]+b[1][0]*kvc[1]+b[2][0]*kvc[2],
-                                            b[0][1]*kvc[0]+b[1][1]*kvc[1]+b[2][1]*kvc[2],
-                                            b[0][2]*kvc[0]+b[1][2]*kvc[1]+b[2][2]*kvc[2] };
-                        // vec3<real_t> kv = {kvc.dot(bcc_reciprocal[0]),kvc.dot(bcc_reciprocal[1]),kvc.dot(bcc_reciprocal[2])};
-                        const real_t kmod2 = kv.norm_squared();
-
-                        // long range component of Ewald sum
-                        //ccomplex_t shift = 1.0;//std::exp(ccomplex_t(0.0,0.5*(kv[0] + kv[1] + kv[2])* D_xx_.get_dx()[0]));
-                        ccomplex_t phi0 = -rho0 * std::exp(-0.5*eta*eta*kmod2) / kmod2;
-                        phi0 = (phi0==phi0)? phi0 : 0.0; // catch NaN from division by zero when kmod2=0
-
-
-                        // const int nn = 3;
-                        // size_t nsum = 0;
-                        // ccomplex_t ff = 0.0;
-                        // for( int is=-nn;is<=nn;is++){
-                        //     for( int js=-nn;js<=nn;js++){
-                        //         for( int ks=-nn;ks<=nn;ks++){
-                        //             if( std::abs(is)+std::abs(js)+std::abs(ks) <= nn ){
-                        //                 ff += std::exp(ccomplex_t(0.0,(((is)*kv[0] + (js)*kv[1] + (ks)*kv[2]))));
-                        //                 ff += std::exp(ccomplex_t(0.0,(((0.5+is)*kv[0] + (0.5+js)*kv[1] + (0.5+ks)*kv[2]))));
-                        //                 ++nsum;
-                        //             }
-                        //         }
-                        //     }    
-                        // }
-                        // ff /= nsum;
-                        // ccomplex_t ff = 1.0; 
-                        ccomplex_t ff = (0.5+0.5*std::exp(ccomplex_t(0.0,0.5*(kv[0] + kv[1] + kv[2]))));
-                        // assemble short-range + long_range of Ewald sum and add DC component to trace
-                        D_xx_.kelem(i,j,k) = ff*((D_xx_.kelem(i,j,k) - kv[0]*kv[0] * phi0)*nfac) + 1.0/3.0;
-                        D_xy_.kelem(i,j,k) = ff*((D_xy_.kelem(i,j,k) - kv[0]*kv[1] * phi0)*nfac);
-                        D_xz_.kelem(i,j,k) = ff*((D_xz_.kelem(i,j,k) - kv[0]*kv[2] * phi0)*nfac);
-                        D_yy_.kelem(i,j,k) = ff*((D_yy_.kelem(i,j,k) - kv[1]*kv[1] * phi0)*nfac) + 1.0/3.0;
-                        D_yz_.kelem(i,j,k) = ff*((D_yz_.kelem(i,j,k) - kv[1]*kv[2] * phi0)*nfac);
-                        D_zz_.kelem(i,j,k) = ff*((D_zz_.kelem(i,j,k) - kv[2]*kv[2] * phi0)*nfac) + 1.0/3.0;
-
-                    }
-                }
-            }
-
-            D_xx_.kelem(0,0,0) = 1.0/3.0;
-            D_xy_.kelem(0,0,0) = 0.0;
-            D_xz_.kelem(0,0,0) = 0.0;
-            D_yy_.kelem(0,0,0) = 1.0/3.0;
-            D_yz_.kelem(0,0,0) = 0.0;
-            D_zz_.kelem(0,0,0) = 1.0/3.0;
-
-            #pragma omp for
-            for( size_t i=0; i<D_xx_.size(0); i++ )
-            {
-                for( size_t j=0; j<D_xx_.size(1); j++ )
-                {
-                    for( size_t k=0; k<D_xx_.size(2); k++ )
-                    {
-                        // put matrix elements into actual matrix
-                        D = { std::real(D_xx_.kelem(i,j,k)), std::real(D_xy_.kelem(i,j,k)), std::real(D_xz_.kelem(i,j,k)),
-                              std::real(D_yy_.kelem(i,j,k)), std::real(D_yz_.kelem(i,j,k)), std::real(D_zz_.kelem(i,j,k)) };
-                        
-                        // compute eigenstructure of matrix
-                        D.eigen(eval, evec1, evec2, evec3);
-                        
-#ifdef PRODUCTION
-                        vec3<real_t> kv = D_xx_.get_k<real_t>(i,j,k);
-                        const real_t kmod  = kv.norm()/mapratio_/boxlen_;
-
-                        // store in diagonal components of D_ij
-                        D_xx_.kelem(i,j,k) =  ccomplex_t(0.0,kmod) * evec3.x;
-                        D_yy_.kelem(i,j,k) =  ccomplex_t(0.0,kmod) * evec3.y;
-                        D_zz_.kelem(i,j,k) =  ccomplex_t(0.0,kmod) * evec3.z;
-
-                        auto norm = (kv.norm()/kv.dot(evec3));
-                        if ( std::abs(kv.dot(evec3)) < 1e-10 || kv.norm() < 1e-10 ) norm = 0.0; 
-
-                        D_xx_.kelem(i,j,k) *= norm;
-                        D_yy_.kelem(i,j,k) *= norm;
-                        D_zz_.kelem(i,j,k) *= norm;
-
-                        // spatially dependent correction to vfact = \dot{D_+}/D_+
-                        D_xy_.kelem(i,j,k) = 1.0/(0.25*(std::sqrt(1.+24*eval[2])-1.));
-#else
-
-                        D_xx_.kelem(i,j,k) = eval[2];
-                        D_yy_.kelem(i,j,k) = eval[1];
-                        D_zz_.kelem(i,j,k) = eval[0];
-
-                        D_xy_.kelem(i,j,k) = evec3[0];
-                        D_xz_.kelem(i,j,k) = evec3[1];
-                        D_yz_.kelem(i,j,k) = evec3[2];
-#endif
-                    }
-                }
-            }
-        }
-#ifdef PRODUCTION
-        D_xy_.kelem(0,0,0) = 1.0;
-#endif
-
-        //////////////////////////////////////////
-        std::string filename("plt_test.hdf5");
-        unlink(filename.c_str());
-    #if defined(USE_MPI)
-        MPI_Barrier(MPI_COMM_WORLD);
-    #endif
-    //     rho.Write_to_HDF5(filename, "rho");
-        D_xx_.Write_to_HDF5(filename, "omega1");
-        D_yy_.Write_to_HDF5(filename, "omega2");
-        D_zz_.Write_to_HDF5(filename, "omega3");
-        D_xy_.Write_to_HDF5(filename, "e1_x");
-        D_xz_.Write_to_HDF5(filename, "e1_y");
-        D_yz_.Write_to_HDF5(filename, "e1_z");
-
-    }
-
 
 public:
     // real_t boxlen, size_t ngridother
     explicit lattice_gradient( ConfigFile& the_config, size_t ngridself=64 )
     : boxlen_( the_config.GetValue<double>("setup", "BoxLength") ), 
       ngmapto_( the_config.GetValue<size_t>("setup", "GridRes") ), 
+      XmL_ ( the_config.GetValue<double>("cosmology", "Omega_L") / the_config.GetValue<double>("cosmology", "Omega_m") ),
+      aini_ ( 1.0/(1.0+the_config.GetValue<double>("setup", "zstart")) ),
       ngrid_( ngridself ), ngrid32_( std::pow(ngrid_, 1.5) ), mapratio_(real_t(ngrid_)/real_t(ngmapto_)),
       D_xx_({ngrid_, ngrid_, ngrid_}, {1.0,1.0,1.0}), D_xy_({ngrid_, ngrid_, ngrid_}, {1.0,1.0,1.0}),
       D_xz_({ngrid_, ngrid_, ngrid_}, {1.0,1.0,1.0}), D_yy_({ngrid_, ngrid_, ngrid_}, {1.0,1.0,1.0}),
@@ -775,15 +578,58 @@ public:
     inline ccomplex_t gradient( const int idim, std::array<size_t,3> ijk ) const
     {
         real_t ix = ijk[0]*mapratio_, iy = ijk[1]*mapratio_, iz = ijk[2]*mapratio_;
-        if( idim == 0 )    return D_xx_.get_cic_kspace({ix,iy,iz});
-        else if( idim == 1 ) return D_yy_.get_cic_kspace({ix,iy,iz});
-        return D_zz_.get_cic_kspace({ix,iy,iz});
+
+        // if( idim == 0 )    return D_xx_.get_cic_kspace({ix,iy,iz});
+        // else if( idim == 1 ) return D_yy_.get_cic_kspace({ix,iy,iz});
+        // return D_zz_.get_cic_kspace({ix,iy,iz});
+
+        ///////
+        // auto kv = D_xx_.get_k<real_t>( static_cast<size_t>(ix), static_cast<size_t>(iy), static_cast<size_t>(iz) );
+        auto kv = D_xx_.get_k<real_t>( ix, iy, iz ) / mapratio_;
+
+        // project onto spherical coordinate vectors
+        //real_t kr = kv.norm(), kphi = kr > 0.0? std::atan2(kv.y,kv.x) : 0.0, ktheta = kr>0.0? std::acos( kv.z / kr ) : 0.0;
+        
+        // vec3<real_t> e_r( st*cp, st*sp, ct), e_theta( ct*cp, ct*sp, -st), e_phi( -sp, cp, 0.0 );
+        auto D_r = D_xx_.get_cic_kspace({ix,iy,iz});
+        auto D_theta = D_yy_.get_cic_kspace({ix,iy,iz});
+        auto D_phi = D_zz_.get_cic_kspace({ix,iy,iz});
+        real_t kr = kv.norm(), kphi = kr>0.0? std::atan2(kv.y,kv.x) : 0.0, ktheta = kr>0.0? std::acos( kv.z / kr ) : 0.0;
+        real_t st = std::sin(ktheta), ct = std::cos(ktheta), sp = std::sin(kphi), cp = std::cos(kphi);
+                        
+                        //real_t st = std::sin(ktheta), ct = std::cos(ktheta), sp = std::sin(kphi), cp = std::cos(kphi);
+        vec3<real_t> e_r( st*cp, st*sp, ct), e_theta( ct*cp, ct*sp, -st), e_phi( -sp, cp, 0.0 );
+
+        vec3<real_t> evec3 = D_r.imag() * e_r + D_theta.imag() * e_theta + D_phi.imag() * e_phi;
+
+        assert(!std::isnan(std::imag(D_r * st * cp + D_theta * ct * cp - D_phi * sp)));
+        assert(!std::isnan(std::imag(D_r  * st * sp + D_theta * ct * sp + D_phi * cp)));
+        assert(!std::isnan(std::imag(D_r  * ct - D_theta * st)));
+        assert(!std::isnan(std::real(D_r * st * cp + D_theta * ct * cp - D_phi * sp)));
+        assert(!std::isnan(std::real(D_r  * st * sp + D_theta * ct * sp + D_phi * cp)));
+        assert(!std::isnan(std::real(D_r  * ct - D_theta * st)));
+
+        // std::cerr << kv.x/boxlen_ << " " << kv.y/boxlen_ << " " << kv.z/boxlen_  << " -- " << D_r * st * cp + D_theta * ct * cp - D_phi * sp << " " << D_r  * st * sp + D_theta * ct * sp + D_phi * cp << " " << (D_r  * ct - D_theta * st ) << std::endl;
+
+        if( idim == 0 ){
+            return ccomplex_t( 0.0, evec3.x );//D_r; //D_r * st * cp + D_theta * ct * cp - D_phi * sp; 
+        }
+        else if( idim == 1 ){
+            return ccomplex_t( 0.0, evec3.y );;//D_theta; //D_r  * st * sp + D_theta * ct * sp + D_phi * cp; 
+        }
+        return ccomplex_t( 0.0, evec3.z );//D_phi; //(D_r  * ct - D_theta * st ); 
     }
 
-    inline real_t vfac_corr( std::array<size_t,3> ijk ) const
+    inline real_t vfac_corr( std::array<size_t,3> ijk  ) const
     {
         real_t ix = ijk[0]*mapratio_, iy = ijk[1]*mapratio_, iz = ijk[2]*mapratio_;
-        return std::real(D_xy_.get_cic_kspace({ix,iy,iz}));
+        const real_t alpha = 1.0/std::real(D_xy_.get_cic_kspace({ix,iy,iz}));
+        return 1.0/alpha;
+        // // below is for LCDM:
+        //! X = \Omega_\Lambda / \Omega_m
+        // return 1.0 / (alpha - (2*std::pow(aini_,3)*alpha*(2 + alpha)*XmL_*Hypergeometric2F1((3 + alpha)/3.,(5 + alpha)/3.,
+        //     (13 + 4*alpha)/6.,-(std::pow(aini_,3)*XmL_)))/
+        //     ((7 + 4*alpha)*Hypergeometric2F1(alpha/3.,(2 + alpha)/3.,(7 + 4*alpha)/6.,-(std::pow(aini_,3)*XmL_))));
     }
 
 };

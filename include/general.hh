@@ -126,7 +126,6 @@ inline void multitask_sync_barrier( void )
 }
 
 
-
 namespace CONFIG
 {
 extern int MPI_thread_support;

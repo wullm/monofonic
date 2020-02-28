@@ -29,9 +29,10 @@ const std::vector< std::vector<vec3<real_t>> > lattice_shifts =
 
 const std::vector<vec3<real_t>> second_lattice_shift =
 {
-        /* SC : */ {0.5, 0.5, 0.5},
-        /* BCC: */ {0.5, 0.5, 0.0},
-        /* FCC: */ {0.25, 0.25, 0.25},
+        /* SC : */ {0.5, 0.5, 0.5}, // this corresponds to CsCl lattice
+        /* BCC: */ {0.5, 0.5, 0.0}, // is there a diatomic lattice with BCC base?!?
+        /* FCC: */ {0.5, 0.5, 0.5}, // this corresponds to NaCl lattice
+        // /* FCC: */ {0.25, 0.25, 0.25}, // this corresponds to Zincblende/GaAs lattice
         /* RSC: */ {0.25, 0.25, 0.25},
 };
 

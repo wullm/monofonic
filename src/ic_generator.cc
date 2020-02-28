@@ -203,8 +203,8 @@ int Run( ConfigFile& the_config )
     //--------------------------------------------------------------------
     // Create PLT gradient operator
     //--------------------------------------------------------------------
-    // particle::lattice_gradient lg( the_config );
-    op::fourier_gradient lg( the_config );
+    particle::lattice_gradient lg( the_config );
+    // op::fourier_gradient lg( the_config );
 
     //--------------------------------------------------------------------
     std::vector<cosmo_species> species_list;
@@ -500,8 +500,8 @@ int Run( ConfigFile& the_config )
                                     real_t k2 = kvec.norm_squared(), kmod = std::sqrt(k2);
                                     double ampldiff = ((this_species == cosmo_species::dm)? the_cosmo_calc->GetAmplitude(kmod, cdm0) :
                                      (this_species == cosmo_species::baryon)? the_cosmo_calc->GetAmplitude(kmod, baryon0) : 
-                                    //  the_cosmo_calc->GetAmplitude(kmod, total0)) - the_cosmo_calc->GetAmplitude(kmod, total0);
-                                     the_cosmo_calc->GetAmplitude(kmod, total)*(-g1)) - the_cosmo_calc->GetAmplitude(kmod, total)*(-g1);
+                                      the_cosmo_calc->GetAmplitude(kmod, total0)) - the_cosmo_calc->GetAmplitude(kmod, total0);
+                                     //the_cosmo_calc->GetAmplitude(kmod, total)*(-g1)) - the_cosmo_calc->GetAmplitude(kmod, total)*(-g1);
 
                                     tmp.kelem(idx) += lg.gradient(idim, tmp.get_k3(i,j,k)) * wnoise.kelem(idx) * lunit * ampldiff / k2 / boxlen;
                                 }
@@ -549,8 +549,8 @@ int Run( ConfigFile& the_config )
                                     real_t k2 = kvec.norm_squared(), kmod = std::sqrt(k2);
                                     double ampldiff = ((this_species == cosmo_species::dm)? the_cosmo_calc->GetAmplitude(kmod, vcdm0) :
                                      (this_species == cosmo_species::baryon)? the_cosmo_calc->GetAmplitude(kmod, vbaryon0) : 
-                                        // the_cosmo_calc->GetAmplitude(kmod, total0)) - the_cosmo_calc->GetAmplitude(kmod, total0);
-                                     the_cosmo_calc->GetAmplitude(kmod, total)*(-g1)) - the_cosmo_calc->GetAmplitude(kmod, total)*(-g1);
+                                         the_cosmo_calc->GetAmplitude(kmod, vtotal0)) - the_cosmo_calc->GetAmplitude(kmod, vtotal0);
+                                     //the_cosmo_calc->GetAmplitude(kmod, total)*(-g1)) - the_cosmo_calc->GetAmplitude(kmod, total)*(-g1);
                                     tmp.kelem(idx) += lg.gradient(idim, tmp.get_k3(i,j,k)) * wnoise.kelem(idx) * vfac1 * vunit / boxlen * ampldiff / k2 ;
                                 }
 

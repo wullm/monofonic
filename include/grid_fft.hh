@@ -242,6 +242,23 @@ public:
         return kk;
     }
 
+    template <typename ft>
+    vec3<ft> get_k(const real_t i, const real_t j, const real_t k) const
+    {
+        vec3<ft> kk;
+        if( bdistributed ){
+            auto ip = i + real_t(local_1_start_);
+            kk[0] = (j - real_t(j > real_t(nhalf_[0])) * n_[0]) * kfac_[0];
+            kk[1] = (ip - real_t(ip > real_t(nhalf_[1])) * n_[1]) * kfac_[1];
+        }else{
+            kk[0] = (real_t(i) - real_t(i > real_t(nhalf_[0])) * n_[0]) * kfac_[0];
+            kk[1] = (real_t(j) - real_t(j > real_t(nhalf_[1])) * n_[1]) * kfac_[1];
+        }
+        kk[2] = (real_t(k) - real_t(k > real_t(nhalf_[2])) * n_[2]) * kfac_[2];
+
+        return kk;
+    }
+
     std::array<size_t,3> get_k3(const size_t i, const size_t j, const size_t k) const
     {
         return bdistributed? std::array<size_t,3>({j,i+local_1_start_,k}) : std::array<size_t,3>({i,j,k});

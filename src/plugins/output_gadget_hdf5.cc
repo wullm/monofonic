@@ -121,7 +121,7 @@ public:
     HDFWriteGroupAttribute(this_fname_, "Header", "NumPart_Total_HighWord", from_6array<unsigned>(header_.npartTotalHighWord));
     HDFWriteGroupAttribute(this_fname_, "Header", "Flag_Entropy_ICs", from_value<int>(header_.flag_entropy_instead_u));
 
-    csoca::ilog << "Wrote" << std::endl;
+    csoca::ilog << "Wrote Gadget-HDF5 file(s) to " << this_fname_ << std::endl;
   }
 
   output_type write_species_as(const cosmo_species &) const { return output_type::particles; }
