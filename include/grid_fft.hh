@@ -738,6 +738,8 @@ public:
 
     void Write_to_HDF5(std::string fname, std::string datasetname) const;
 
+    void Read_from_HDF5( std::string fname, std::string datasetname );
+
     void Write_PowerSpectrum(std::string ofname);
 
     void Compute_PowerSpectrum(std::vector<double> &bin_k, std::vector<double> &bin_P, std::vector<double> &bin_eP, std::vector<size_t> &bin_count);
