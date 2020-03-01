@@ -292,15 +292,15 @@ public:
 
     ccomplex_t get_cic_kspace( const vec3<real_t> x ) const{
         // warning! this doesn't work with MPI
-        int ix = std::floor(x.x);
-        int iy = std::floor(x.y);
-        int iz = std::floor(x.z);
+        int ix = static_cast<int>(std::floor(x.x));
+        int iy = static_cast<int>(std::floor(x.y));
+        int iz = static_cast<int>(std::floor(x.z));
         real_t dx = x.x-real_t(ix), tx = 1.0-dx;
         real_t dy = x.y-real_t(iy), ty = 1.0-dy;
         real_t dz = x.z-real_t(iz), tz = 1.0-dz;
         size_t ix1 = (ix+1)%size(0);
         size_t iy1 = (iy+1)%size(1);
-        size_t iz1 = std::min((iz+1),size(2)-1);
+        size_t iz1 = std::min((iz+1),int(size(2))-1);
         ccomplex_t val = 0.0;
         val += this->kelem(ix ,iy ,iz ) * tx * ty * tz;
         val += this->kelem(ix ,iy ,iz1) * tx * ty * dz;
