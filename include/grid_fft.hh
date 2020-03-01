@@ -290,11 +290,11 @@ public:
         return val;
     }
 
-    ccomplex_t get_cic_kspace( const vec3<real_t>& x ) const{
+    ccomplex_t get_cic_kspace( const vec3<real_t> x ) const{
         // warning! this doesn't work with MPI
-        size_t ix = static_cast<size_t>(x.x);
-        size_t iy = static_cast<size_t>(x.y);
-        size_t iz = std::min(static_cast<size_t>(x.z),size(2)-1); //static_cast<size_t>(x.z);
+        int ix = std::floor(x.x);
+        int iy = std::floor(x.y);
+        int iz = std::floor(x.z);
         real_t dx = x.x-real_t(ix), tx = 1.0-dx;
         real_t dy = x.y-real_t(iy), ty = 1.0-dy;
         real_t dz = x.z-real_t(iz), tz = 1.0-dz;

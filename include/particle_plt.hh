@@ -28,9 +28,9 @@ namespace particle{
 
 class lattice_gradient{
 private:
-    const real_t boxlen_, XmL_, aini_;
+    const real_t boxlen_, aini_;
     const size_t ngmapto_, ngrid_, ngrid32_;
-    const real_t mapratio_;
+    const real_t mapratio_, XmL_;
     Grid_FFT<real_t,false> D_xx_, D_xy_, D_xz_, D_yy_, D_yz_, D_zz_;
     Grid_FFT<real_t,false> grad_x_, grad_y_, grad_z_;
     std::vector<vec3<real_t>> vectk_;
@@ -443,11 +443,7 @@ private:
             for( size_t j=0; j<D_xx_.size(1); j++ ){
                 for( size_t k=0; k<D_xx_.size(2); k++ )
                 {
-                    int ii = (i>size_t(nlattice/2))? int(i)-nlattice : i;
-                    int jj = (j>size_t(nlattice/2))? int(j)-nlattice : j;
-                    
                     vec3<real_t> kv = D_xx_.get_k<real_t>(i,j,k);
-                    const real_t kmod  = kv.norm()/mapratio_/boxlen_;
 
                     double mu1 = std::real(D_xx_.kelem(i,j,k));
                     // double mu2 = std::real(D_xy_.kelem(i,j,k));
@@ -456,50 +452,28 @@ private:
                     vec3<real_t> evec1({std::real(D_yy_.kelem(i,j,k)),std::real(D_yz_.kelem(i,j,k)),std::real(D_zz_.kelem(i,j,k))});
                     evec1 /= evec1.norm();
 
-                    if(false){//std::abs(ii)+std::abs(jj)+k<8){
-                        // small k modes, use usual pseudospectral derivative
-                        // -- store in diagonal components of D_ij
-                        D_xx_.kelem(i,j,k) = ccomplex_t(0.0,kv.x/mapratio_/boxlen_);
-                        D_yy_.kelem(i,j,k) = ccomplex_t(0.0,kv.y/mapratio_/boxlen_);
-                        D_zz_.kelem(i,j,k) = ccomplex_t(0.0,kv.z/mapratio_/boxlen_);
+                    // ///////////////////////////////////
+                    // // project onto spherical coordinate vectors
+                    
+                    real_t kr = kv.norm(), kphi = kr>0.0? std::atan2(kv.y,kv.x) : 0.0, ktheta = kr>0.0? std::acos( kv.z / kr ): 0.0;
+                    real_t st = std::sin(ktheta), ct = std::cos(ktheta), sp = std::sin(kphi), cp = std::cos(kphi);
+                    vec3<real_t> e_r( st*cp, st*sp, ct), e_theta( ct*cp, ct*sp, -st), e_phi( -sp, cp, 0.0 );
 
-                        // spatially dependent correction to vfact = \dot{D_+}/D_+
-                        D_xy_.kelem(i,j,k) = 1.0;
-                    }else{
-                        // large k modes, use interpolated PLT results
-                        // -- store in diagonal components of D_ij
-                        auto norm = (kv.norm()/kv.dot(evec1));
-                        D_xx_.kelem(i,j,k) =  ccomplex_t(0.0,evec1.x * kmod);
-                        D_yy_.kelem(i,j,k) =  ccomplex_t(0.0,evec1.y * kmod);
-                        D_zz_.kelem(i,j,k) =  ccomplex_t(0.0,evec1.z * kmod);
+                    // re-normalise to that longitudinal amplitude is exact
+                    double renorm = evec1.dot( e_r ); if( renorm < 0.01 ) renorm = 1.0;
 
-                        // // re-normalise to that longitudinal amplitude is exact
-                        // //evec1 = kv;
-                        // auto norm = (kv.norm()/kv.dot(evec1));
-                        // //evec1 = evec1 * (1.0/boxlen_);
-                        
-                        // ///////////////////////////////////
-                        // // project onto spherical coordinate vectors
-                        
-                        // real_t kr = kv.norm(), kphi = std::atan2(kv.y,kv.x), ktheta = std::acos( kv.z / kr );
-                        // real_t st = std::sin(ktheta), ct = std::cos(ktheta), sp = std::sin(kphi), cp = std::cos(kphi);
-                        // vec3<real_t> e_r( st*cp, st*sp, ct), e_theta( ct*cp, ct*sp, -st), e_phi( -sp, cp, 0.0 );
+                    // -- store in diagonal components of D_ij
+                    D_xx_.kelem(i,j,k) = 1.0;
+                    D_yy_.kelem(i,j,k) = evec1.dot( e_theta ) / renorm;
+                    D_zz_.kelem(i,j,k) = evec1.dot( e_phi ) / renorm;
 
-                        // D_xx_.kelem(i,j,k) = ccomplex_t( 0.0, evec1.dot( e_r )); //kmod*norm
-                        // D_yy_.kelem(i,j,k) = ccomplex_t( 0.0, evec1.dot( e_theta )); //kmod*norm
-                        // D_zz_.kelem(i,j,k) = ccomplex_t( 0.0, evec1.dot( e_phi )); //kmod*norm
-
-                        // spatially dependent correction to vfact = \dot{D_+}/D_+
-                        D_xy_.kelem(i,j,k) = 1.0/(0.25*(std::sqrt(1.+24*mu1)-1.));
-                    }
-                    if( i==size_t(nlattice/2) ) D_xx_.kelem(i,j,k)=0.0;
-                    if( j==size_t(nlattice/2) ) D_yy_.kelem(i,j,k)=0.0;
-                    if( k==size_t(nlattice/2) ) D_zz_.kelem(i,j,k)=0.0;
+                    // spatially dependent correction to vfact = \dot{D_+}/D_+
+                    D_xy_.kelem(i,j,k) = 1.0/(0.25*(std::sqrt(1.+24*mu1)-1.));
                 }
             }
         }
         D_xy_.kelem(0,0,0) = 1.0;
-        D_xx_.kelem(0,0,0) = 0.0;
+        D_xx_.kelem(0,0,0) = 1.0;
         D_yy_.kelem(0,0,0) = 0.0;
         D_zz_.kelem(0,0,0) = 0.0;
 
@@ -524,10 +498,10 @@ public:
     // real_t boxlen, size_t ngridother
     explicit lattice_gradient( ConfigFile& the_config, size_t ngridself=64 )
     : boxlen_( the_config.GetValue<double>("setup", "BoxLength") ), 
-      ngmapto_( the_config.GetValue<size_t>("setup", "GridRes") ), 
-      XmL_ ( the_config.GetValue<double>("cosmology", "Omega_L") / the_config.GetValue<double>("cosmology", "Omega_m") ),
       aini_ ( 1.0/(1.0+the_config.GetValue<double>("setup", "zstart")) ),
+      ngmapto_( the_config.GetValue<size_t>("setup", "GridRes") ), 
       ngrid_( ngridself ), ngrid32_( std::pow(ngrid_, 1.5) ), mapratio_(real_t(ngrid_)/real_t(ngmapto_)),
+      XmL_ ( the_config.GetValue<double>("cosmology", "Omega_L") / the_config.GetValue<double>("cosmology", "Omega_m") ),
       D_xx_({ngrid_, ngrid_, ngrid_}, {1.0,1.0,1.0}), D_xy_({ngrid_, ngrid_, ngrid_}, {1.0,1.0,1.0}),
       D_xz_({ngrid_, ngrid_, ngrid_}, {1.0,1.0,1.0}), D_yy_({ngrid_, ngrid_, ngrid_}, {1.0,1.0,1.0}),
       D_yz_({ngrid_, ngrid_, ngrid_}, {1.0,1.0,1.0}), D_zz_({ngrid_, ngrid_, ngrid_}, {1.0,1.0,1.0}),
@@ -544,14 +518,6 @@ public:
 
         csoca::ilog << "PLT corrections for " << lattice_str << " lattice will be computed on " << ngrid_ << "**3 mesh" << std::endl;
 
-// #if defined(USE_MPI)
-//         if( CONFIG::MPI_task_size>1 )
-//         {
-//             csoca::elog << "PLT not implemented for MPI, cannot run with more than 1 task currently!" << std::endl;
-//             abort();
-//         }
-// #endif 
-
         double wtime = get_wtime();
         csoca::ilog << std::setw(40) << std::setfill('.') << std::left << "Computing PLT eigenmodes "<< std::flush;
         
@@ -565,28 +531,24 @@ public:
     {
         real_t ix = ijk[0]*mapratio_, iy = ijk[1]*mapratio_, iz = ijk[2]*mapratio_;
 
-        if( idim == 0 )    return D_xx_.get_cic_kspace({ix,iy,iz});
-        else if( idim == 1 ) return D_yy_.get_cic_kspace({ix,iy,iz});
-        return D_zz_.get_cic_kspace({ix,iy,iz});
-
-        // auto kv = D_xx_.get_k<real_t>( ix, iy, iz ) / boxlen_;
+        auto kv = D_xx_.get_k<real_t>( ix, iy, iz );
+        auto kmod = kv.norm() / mapratio_ / boxlen_;
 
         // // project onto spherical coordinate vectors
-        // auto D_r = D_xx_.get_cic_kspace({ix,iy,iz});
-        // auto D_theta = D_yy_.get_cic_kspace({ix,iy,iz});
-        // auto D_phi = D_zz_.get_cic_kspace({ix,iy,iz});
+        auto D_r = std::real(D_xx_.get_cic_kspace({ix,iy,iz}));
+        auto D_theta = std::real(D_yy_.get_cic_kspace({ix,iy,iz}));
+        auto D_phi = std::real(D_zz_.get_cic_kspace({ix,iy,iz}));
         
-        // real_t kr = kv.norm(), kphi = kr>0.0? std::atan2(kv.y,kv.x) : 0.0, ktheta = kr>0.0? std::acos( kv.z / kr ) : 0.0;
-        // real_t st = std::sin(ktheta), ct = std::cos(ktheta), sp = std::sin(kphi), cp = std::cos(kphi);
-        // vec3<real_t> e_r( st*cp, st*sp, ct), e_theta( ct*cp, ct*sp, -st), e_phi( -sp, cp, 0.0 );
+        real_t kr = kv.norm(), kphi = kr>0.0? std::atan2(kv.y,kv.x) : 0.0, ktheta = kr>0.0? std::acos( kv.z / kr ) : 0.0;
+        real_t st = std::sin(ktheta), ct = std::cos(ktheta), sp = std::sin(kphi), cp = std::cos(kphi);
         
-        // if( idim == 0 ){
-        //     return D_r * st * cp + D_theta * ct * cp - D_phi * sp; 
-        // }
-        // else if( idim == 1 ){
-        //     return D_r  * st * sp + D_theta * ct * sp + D_phi * cp; 
-        // }
-        // return D_r  * ct - D_theta * st; 
+        if( idim == 0 ){
+            return ccomplex_t(0.0, kmod*(D_r * st * cp + D_theta * ct * cp - D_phi * sp)); 
+        }
+        else if( idim == 1 ){
+            return ccomplex_t(0.0, kmod*(D_r  * st * sp + D_theta * ct * sp + D_phi * cp)); 
+        }
+        return ccomplex_t(0.0, kmod*(D_r  * ct - D_theta * st)); 
     }
 
     inline real_t vfac_corr( std::array<size_t,3> ijk  ) const
@@ -594,7 +556,7 @@ public:
         real_t ix = ijk[0]*mapratio_, iy = ijk[1]*mapratio_, iz = ijk[2]*mapratio_;
         const real_t alpha = 1.0/std::real(D_xy_.get_cic_kspace({ix,iy,iz}));
         return 1.0/alpha;
-        // // below is for LCDM:
+        // // below is for LCDM, but it is a tiny correction for typical starting redshifts:
         //! X = \Omega_\Lambda / \Omega_m
         // return 1.0 / (alpha - (2*std::pow(aini_,3)*alpha*(2 + alpha)*XmL_*Hypergeometric2F1((3 + alpha)/3.,(5 + alpha)/3.,
         //     (13 + 4*alpha)/6.,-(std::pow(aini_,3)*XmL_)))/
