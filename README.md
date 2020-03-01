@@ -5,7 +5,7 @@ High order LPT/QPT tool for single resolution simulations
 ## Build Instructions
 Clone code including submodules (currently only CLASS is used as a submodule):
 
-    git clone --recurse-submodules https://ohahn@bitbucket.org/ohahn/monofonic.git
+    git clone --recurse-submodules https://<username>@bitbucket.org/ohahn/monofonic.git
 
 
 Create build directory, configure, and build:
