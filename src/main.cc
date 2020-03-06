@@ -3,6 +3,7 @@
 #include <iostream>
 #include <fstream>
 #include <thread>
+#include <cfenv>
 
 #if defined(_OPENMP)
 #include <omp.h>
@@ -111,6 +112,8 @@ int main( int argc, char** argv )
 #if defined(_OPENMP)
     omp_set_num_threads(CONFIG::num_threads);
 #endif
+
+    // std::feclearexcept(FE_ALL_EXCEPT);
 
     //------------------------------------------------------------------------------
     // Write code configuration to screen

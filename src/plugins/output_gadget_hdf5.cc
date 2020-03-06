@@ -151,7 +151,7 @@ public:
     case cosmo_species::dm:
       return 1;
     case cosmo_species::baryon:
-      return 2;
+      return 0;
     case cosmo_species::neutrino:
       return 3;
     }

@@ -47,7 +47,7 @@ private:
         double wtime = get_wtime();
 
         std::stringstream zlist;
-        zlist << zstart_ << ", " << zstart_; 
+        zlist << zstart_ << ", " << ztarget_; 
         
         ClassParams pars;
         pars.add("extra metric transfer functions", "yes");
