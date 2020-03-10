@@ -37,7 +37,7 @@ const std::vector<vec3<real_t>> second_lattice_shift =
 };
 
 template<typename field_t>
-void initialize_lattice( container& particles, lattice lattice_type, const bool b64reals, const bool b64ids, const field_t& field ){
+void initialize_lattice( container& particles, lattice lattice_type, const bool b64reals, const bool b64ids, const size_t IDoffset, const field_t& field ){
     // number of modes present in the field
     const size_t num_p_in_load = field.local_size();
     // unless SC lattice is used, particle number is a multiple of the number of modes (=num_p_in_load):
@@ -50,9 +50,9 @@ void initialize_lattice( container& particles, lattice lattice_type, const bool 
             for( size_t k=0; k<field.size(2); ++k,++ipcount){
                 for( size_t iload=0; iload<overload; ++iload ){
                     if( b64ids ){
-                        particles.set_id64( ipcount+iload*num_p_in_load, overload*field.get_cell_idx_1d(i,j,k)+iload );
+                        particles.set_id64( ipcount+iload*num_p_in_load, IDoffset + overload*field.get_cell_idx_1d(i,j,k)+iload );
                     }else{
-                        particles.set_id32( ipcount+iload*num_p_in_load, overload*field.get_cell_idx_1d(i,j,k)+iload );
+                        particles.set_id32( ipcount+iload*num_p_in_load, IDoffset + overload*field.get_cell_idx_1d(i,j,k)+iload );
                     }
                 }
             }

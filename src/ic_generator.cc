@@ -540,11 +540,14 @@ int Run( ConfigFile& the_config )
                 bool shifted_lattice = (this_species == cosmo_species::baryon &&
                                         the_output_plugin->write_species_as(this_species) == output_type::particles) ? true : false;
 
+                // somewhat arbitrarily, start baryon particle IDs from 2**31 if we have 32bit and from 2**56 if we have 64 bits
+                size_t IDoffset = (this_species == cosmo_species::baryon)? ((the_output_plugin->has_64bit_ids())? 1ul<<56 : 1ul<<31): 0 ;
+
                 // if output plugin wants particles, then we need to store them, along with their IDs
                 if( the_output_plugin->write_species_as( this_species ) == output_type::particles )
                 {
                     // allocate particle structure and generate particle IDs
-                    particle::initialize_lattice( particles, lattice_type, the_output_plugin->has_64bit_reals(), the_output_plugin->has_64bit_ids(), tmp );
+                    particle::initialize_lattice( particles, lattice_type, the_output_plugin->has_64bit_reals(), the_output_plugin->has_64bit_ids(), IDoffset, tmp );
                 }
             
                 // write out positions
