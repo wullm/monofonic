@@ -15,6 +15,6 @@ namespace ic_generator{
 
     extern std::unique_ptr<RNG_plugin> the_random_number_generator;
     extern std::unique_ptr<output_plugin> the_output_plugin;
-    extern std::unique_ptr<CosmologyCalculator>  the_cosmo_calc;
+    extern std::unique_ptr<cosmology::calculator>  the_cosmo_calc;
 
 }

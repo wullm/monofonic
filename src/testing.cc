@@ -242,7 +242,7 @@ void output_velocity_displacement_symmetries(
 
 void output_convergence(
     ConfigFile &the_config,
-    CosmologyCalculator* the_cosmo_calc,
+    cosmology::calculator* the_cosmo_calc,
     std::size_t ngrid, real_t boxlen, real_t vfac, real_t dplus,
     Grid_FFT<real_t> &phi,
     Grid_FFT<real_t> &phi2,
@@ -301,7 +301,7 @@ void output_convergence(
                 }
             }
             nabla_vini_mn.FourierTransformBackward();
-            nabla_vini_mn *= (3.2144004915 / the_cosmo_calc->CalcGrowthFactor(1.0));
+            nabla_vini_mn *= (3.2144004915 / the_cosmo_calc->get_growth_factor(1.0));
             // sum of squares
             #pragma omp parallel for //collapse(3)
             for (std::size_t i = 0; i < nabla_vini_norm.size(0); ++i) {

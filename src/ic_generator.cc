@@ -22,13 +22,13 @@ namespace ic_generator{
 
 std::unique_ptr<RNG_plugin> the_random_number_generator;
 std::unique_ptr<output_plugin> the_output_plugin;
-std::unique_ptr<CosmologyCalculator>  the_cosmo_calc;
+std::unique_ptr<cosmology::calculator>  the_cosmo_calc;
 
 int Initialise( ConfigFile& the_config )
 {
     the_random_number_generator = std::move(select_RNG_plugin(the_config));
     the_output_plugin           = std::move(select_output_plugin(the_config));
-    the_cosmo_calc              = std::make_unique<CosmologyCalculator>(the_config);
+    the_cosmo_calc              = std::make_unique<cosmology::calculator>(the_config);
 
     return 0;
 }
@@ -120,7 +120,7 @@ int Run( ConfigFile& the_config )
     const real_t astart = 1.0/(1.0+zstart);
     const real_t volfac(std::pow(boxlen / ngrid / 2.0 / M_PI, 1.5));
 
-    the_cosmo_calc->WritePowerspectrum(astart, "input_powerspec.txt" );
+    the_cosmo_calc->write_powerspectrum(astart, "input_powerspec.txt" );
 
     //csoca::ilog << "-----------------------------------------------------------------------------" << std::endl;
 
@@ -132,8 +132,8 @@ int Run( ConfigFile& the_config )
     //--------------------------------------------------------------------
     // Compute LPT time coefficients
     //--------------------------------------------------------------------
-    const real_t Dplus0 = the_cosmo_calc->CalcGrowthFactor(astart) / the_cosmo_calc->CalcGrowthFactor(1.0);
-    const real_t vfac   = the_cosmo_calc->CalcVFact(astart);
+    const real_t Dplus0 = the_cosmo_calc->get_growth_factor(astart);
+    const real_t vfac   = the_cosmo_calc->get_vfact(astart);
 
     const double g1  = -Dplus0;
     const double g2  = ((LPTorder>1)? -3.0/7.0*Dplus0*Dplus0 : 0.0);
@@ -151,7 +151,7 @@ int Run( ConfigFile& the_config )
     // coefficients needed for anisotropic external tides
     const double ai3 = std::pow(astart,-3);
     const double Omega_m_of_a = the_cosmo_calc->cosmo_param_.Omega_m * ai3 / (the_cosmo_calc->cosmo_param_.Omega_m * ai3 + the_cosmo_calc->cosmo_param_.Omega_DE);
-    const double f1 = the_cosmo_calc->CalcGrowthRate(astart);
+    const double f1 = the_cosmo_calc->get_f(astart);
     const double f_aniso = -4.0/3.0 * f1 * f1 / Omega_m_of_a;
 
     const std::array<real_t,3> lss_aniso_alpha = {
