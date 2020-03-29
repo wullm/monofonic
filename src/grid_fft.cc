@@ -860,7 +860,7 @@ void Grid_FFT<data_t,bdistributed>::Compute_PowerSpectrum(std::vector<double> &b
         for (size_t iy = 0; iy < size(1); iy++)
             for (size_t iz = 0; iz < size(2); iz++)
             {
-                vec3<double> k3 = get_k<double>(ix, iy, iz);
+                vec3_t<double> k3 = get_k<double>(ix, iy, iz);
                 double k = k3.norm();
                 int idx2 = k / dk; //int((1.0f / dklog * std::log10(k / kmin)));
                 auto z = this->kelem(ix, iy, iz);

@@ -33,13 +33,13 @@ private:
     const real_t mapratio_, XmL_;
     Grid_FFT<real_t,false> D_xx_, D_xy_, D_xz_, D_yy_, D_yz_, D_zz_;
     Grid_FFT<real_t,false> grad_x_, grad_y_, grad_z_;
-    std::vector<vec3<real_t>> vectk_;
-    std::vector<vec3<int>> ico_, vecitk_;
+    std::vector<vec3_t<real_t>> vectk_;
+    std::vector<vec3_t<int>> ico_, vecitk_;
 
     bool is_even( int i ){ return (i%2)==0; }
 
-    bool is_in( int i, int j, int k, const mat3<int>& M ){
-        vec3<int> v({i,j,k});
+    bool is_in( int i, int j, int k, const mat3_t<int>& M ){
+        vec3_t<int> v({i,j,k});
         auto vv = M * v;
         return is_even(vv.x)&&is_even(vv.y)&&is_even(vv.z);
     }
@@ -54,22 +54,22 @@ private:
 
         //! === vectors, reciprocals and normals for the SC lattice ===
         const int charge_fac_sc = 1;
-        const mat3<real_t> mat_bravais_sc{
+        const mat3_t<real_t> mat_bravais_sc{
             1.0, 0.0, 0.0,
             0.0, 1.0, 0.0,
             0.0, 0.0, 1.0, 
         };
-        const mat3<real_t> mat_reciprocal_sc{
+        const mat3_t<real_t> mat_reciprocal_sc{
             twopi, 0.0, 0.0,
             0.0, twopi, 0.0,
             0.0, 0.0, twopi,
         };
-        const mat3<int> mat_invrecip_sc{
+        const mat3_t<int> mat_invrecip_sc{
             2, 0, 0,
             0, 2, 0,
             0, 0, 2,
         };
-        const std::vector<vec3<real_t>> normals_sc{
+        const std::vector<vec3_t<real_t>> normals_sc{
             {pi,0.,0.},{-pi,0.,0.},
             {0.,pi,0.},{0.,-pi,0.},
             {0.,0.,pi},{0.,0.,-pi},
@@ -78,22 +78,22 @@ private:
 
         //! === vectors, reciprocals and normals for the BCC lattice ===
         const int charge_fac_bcc = 2;
-        const mat3<real_t> mat_bravais_bcc{
+        const mat3_t<real_t> mat_bravais_bcc{
             1.0, 0.0, 0.5,
             0.0, 1.0, 0.5,
             0.0, 0.0, 0.5, 
         };
-        const mat3<real_t> mat_reciprocal_bcc{
+        const mat3_t<real_t> mat_reciprocal_bcc{
             twopi, 0.0, 0.0,
             0.0, twopi, 0.0,
             -twopi, -twopi, fourpi,
         };
-        const mat3<int> mat_invrecip_bcc{
+        const mat3_t<int> mat_invrecip_bcc{
             2, 0, 0,
             0, 2, 0,
             1, 1, 1,
         };
-        const std::vector<vec3<real_t>> normals_bcc{
+        const std::vector<vec3_t<real_t>> normals_bcc{
             {0.,pi,pi},{0.,-pi,pi},{0.,pi,-pi},{0.,-pi,-pi},
             {pi,0.,pi},{-pi,0.,pi},{pi,0.,-pi},{-pi,0.,-pi},
             {pi,pi,0.},{-pi,pi,0.},{pi,-pi,0.},{-pi,-pi,0.}
@@ -102,22 +102,22 @@ private:
 
         //! === vectors, reciprocals and normals for the FCC lattice ===
         const int charge_fac_fcc = 4;
-        const mat3<real_t> mat_bravais_fcc{
+        const mat3_t<real_t> mat_bravais_fcc{
             0.0, 0.5, 0.0,
             0.5, 0.0, 1.0,
             0.5, 0.5, 0.0, 
         };
-        const mat3<real_t> mat_reciprocal_fcc{
+        const mat3_t<real_t> mat_reciprocal_fcc{
             -fourpi, fourpi, twopi,
             0.0, 0.0, twopi,
             fourpi, 0.0, -twopi,
         };
-        const mat3<int> mat_invrecip_fcc{
+        const mat3_t<int> mat_invrecip_fcc{
             0, 1, 1,
             1, 0, 1,
             0, 2, 0,
         };
-        const std::vector<vec3<real_t>> normals_fcc{
+        const std::vector<vec3_t<real_t>> normals_fcc{
             {twopi,0.,0.},{-twopi,0.,0.},
             {0.,twopi,0.},{0.,-twopi,0.},
             {0.,0.,twopi},{0.,0.,-twopi},
@@ -152,7 +152,7 @@ private:
         auto kronecker = []( int i, int j ) -> real_t { return (i==j)? 1.0 : 0.0; };
 
         //! Ewald summation: short-range Green's function
-        auto add_greensftide_sr = [&]( mat3<real_t>& D, const vec3<real_t>& d ) -> void {
+        auto add_greensftide_sr = [&]( mat3_t<real_t>& D, const vec3_t<real_t>& d ) -> void {
             auto r = d.norm();
             if( r< 1e-14 ) return; // return zero for r=0
 
@@ -170,7 +170,7 @@ private:
         };
 
         //! Ewald summation: long-range Green's function
-        auto add_greensftide_lr = [&]( mat3<real_t>& D, const vec3<real_t>& k, const vec3<real_t>& r ) -> void {
+        auto add_greensftide_lr = [&]( mat3_t<real_t>& D, const vec3_t<real_t>& k, const vec3_t<real_t>& r ) -> void {
             real_t kmod2 = k.norm_squared();
             real_t term = std::exp(-kmod2/(4*alpha2))*std::cos(k.dot(r)) / kmod2 * fft_norm;
             for( int mu=0; mu<3; ++mu ){
@@ -195,22 +195,22 @@ private:
         constexpr ptrdiff_t lnumber = 3, knumber = 3;
         const int numb = 1; //!< search radius when shifting vectors into FBZ
 
-        vectk_.assign(D_xx_.memsize(),vec3<real_t>());
-        ico_.assign(D_xx_.memsize(),vec3<int>());
-        vecitk_.assign(D_xx_.memsize(),vec3<int>());
+        vectk_.assign(D_xx_.memsize(),vec3_t<real_t>());
+        ico_.assign(D_xx_.memsize(),vec3_t<int>());
+        vecitk_.assign(D_xx_.memsize(),vec3_t<int>());
 
         #pragma omp parallel 
         {
             //... temporary to hold values of the dynamical matrix 
-            mat3<real_t> matD(0.0);
+            mat3_t<real_t> matD(0.0);
 
             #pragma omp for
             for( ptrdiff_t i=0; i<nlattice; ++i ){
                 for( ptrdiff_t j=0; j<nlattice; ++j ){
                     for( ptrdiff_t k=0; k<nlattice; ++k ){
                         // compute lattice site vector from (i,j,k) multiplying Bravais base matrix, and wrap back to box
-                        const vec3<real_t> x_ijk({dx*real_t(i),dx*real_t(j),dx*real_t(k)});
-                        const vec3<real_t> ar = (mat_bravais * x_ijk).wrap_abs();
+                        const vec3_t<real_t> x_ijk({dx*real_t(i),dx*real_t(j),dx*real_t(k)});
+                        const vec3_t<real_t> ar = (mat_bravais * x_ijk).wrap_abs();
 
                         //... zero temporary matrix
                         matD.zero();        
@@ -219,8 +219,8 @@ private:
                         for( ptrdiff_t ix=-lnumber; ix<=lnumber; ix++ ){
                             for( ptrdiff_t iy=-lnumber; iy<=lnumber; iy++ ){
                                 for( ptrdiff_t iz=-lnumber; iz<=lnumber; iz++ ){      
-                                    const vec3<real_t> n_ijk({real_t(ix),real_t(iy),real_t(iz)});            
-                                    const vec3<real_t> dr(ar - mat_bravais * n_ijk);
+                                    const vec3_t<real_t> n_ijk({real_t(ix),real_t(iy),real_t(iz)});            
+                                    const vec3_t<real_t> dr(ar - mat_bravais * n_ijk);
                                     add_greensftide_sr(matD, dr);
                                 }
                             }
@@ -231,8 +231,8 @@ private:
                             for( ptrdiff_t iy=-knumber; iy<=knumber; iy++ ){
                                 for( ptrdiff_t iz=-knumber; iz<=knumber; iz++ ){                      
                                     if(std::abs(ix)+std::abs(iy)+std::abs(iz) != 0){
-                                        const vec3<real_t> k_ijk({real_t(ix)/nlattice,real_t(iy)/nlattice,real_t(iz)/nlattice});
-                                        const vec3<real_t> ak( mat_reciprocal * k_ijk);
+                                        const vec3_t<real_t> k_ijk({real_t(ix)/nlattice,real_t(iy)/nlattice,real_t(iz)/nlattice});
+                                        const vec3_t<real_t> ak( mat_reciprocal * k_ijk);
 
                                         add_greensftide_lr(matD, ak, ar );
                                     }
@@ -278,7 +278,7 @@ private:
 
         std::ofstream ofs2("test_brillouin.txt");
 #endif
-        using map_t = std::map<vec3<int>,size_t>;
+        using map_t = std::map<vec3_t<int>,size_t>;
         map_t iimap;
             
         //!=== Make temporary copies before resorting to std. Fourier grid ========!//
@@ -312,8 +312,8 @@ private:
         #pragma omp parallel 
         {
             // thread private matrix representation
-            mat3<real_t> D;
-            vec3<real_t> eval, evec1, evec2, evec3;
+            mat3_t<real_t> D;
+            vec3_t<real_t> eval, evec1, evec2, evec3_t;
 
             #pragma omp for
             for( size_t i=0; i<D_xx_.size(0); i++ )
@@ -322,7 +322,7 @@ private:
                 {
                     for( size_t k=0; k<D_xx_.size(2); k++ )
                     {
-                        vec3<real_t> kv = D_xx_.get_k<real_t>(i,j,k);
+                        vec3_t<real_t> kv = D_xx_.get_k<real_t>(i,j,k);
                         
                         // put matrix elements into actual matrix
                         D(0,0) = std::real(temp1.kelem(i,j,k)) / fft_norm12;
@@ -333,12 +333,12 @@ private:
                         D(2,2) = std::imag(temp3.kelem(i,j,k)) / fft_norm12;
 
                         // compute eigenstructure of matrix
-                        D.eigen(eval, evec1, evec2, evec3);
-                        evec3 /= (twopi*ngrid_);
+                        D.eigen(eval, evec1, evec2, evec3_t);
+                        evec3_t /= (twopi*ngrid_);
 
                         // now determine to which modes on the regular lattice this contributes
-                        vec3<real_t> ar = kv / (twopi*ngrid_);
-                        vec3<real_t> a(mat_reciprocal * ar);
+                        vec3_t<real_t> ar = kv / (twopi*ngrid_);
+                        vec3_t<real_t> a(mat_reciprocal * ar);
                         
                         // translate the k-vectors into the "candidate" FBZ
                         for( int l1=-numb; l1<=numb; ++l1 ){
@@ -347,9 +347,9 @@ private:
                                     // need both halfs of Fourier space since we use real transforms
                                     for( int isign=0; isign<=1; ++isign ){
                                         const real_t sign = 2.0*real_t(isign)-1.0; 
-                                        const vec3<real_t> vshift({real_t(l1),real_t(l2),real_t(l3)});
+                                        const vec3_t<real_t> vshift({real_t(l1),real_t(l2),real_t(l3)});
 
-                                        vec3<real_t> vectk = sign * a + mat_reciprocal * vshift;
+                                        vec3_t<real_t> vectk = sign * a + mat_reciprocal * vshift;
 
                                         if( check_FBZ( normals, vectk ) )
                                         {
@@ -358,11 +358,11 @@ private:
                                             int iz = std::round(vectk.z*(ngrid_)/twopi);
 
                                             #pragma omp critical
-                                            {iimap.insert( std::pair<vec3<int>,size_t>({ix,iy,iz}, D_xx_.get_idx(i,j,k)) );}
+                                            {iimap.insert( std::pair<vec3_t<int>,size_t>({ix,iy,iz}, D_xx_.get_idx(i,j,k)) );}
 
                                             temp1.kelem(i,j,k) = ccomplex_t(eval[2],eval[1]);
-                                            temp2.kelem(i,j,k) = ccomplex_t(eval[0],evec3.x);
-                                            temp3.kelem(i,j,k) = ccomplex_t(evec3.y,evec3.z);
+                                            temp2.kelem(i,j,k) = ccomplex_t(eval[0],evec3_t.x);
+                                            temp3.kelem(i,j,k) = ccomplex_t(evec3_t.y,evec3_t.z);
                                         }
                                     }//sign
                                 } //l3
@@ -389,24 +389,24 @@ private:
                     int ii = (int(i)>nlattice/2)? int(i)-nlattice : int(i);
                     int jj = (int(j)>nlattice/2)? int(j)-nlattice : int(j);
                     int kk = (int(k)>nlattice/2)? int(k)-nlattice : int(k);
-                    vec3<real_t> kv({real_t(ii),real_t(jj),real_t(kk)});
+                    vec3_t<real_t> kv({real_t(ii),real_t(jj),real_t(kk)});
 
-                    auto align_with_k = [&]( const vec3<real_t>& v ) -> vec3<real_t>{
+                    auto align_with_k = [&]( const vec3_t<real_t>& v ) -> vec3_t<real_t>{
                         return v*((v.dot(kv)<0.0)?-1.0:1.0);
                     };
 
-                    vec3<real_t> v, l;
+                    vec3_t<real_t> v, l;
                     map_t::iterator it;
                     
                     if( !is_in(i,j,k,mat_invrecip)  ){
-                        auto average_lv = [&]( const auto& t1, const auto& t2, const auto& t3, vec3<real_t>& v, vec3<real_t>& l ) {
+                        auto average_lv = [&]( const auto& t1, const auto& t2, const auto& t3, vec3_t<real_t>& v, vec3_t<real_t>& l ) {
                             v = 0.0; l = 0.0;
                             int count(0);
                             
                             auto add_lv = [&]( auto it ) -> void {
                                 auto q = it->second;++count;
-                                l += vec3<real_t>({std::real(t1.kelem(q)),std::imag(t1.kelem(q)),std::real(t2.kelem(q))});
-                                v += align_with_k(vec3<real_t>({std::imag(t2.kelem(q)),std::real(t3.kelem(q)),std::imag(t3.kelem(q))}));
+                                l += vec3_t<real_t>({std::real(t1.kelem(q)),std::imag(t1.kelem(q)),std::real(t2.kelem(q))});
+                                v += align_with_k(vec3_t<real_t>({std::imag(t2.kelem(q)),std::real(t3.kelem(q)),std::imag(t3.kelem(q))}));
                             };
                             map_t::iterator it;
                             if( (it = iimap.find({ii-1,jj,kk}))!=iimap.end() ){ add_lv(it); }
@@ -423,8 +423,8 @@ private:
                     }else{
                         if( (it = iimap.find({ii,jj,kk}))!=iimap.end() ){
                             auto q = it->second;
-                            l = vec3<real_t>({std::real(temp1.kelem(q)),std::imag(temp1.kelem(q)),std::real(temp2.kelem(q))});
-                            v = align_with_k(vec3<real_t>({std::imag(temp2.kelem(q)),std::real(temp3.kelem(q)),std::imag(temp3.kelem(q))}));
+                            l = vec3_t<real_t>({std::real(temp1.kelem(q)),std::imag(temp1.kelem(q)),std::real(temp2.kelem(q))});
+                            v = align_with_k(vec3_t<real_t>({std::imag(temp2.kelem(q)),std::real(temp3.kelem(q)),std::imag(temp3.kelem(q))}));
                         }
                     }
                     D_xx_.kelem(i,j,k) = l[0];
@@ -443,13 +443,13 @@ private:
             for( size_t j=0; j<D_xx_.size(1); j++ ){
                 for( size_t k=0; k<D_xx_.size(2); k++ )
                 {
-                    vec3<real_t> kv = D_xx_.get_k<real_t>(i,j,k);
+                    vec3_t<real_t> kv = D_xx_.get_k<real_t>(i,j,k);
 
                     double mu1 = std::real(D_xx_.kelem(i,j,k));
                     // double mu2 = std::real(D_xy_.kelem(i,j,k));
                     // double mu3 = std::real(D_xz_.kelem(i,j,k));
 
-                    vec3<real_t> evec1({std::real(D_yy_.kelem(i,j,k)),std::real(D_yz_.kelem(i,j,k)),std::real(D_zz_.kelem(i,j,k))});
+                    vec3_t<real_t> evec1({std::real(D_yy_.kelem(i,j,k)),std::real(D_yz_.kelem(i,j,k)),std::real(D_zz_.kelem(i,j,k))});
                     evec1 /= evec1.norm();
 
                     // ///////////////////////////////////
@@ -457,7 +457,7 @@ private:
                     
                     real_t kr = kv.norm(), kphi = kr>0.0? std::atan2(kv.y,kv.x) : 0.0, ktheta = kr>0.0? std::acos( kv.z / kr ): 0.0;
                     real_t st = std::sin(ktheta), ct = std::cos(ktheta), sp = std::sin(kphi), cp = std::cos(kphi);
-                    vec3<real_t> e_r( st*cp, st*sp, ct), e_theta( ct*cp, ct*sp, -st), e_phi( -sp, cp, 0.0 );
+                    vec3_t<real_t> e_r( st*cp, st*sp, ct), e_theta( ct*cp, ct*sp, -st), e_phi( -sp, cp, 0.0 );
 
                     // re-normalise to that longitudinal amplitude is exact
                     double renorm = evec1.dot( e_r ); if( renorm < 0.01 ) renorm = 1.0;

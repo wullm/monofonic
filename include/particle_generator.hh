@@ -18,7 +18,7 @@ enum lattice{
     lattice_rsc = 3, // RSC: refined simple cubic
 };
 
-const std::vector< std::vector<vec3<real_t>> > lattice_shifts = 
+const std::vector< std::vector<vec3_t<real_t>> > lattice_shifts = 
 {   
     // first shift must always be zero! (otherwise set_positions and set_velocities break)
     /* SC : */ {{0.0,0.0,0.0}},
@@ -27,7 +27,7 @@ const std::vector< std::vector<vec3<real_t>> > lattice_shifts =
     /* RSC: */ {{0.0,0.0,0.0},{0.0,0.0,0.5},{0.0,0.5,0.0},{0.0,0.5,0.5},{0.5,0.0,0.0},{0.5,0.0,0.5},{0.5,0.5,0.0},{0.5,0.5,0.5}},
 };
 
-const std::vector<vec3<real_t>> second_lattice_shift =
+const std::vector<vec3_t<real_t>> second_lattice_shift =
 {
         /* SC : */ {0.5, 0.5, 0.5}, // this corresponds to CsCl lattice
         /* BCC: */ {0.5, 0.5, 0.0}, // is there a diatomic lattice with BCC base?!?
@@ -81,7 +81,7 @@ void set_positions( container& particles, const lattice lattice_type, bool is_se
             for( size_t j=0; j<field.size(1); ++j){
                 for( size_t k=0; k<field.size(2); ++k){
                     auto pos = field.template get_unit_r_shifted<real_t>(i,j,k,lattice_shifts[lattice_type][ishift] 
-                        + (is_second_lattice? second_lattice_shift[lattice_type] : vec3<real_t>{0.,0.,0.}) );
+                        + (is_second_lattice? second_lattice_shift[lattice_type] : vec3_t<real_t>{0.,0.,0.}) );
                     if( b64reals ){
                         particles.set_pos64( ipcount++, idim, pos[idim]*lunit + field.relem(i,j,k) );
                     }else{

@@ -4,7 +4,7 @@
 #include <vec3.hh>
 
 template<typename T>
-class mat3{
+class mat3_t{
 protected:
     std::array<T,9> data_;
     gsl_matrix_view m_;
@@ -37,38 +37,38 @@ protected:
 
 public:
 
-    mat3()
+    mat3_t()
     : bdid_alloc_gsl_(false) 
     {}
 
     //! copy constructor
-    mat3( const mat3<T> &m)
+    mat3_t( const mat3_t<T> &m)
     : data_(m.data_), bdid_alloc_gsl_(false) 
     {}
     
     //! move constructor
-    mat3( mat3<T> &&m)
+    mat3_t( mat3_t<T> &&m)
     : data_(std::move(m.data_)), bdid_alloc_gsl_(false) 
     {}
 
-    //! construct mat3 from initializer list
+    //! construct mat3_t from initializer list
     template<typename ...E>
-    mat3(E&&...e) 
+    mat3_t(E&&...e) 
     : data_{{std::forward<E>(e)...}}, bdid_alloc_gsl_(false)
     {}
 
-    mat3<T>& operator=(const mat3<T>& m) noexcept{
+    mat3_t<T>& operator=(const mat3_t<T>& m) noexcept{
         data_ = m.data_;
         return *this;
     }
 
-    mat3<T>& operator=(const mat3<T>&& m) noexcept{
+    mat3_t<T>& operator=(const mat3_t<T>&& m) noexcept{
         data_ = std::move(m.data_);
         return *this;
     }
 
     //! destructor
-    ~mat3(){
+    ~mat3_t(){
         this->free_gsl();
     }
     
@@ -85,7 +85,7 @@ public:
     const T &operator()(size_t i, size_t j) const noexcept { return data_[3*i+j]; }
 
     //! in-place addition
-    mat3<T>& operator+=( const mat3<T>& rhs ) noexcept{
+    mat3_t<T>& operator+=( const mat3_t<T>& rhs ) noexcept{
         for (size_t i = 0; i < 9; ++i) {
            (*this)[i] += rhs[i];
         }
@@ -93,7 +93,7 @@ public:
     }
 
     //! in-place subtraction
-    mat3<T>& operator-=( const mat3<T>& rhs ) noexcept{
+    mat3_t<T>& operator-=( const mat3_t<T>& rhs ) noexcept{
         for (size_t i = 0; i < 9; ++i) {
            (*this)[i] -= rhs[i];
         }
@@ -104,20 +104,8 @@ public:
         for (size_t i = 0; i < 9; ++i) data_[i]=0;
     }
 
-    void eigen( vec3<T>& evals, vec3<T>& evec1, vec3<T>& evec2, vec3<T>& evec3 )
+    void eigen( vec3_t<T>& evals, vec3_t<T>& evec1, vec3_t<T>& evec2, vec3_t<T>& evec3_t )
     {
-        // for( auto x : data_ ){
-        //     std::cerr << x << " " ;
-        // }
-        // std::cerr << std::endl;
-        // resort into symmetrix matrix
-        // data_[8] = data_[5];
-        // data_[7] = data_[4];
-        // data_[6] = data_[2];
-        // data_[5] = data_[4];
-        // data_[4] = data_[3];
-        // data_[3] = data_[1];
-
         this->init_gsl();
 
         gsl_eigen_symmv (&m_.matrix, eval_, evec_, wsp_);
@@ -127,17 +115,15 @@ public:
             evals[i] = gsl_vector_get( eval_, i );
             evec1[i] = gsl_matrix_get( evec_, i, 0 );
             evec2[i] = gsl_matrix_get( evec_, i, 1 );
-            evec3[i] = gsl_matrix_get( evec_, i, 2 );
+            evec3_t[i] = gsl_matrix_get( evec_, i, 2 );
         }
-
-        // std::cerr << "(" << evals[0] << " " << evals[1] << " " << evals[2] << ")" << std::endl;
     }
 };
 
 template<typename T>
-constexpr const mat3<T> operator+(const mat3<T> &lhs, const mat3<T> &rhs) noexcept
+constexpr const mat3_t<T> operator+(const mat3_t<T> &lhs, const mat3_t<T> &rhs) noexcept
 {
-    mat3<T> result;
+    mat3_t<T> result;
     for (size_t i = 0; i < 9; ++i) {
         result[i] = lhs[i] + rhs[i];
     }
@@ -146,9 +132,9 @@ constexpr const mat3<T> operator+(const mat3<T> &lhs, const mat3<T> &rhs) noexce
 
 // matrix - vector multiplication
 template<typename T>
-vec3<T> operator*( const mat3<T> &A, const vec3<T> &v ) noexcept
+inline vec3_t<T> operator*( const mat3_t<T> &A, const vec3_t<T> &v ) noexcept
 {
-    vec3<T> result;
+    vec3_t<T> result;
     for( int mu=0; mu<3; ++mu ){
         result[mu] = 0.0;
         for( int nu=0; nu<3; ++nu ){
@@ -158,14 +144,3 @@ vec3<T> operator*( const mat3<T> &A, const vec3<T> &v ) noexcept
     return result;
 }
 
-// template<typename T>
-// vec3<T> operator*( const vec3<T> &v, const mat3<T> &A ) noexcept
-// {
-//     vec3<T> result = 0.0;
-//     for( int mu=0; mu<3; ++mu ){
-//         for( int nu=0; nu<3; ++nu ){
-//             result[nu] += v[mu]*A(mu,nu);
-//         }
-//     }
-//     return result;
-// }

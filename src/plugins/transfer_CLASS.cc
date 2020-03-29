@@ -223,13 +223,14 @@ public:
       gsl_spline *splineT = nullptr;
       gsl_interp_accel *accT = nullptr;
       switch(type){
+        // values at ztarget:
           case total:   splineT = gsl_sp_dtot_; accT = gsl_ia_dtot_; break;
           case cdm:     splineT = gsl_sp_dc_;   accT = gsl_ia_dc_;   break;
           case baryon:  splineT = gsl_sp_db_;   accT = gsl_ia_db_;   break;
           case vtotal:  splineT = gsl_sp_ttot_; accT = gsl_ia_ttot_; break;
           case vcdm:    splineT = gsl_sp_tc_;   accT = gsl_ia_tc_;   break;
           case vbaryon: splineT = gsl_sp_tb_;   accT = gsl_ia_tb_;   break;
-
+        // values at zstart:
           case total0:  splineT = gsl_sp_dtot0_;accT = gsl_ia_dtot0_;break;
           case cdm0:    splineT = gsl_sp_dc0_;  accT = gsl_ia_dc0_;  break;
           case baryon0: splineT = gsl_sp_db0_;  accT = gsl_ia_db0_;  break;

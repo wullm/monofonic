@@ -165,9 +165,9 @@ public:
     }
 
     template <typename ft>
-    vec3<ft> get_r(const size_t i, const size_t j, const size_t k) const
+    vec3_t<ft> get_r(const size_t i, const size_t j, const size_t k) const
     {
-        vec3<ft> rr;
+        vec3_t<ft> rr;
 
         rr[0] = real_t(i + local_0_start_) * dx_[0];
         rr[1] = real_t(j) * dx_[1];
@@ -177,9 +177,9 @@ public:
     }
 
     template <typename ft>
-    vec3<ft> get_unit_r(const size_t i, const size_t j, const size_t k) const
+    vec3_t<ft> get_unit_r(const size_t i, const size_t j, const size_t k) const
     {
-        vec3<ft> rr;
+        vec3_t<ft> rr;
 
         rr[0] = real_t(i + local_0_start_) / real_t(n_[0]);
         rr[1] = real_t(j) / real_t(n_[1]);
@@ -189,9 +189,9 @@ public:
     }
 
     template <typename ft>
-    vec3<ft> get_unit_r_shifted(const size_t i, const size_t j, const size_t k, const vec3<real_t> s) const
+    vec3_t<ft> get_unit_r_shifted(const size_t i, const size_t j, const size_t k, const vec3_t<real_t> s) const
     {
-        vec3<ft> rr;
+        vec3_t<ft> rr;
 
         rr[0] = (real_t(i + local_0_start_) + s.x) / real_t(n_[0]);
         rr[1] = (real_t(j) + s.y) / real_t(n_[1]);
@@ -200,9 +200,9 @@ public:
         return rr;
     }
 
-    vec3<size_t> get_cell_idx_3d(const size_t i, const size_t j, const size_t k) const
+    vec3_t<size_t> get_cell_idx_3d(const size_t i, const size_t j, const size_t k) const
     {
-        return vec3<size_t>({i + local_0_start_, j, k});
+        return vec3_t<size_t>({i + local_0_start_, j, k});
     }
 
     size_t get_cell_idx_1d(const size_t i, const size_t j, const size_t k) const
@@ -226,9 +226,9 @@ public:
     }
 
     template <typename ft>
-    vec3<ft> get_k(const size_t i, const size_t j, const size_t k) const
+    vec3_t<ft> get_k(const size_t i, const size_t j, const size_t k) const
     {
-        vec3<ft> kk;
+        vec3_t<ft> kk;
         if( bdistributed ){
             auto ip = i + local_1_start_;
             kk[0] = (real_t(j) - real_t(j > nhalf_[0]) * n_[0]) * kfac_[0];
@@ -243,9 +243,9 @@ public:
     }
 
     template <typename ft>
-    vec3<ft> get_k(const real_t i, const real_t j, const real_t k) const
+    vec3_t<ft> get_k(const real_t i, const real_t j, const real_t k) const
     {
-        vec3<ft> kk;
+        vec3_t<ft> kk;
         if( bdistributed ){
             auto ip = i + real_t(local_1_start_);
             kk[0] = (j - real_t(j > real_t(nhalf_[0])) * n_[0]) * kfac_[0];
@@ -264,9 +264,9 @@ public:
         return bdistributed? std::array<size_t,3>({j,i+local_1_start_,k}) : std::array<size_t,3>({i,j,k});
     }
 
-    data_t get_cic( const vec3<real_t>& v ) const{
+    data_t get_cic( const vec3_t<real_t>& v ) const{
         // warning! this doesn't work with MPI
-        vec3<real_t> x({std::fmod(v.x/length_[0]+1.0,1.0)*n_[0],
+        vec3_t<real_t> x({std::fmod(v.x/length_[0]+1.0,1.0)*n_[0],
                         std::fmod(v.y/length_[1]+1.0,1.0)*n_[1],
                         std::fmod(v.z/length_[2]+1.0,1.0)*n_[2] });
         size_t ix = static_cast<size_t>(x.x);
@@ -290,7 +290,7 @@ public:
         return val;
     }
 
-    ccomplex_t get_cic_kspace( const vec3<real_t> x ) const{
+    ccomplex_t get_cic_kspace( const vec3_t<real_t> x ) const{
         // warning! this doesn't work with MPI
         int ix = static_cast<int>(std::floor(x.x));
         int iy = static_cast<int>(std::floor(x.y));
@@ -746,7 +746,7 @@ public:
 
     void Write_PDF(std::string ofname, int nbins = 1000, double scale = 1.0, double rhomin = 1e-3, double rhomax = 1e3);
 
-    void shift_field( const vec3<real_t>& s, bool transform_back=true )
+    void shift_field( const vec3_t<real_t>& s, bool transform_back=true )
     {
         FourierTransformForward();
         apply_function_k_dep([&](auto x, auto k) -> ccomplex_t {

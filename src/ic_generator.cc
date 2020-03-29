@@ -320,7 +320,7 @@ int Run( ConfigFile& the_config )
 
         if (bAddExternalTides)
         {
-            phi2.assign_function_of_grids_kdep([&](vec3<real_t> kvec, ccomplex_t pphi, ccomplex_t pphi2) {
+            phi2.assign_function_of_grids_kdep([&](vec3_t<real_t> kvec, ccomplex_t pphi, ccomplex_t pphi2) {
                 // sign in front of f_aniso is reversed since phi1 = -phi
                 return pphi2 + f_aniso * (kvec[0] * kvec[0] * lss_aniso_lambda[0] + kvec[1] * kvec[1] * lss_aniso_lambda[1] + kvec[2] * kvec[2] * lss_aniso_lambda[2]) * pphi;
             },
@@ -569,7 +569,7 @@ int Run( ConfigFile& the_config )
                                     + lg.gradient(idimp,tmp.get_k3(i,j,k)) * A3[idimpp]->kelem(idx) - lg.gradient(idimpp,tmp.get_k3(i,j,k)) * A3[idimp]->kelem(idx) );
 
                                 if( bDoBaryons ){
-                                    vec3<real_t> kvec = phi.get_k<real_t>(i,j,k);
+                                    vec3_t<real_t> kvec = phi.get_k<real_t>(i,j,k);
                                     real_t k2 = kvec.norm_squared(), kmod = std::sqrt(k2);
                                     double ampldiff = ((this_species == cosmo_species::dm)? the_cosmo_calc->GetAmplitude(kmod, cdm0) :
                                      (this_species == cosmo_species::baryon)? the_cosmo_calc->GetAmplitude(kmod, baryon0) : 
@@ -618,7 +618,7 @@ int Run( ConfigFile& the_config )
                                         + vfac3 * (lg.gradient(idimp,tmp.get_k3(i,j,k)) * A3[idimpp]->kelem(idx) - lg.gradient(idimpp,tmp.get_k3(i,j,k)) * A3[idimp]->kelem(idx)) );
 
                                 if( bDoBaryons ){
-                                    vec3<real_t> kvec = phi.get_k<real_t>(i,j,k);
+                                    vec3_t<real_t> kvec = phi.get_k<real_t>(i,j,k);
                                     real_t k2 = kvec.norm_squared(), kmod = std::sqrt(k2);
                                     double ampldiff = ((this_species == cosmo_species::dm)? the_cosmo_calc->GetAmplitude(kmod, vcdm0) :
                                      (this_species == cosmo_species::baryon)? the_cosmo_calc->GetAmplitude(kmod, vbaryon0) : 
