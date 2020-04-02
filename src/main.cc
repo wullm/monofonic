@@ -67,15 +67,26 @@ int main( int argc, char** argv )
 
     // Ascii ART logo. generated via http://patorjk.com/software/taag/#p=display&f=Nancyj&t=monofonIC
     csoca::ilog << "\n"
-                << " The unigrid version of MUSIC-2        .8888b                   dP  a88888b. \n"
-                << "                                       88   \"                   88 d8\'   `88 \n"
-                << " 88d8b.d8b. .d8888b. 88d888b. .d8888b. 88aaa  .d8888b. 88d888b. 88 88        \n"
-                << " 88\'`88\'`88 88\'  `88 88\'  `88 88\'  `88 88     88\'  `88 88\'  `88 88 88        \n"
-                << " 88  88  88 88.  .88 88    88 88.  .88 88     88.  .88 88    88 88 Y8.   .88 \n"
-                << " dP  dP  dP `88888P\' dP    dP `88888P\' dP     `88888P\' dP    dP dP  Y88888P\' \n" << std::endl
-                << "Build was compiled on " <<  __DATE__ << " at " <<  __TIME__ << std::endl
-                << "Version: v0.1a, git rev.: " << GIT_REV << ", tag: " << GIT_TAG << ", branch: " << GIT_BRANCH << std::endl
-                << "-------------------------------------------------------------------------------\n" << std::endl;
+                << " The unigrid version of MUSIC-2         .8888b                   dP  a88888b. \n"
+                << "                                        88   \"                   88 d8\'   `88 \n"
+                << "  88d8b.d8b. .d8888b. 88d888b. .d8888b. 88aaa  .d8888b. 88d888b. 88 88        \n"
+                << "  88\'`88\'`88 88\'  `88 88\'  `88 88\'  `88 88     88\'  `88 88\'  `88 88 88        \n"
+                << "  88  88  88 88.  .88 88    88 88.  .88 88     88.  .88 88    88 88 Y8.   .88 \n"
+                << "  dP  dP  dP `88888P\' dP    dP `88888P\' dP     `88888P\' dP    dP dP  Y88888P\' \n" << std::endl;
+
+    // Compilation CMake configuration, time etc info:
+    csoca::ilog << "This " << CMAKE_BUILDTYPE_STR << " build was compiled at " << __TIME__ << " on " <<  __DATE__ << std::endl;            
+    
+    // git and versioning info:
+    csoca::ilog << "Version: v0.1a, git rev.: " << GIT_REV << ", tag: " << GIT_TAG << ", branch: " << GIT_BRANCH << std::endl;
+    
+    csoca::ilog << "-------------------------------------------------------------------------------" << std::endl;
+    csoca::ilog << "Compile time options : " << std::endl;
+    csoca::ilog << "                       Precision : " << CMAKE_PRECISION_STR << std::endl;
+    csoca::ilog << "                    Convolutions : " << CMAKE_CONVOLVER_STR << std::endl;
+    csoca::ilog << "                             PLT : " << CMAKE_PLT_STR << std::endl;
+    csoca::ilog << "-------------------------------------------------------------------------------" << std::endl;
+
 
     //------------------------------------------------------------------------------
     // Parse command line options

@@ -78,6 +78,22 @@ set_property (
 )
 
 ########################################################################################################################
+# convolver type, right now only orszag or naive
+set (
+  CONVOLVER_TYPE "ORSZAG"
+  CACHE STRING "Convolution algorithm to be used (Naive=no dealiasing, Orszag=dealiased)"
+)
+set_property (
+  CACHE CONVOLVER_TYPE
+  PROPERTY STRINGS ORSZAG NAIVE
+)
+
+########################################################################################################################
+# PLT options, right now only on/off
+option(ENABLE_PLT "Enable PLT (particle linear theory) corrections" OFF)
+
+
+########################################################################################################################
 # FFTW
 if(POLICY CMP0074)
     cmake_policy(SET CMP0074 NEW)

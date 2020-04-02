@@ -18,9 +18,6 @@
 #include <transfer_function_plugin.hh>
 #include <interpolate.hh>
 
-#include <gsl/gsl_errno.h>
-#include <gsl/gsl_spline.h>
-
 class transfer_CLASS_plugin : public TransferFunction_plugin
 {
 

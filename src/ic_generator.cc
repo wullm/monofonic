@@ -266,15 +266,21 @@ int Run( ConfigFile& the_config )
     //--------------------------------------------------------------------
     // Create convolution class instance for non-linear terms
     //--------------------------------------------------------------------
+#if defined(USE_CONVOLVER_ORSZAG)
     OrszagConvolver<real_t> Conv({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
-    // NaiveConvolver<real_t> Conv({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
+#elif defined(USE_CONVOLVER_NAIVE)
+    NaiveConvolver<real_t> Conv({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
+#endif
     //--------------------------------------------------------------------
 
     //--------------------------------------------------------------------
     // Create PLT gradient operator
     //--------------------------------------------------------------------
-    // particle::lattice_gradient lg( the_config );
+#if defined(ENABLE_PLT)
+    particle::lattice_gradient lg( the_config );
+#else
     op::fourier_gradient lg( the_config );
+#endif
 
     //--------------------------------------------------------------------
     std::vector<cosmo_species> species_list;

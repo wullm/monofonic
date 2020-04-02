@@ -54,3 +54,4 @@ src/fastLPT
 src/input_powerspec.txt
 src/Makefile
 .DS_Store
+include/cmake_config.hh
