@@ -146,7 +146,7 @@ int main( int argc, char** argv )
     // MPI related infos
 #if defined(USE_MPI)
     csoca::ilog << std::setw(32) << std::left << "MPI is enabled" << " : " << "yes (" << CONFIG::MPI_task_size << " tasks)" << std::endl;
-    csoca::dlog << std::setw(32) << std::left << "MPI version" << " : " << GetMPIversion() << std::endl;
+    csoca::dlog << std::setw(32) << std::left << "MPI version" << " : " << MPI::get_version() << std::endl;
 #else
     csoca::ilog << std::setw(32) << std::left << "MPI is enabled" << " : " << "no" << std::endl;
 #endif

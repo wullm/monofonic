@@ -539,8 +539,8 @@ void Grid_FFT<data_t,bdistributed>::Write_to_HDF5(std::string fname, std::string
 
     int mpi_size, mpi_rank;
 
-    mpi_size = MPI_Get_size();
-    mpi_rank = MPI_Get_rank();
+    mpi_size = MPI::get_size();
+    mpi_rank = MPI::get_rank();
 
     if (!file_exists(fname) && mpi_rank == 0)
         create_hdf5(fname);

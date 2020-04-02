@@ -788,7 +788,7 @@ public:
 #if defined(USE_MPI)
                 data_t glob_sum = 0.0;
                 MPI_Allreduce(reinterpret_cast<void *>(&sum), reinterpret_cast<void *>(&glob_sum),
-                            1, GetMPIDatatype<data_t>(), MPI_SUM, MPI_COMM_WORLD);
+                            1, MPI::get_datatype<data_t>(), MPI_SUM, MPI_COMM_WORLD);
                 sum = glob_sum;
 #endif
             }

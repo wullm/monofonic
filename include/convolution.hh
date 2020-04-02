@@ -333,7 +333,7 @@ public:
         crecvbuf_ = new ccomplex_t[maxslicesz_ / 2];
         recvbuf_ = reinterpret_cast<real_t *>(&crecvbuf_[0]);
 
-        int ntasks(MPI_Get_size());
+        int ntasks(MPI::get_size());
 
         offsets_.assign(ntasks, 0);
         offsetsp_.assign(ntasks, 0);
