@@ -9,8 +9,10 @@
 #include <ode_integrate.hh>
 #include <logger.hh>
 
+#include <interpolate.hh>
+
 #include <gsl/gsl_integration.h>
-#include <gsl/gsl_spline.h>
+// #include <gsl/gsl_spline.h>
 #include <gsl/gsl_errno.h>
 
 namespace cosmology
@@ -30,15 +32,12 @@ public:
     cosmology::parameters cosmo_param_;
 
     //! pointer to an instance of a transfer function plugin
-    //TransferFunction_plugin *ptransfer_fun_;
     std::unique_ptr<TransferFunction_plugin> transfer_function_;
 
 private:
-    static constexpr double REL_PRECISION = 1e-5;
-    std::vector<double> tab_a_, tab_D_, tab_f_;
-    gsl_interp_accel *gsl_ia_a_, *gsl_ia_D_, *gsl_ia_f_;
-    gsl_spline *gsl_sp_a_, *gsl_sp_D_, *gsl_sp_f_;
-    double Dnow_;
+    static constexpr double REL_PRECISION = 1e-9;
+    interpolated_function_1d<true,true,false> D_of_a_, f_of_a_, a_of_D_;
+    double Dnow_, astart_;
 
     real_t integrate(double (*func)(double x, void *params), double a, double b, void *params) const
     {
@@ -63,7 +62,7 @@ private:
         return (real_t)result;
     }
 
-    void compute_growth(void)
+    void compute_growth( std::vector<double>& tab_a, std::vector<double>& tab_D, std::vector<double>& tab_f )
     {
         using v_t = vec_t<3, double>;
 
@@ -107,31 +106,20 @@ private:
             // call integrator
             ode_integrate::rk_step_qs(dt, t, yy, yyscale, rhs, eps, dtdid, dtnext);
 
-            tab_a_.push_back(yy[0]);
-            tab_D_.push_back(yy[1]);
-            tab_f_.push_back(yy[2]);
+            tab_a.push_back(yy[0]);
+            tab_D.push_back(yy[1]);
+            tab_f.push_back(yy[2]);
 
             dt = dtnext;
         }
 
         // compute f, before we stored here D'
-        for (size_t i = 0; i < tab_a_.size(); ++i)
+        for (size_t i = 0; i < tab_a.size(); ++i)
         {
-            tab_f_[i] = std::log(tab_f_[i] / (tab_a_[i] * H_of_a(tab_a_[i]) * tab_D_[i]));
-            tab_D_[i] = std::log(tab_D_[i]);
-            tab_a_[i] = std::log(tab_a_[i]);
+            tab_f[i] = tab_f[i] / (tab_a[i] * H_of_a(tab_a[i]) * tab_D[i]);
+            tab_D[i] = tab_D[i];
+            tab_a[i] = tab_a[i];
         }
-
-        gsl_ia_D_ = gsl_interp_accel_alloc();
-        gsl_ia_f_ = gsl_interp_accel_alloc();
-
-        gsl_sp_D_ = gsl_spline_alloc(gsl_interp_cspline, tab_a_.size());
-        gsl_sp_f_ = gsl_spline_alloc(gsl_interp_cspline, tab_a_.size());
-
-        gsl_spline_init(gsl_sp_D_, &tab_a_[0], &tab_D_[0], tab_a_.size());
-        gsl_spline_init(gsl_sp_f_, &tab_a_[0], &tab_f_[0], tab_a_.size());
-
-        Dnow_ = std::exp(gsl_spline_eval(gsl_sp_D_, 0.0, gsl_ia_D_));
     }
 
 public:
@@ -142,33 +130,44 @@ public:
 	 */
 
     explicit calculator(ConfigFile &cf)
-        : cosmo_param_(cf)
+        : cosmo_param_(cf), astart_( 1.0/(1.0+cf.GetValue<double>("setup","zstart")) )
     {
+        // pre-compute growth factors and store for interpolation
+        std::vector<double> tab_a, tab_D, tab_f;
+        this->compute_growth(tab_a, tab_D, tab_f);
+        D_of_a_.set_data(tab_a,tab_D);
+        f_of_a_.set_data(tab_a,tab_f);
+        a_of_D_.set_data(tab_D,tab_a);
+        Dnow_ = D_of_a_(1.0);
+
+        // set up transfer functions and compute normalisation
         transfer_function_ = std::move(select_TransferFunction_plugin(cf));
         transfer_function_->intialise();
-        cosmo_param_.pnorm = this->ComputePNorm();
+        if( !transfer_function_->tf_isnormalised_ )
+            cosmo_param_.pnorm = this->compute_pnorm_from_sigma8();
+        else{
+            cosmo_param_.pnorm = 1.0;
+            csoca::ilog << "Measured sigma8 for fixed PS normalisation is " << this->compute_sigma8() << std::endl;
+        }
         cosmo_param_.sqrtpnorm = std::sqrt(cosmo_param_.pnorm);
+
         csoca::ilog << std::setw(32) << std::left << "TF supports distinct CDM+baryons"
                     << " : " << (transfer_function_->tf_is_distinct() ? "yes" : "no") << std::endl;
         csoca::ilog << std::setw(32) << std::left << "TF maximum wave number"
                     << " : " << transfer_function_->get_kmax() << " h/Mpc" << std::endl;
 
-        // pre-compute growth factors and store for interpolation
-        this->compute_growth();
+        // csoca::ilog << "D+(MUSIC) = " << this->get_growth_factor( 1.0/(1.0+cf.GetValue<double>("setup","zstart")) ) << std::endl;
+        // csoca::ilog << "pnrom     = " << cosmo_param_.pnorm << std::endl;
     }
 
     ~calculator()
     {
-        gsl_spline_free(gsl_sp_D_);
-        gsl_spline_free(gsl_sp_f_);
-        gsl_interp_accel_free(gsl_ia_D_);
-        gsl_interp_accel_free(gsl_ia_f_);
     }
 
     //! Write out a correctly scaled power spectrum at time a
     void write_powerspectrum(real_t a, std::string fname) const
     {
-        const real_t Dplus0 = this->get_growth_factor(a);
+        // const real_t Dplus0 = this->get_growth_factor(a);
 
         if (CONFIG::MPI_task_rank == 0)
         {
@@ -177,60 +176,48 @@ public:
             // write power spectrum to a file
             std::ofstream ofs(fname.c_str());
             std::stringstream ss;
-            ss << " ,a=" << a << "";
+            ss << " ,ap=" << a << "";
             ofs << "# " << std::setw(18) << "k [h/Mpc]"
-                << std::setw(20) << ("P_dtot(k" + ss.str() + "|BS)")
-                << std::setw(20) << ("P_dcdm(k" + ss.str() + "|BS)")
-                << std::setw(20) << ("P_dbar(k" + ss.str() + "|BS)")
-                << std::setw(20) << ("P_tcdm(k" + ss.str() + "|BS)")
-                << std::setw(20) << ("P_tbar(k" + ss.str() + "|BS)")
-                << std::setw(20) << ("P_dtot(k" + ss.str() + ")")
-                << std::setw(20) << ("P_dcdm(k" + ss.str() + ")")
-                << std::setw(20) << ("P_dbar(k" + ss.str() + ")")
-                << std::setw(20) << ("P_tcdm(k" + ss.str() + ")")
-                << std::setw(20) << ("P_tbar(k" + ss.str() + ")")
+                << std::setw(20) << ("P_dtot(k,a=ap)")
+                << std::setw(20) << ("P_dcdm(k,a=ap)")
+                << std::setw(20) << ("P_dbar(k,a=ap)")
+                << std::setw(20) << ("P_tcdm(k,a=ap)")
+                << std::setw(20) << ("P_tbar(k,a=ap)")
+                << std::setw(20) << ("P_dtot(k,a=1)")
+                << std::setw(20) << ("P_dcdm(k,a=1)")
+                << std::setw(20) << ("P_dbar(k,a=1)")
+                << std::setw(20) << ("P_tcdm(k,a=1)")
+                << std::setw(20) << ("P_tbar(k,a=1)")
                 << std::setw(20) << ("P_dtot(K,a=1)")
                 << std::endl;
             for (double k = kmin; k < transfer_function_->get_kmax(); k *= 1.05)
             {
                 ofs << std::setw(20) << std::setprecision(10) << k
-                    << std::setw(20) << std::setprecision(10) << std::pow(this->GetAmplitude(k, total) * Dplus0, 2.0)
-                    << std::setw(20) << std::setprecision(10) << std::pow(this->GetAmplitude(k, cdm) * Dplus0, 2.0)
-                    << std::setw(20) << std::setprecision(10) << std::pow(this->GetAmplitude(k, baryon) * Dplus0, 2.0)
-                    << std::setw(20) << std::setprecision(10) << std::pow(this->GetAmplitude(k, vcdm) * Dplus0, 2.0)
-                    << std::setw(20) << std::setprecision(10) << std::pow(this->GetAmplitude(k, vbaryon) * Dplus0, 2.0)
-                    << std::setw(20) << std::setprecision(10) << std::pow(this->GetAmplitude(k, total0), 2.0)
-                    << std::setw(20) << std::setprecision(10) << std::pow(this->GetAmplitude(k, cdm0), 2.0)
-                    << std::setw(20) << std::setprecision(10) << std::pow(this->GetAmplitude(k, baryon0), 2.0)
-                    << std::setw(20) << std::setprecision(10) << std::pow(this->GetAmplitude(k, vcdm0), 2.0)
-                    << std::setw(20) << std::setprecision(10) << std::pow(this->GetAmplitude(k, vbaryon0), 2.0)
-                    << std::setw(20) << std::setprecision(10) << std::pow(this->GetAmplitude(k, total), 2.0)
+                    << std::setw(20) << std::setprecision(10) << std::pow(this->get_amplitude(k, total), 2.0)
+                    << std::setw(20) << std::setprecision(10) << std::pow(this->get_amplitude(k, cdm), 2.0)
+                    << std::setw(20) << std::setprecision(10) << std::pow(this->get_amplitude(k, baryon), 2.0)
+                    << std::setw(20) << std::setprecision(10) << std::pow(this->get_amplitude(k, vcdm), 2.0)
+                    << std::setw(20) << std::setprecision(10) << std::pow(this->get_amplitude(k, vbaryon), 2.0)
+                    << std::setw(20) << std::setprecision(10) << std::pow(this->get_amplitude(k, total0), 2.0)
+                    << std::setw(20) << std::setprecision(10) << std::pow(this->get_amplitude(k, cdm0), 2.0)
+                    << std::setw(20) << std::setprecision(10) << std::pow(this->get_amplitude(k, baryon0), 2.0)
+                    << std::setw(20) << std::setprecision(10) << std::pow(this->get_amplitude(k, vcdm0), 2.0)
+                    << std::setw(20) << std::setprecision(10) << std::pow(this->get_amplitude(k, vbaryon0), 2.0)
+                    << std::setw(20) << std::setprecision(10) << std::pow(this->get_amplitude(k, vtotal), 2.0)
                     << std::endl;
+                    #warning Check whether output is at redshift that is indicated!
             }
         }
         csoca::ilog << "Wrote power spectrum at a=" << a << " to file \'" << fname << "\'" << std::endl;
     }
 
-    const cosmology::parameters &GetParams(void) const
+    const cosmology::parameters &get_parameters(void) const noexcept
     {
         return cosmo_param_;
     }
 
-    //! returns the amplitude of amplitude of the power spectrum
-    /*!
-	 * @param k the wave number in h/Mpc
-	 * @param a the expansion factor of the universe
-	 * @returns power spectrum amplitude for wave number k at time a
-	 */
-    inline real_t Power(real_t k, real_t a)
-    {
-        real_t Dplus = this->get_growth_factor(a);
-        real_t pNorm = ComputePNorm();
-        return pNorm * Dplus * Dplus * TransferSq(k) * pow((double)k, (double)cosmo_param_.nspect);
-    }
-
     //! return the value of the Hubble function H(a) = dloga/dt 
-    inline double H_of_a(double a) const
+    inline double H_of_a(double a) const noexcept
     {
         double HH2 = 0.0;
         HH2 += cosmo_param_.Omega_r / (a * a * a * a);
@@ -241,25 +228,31 @@ public:
     }
 
     //! Computes the linear theory growth factor D+, normalised to D+(a=1)=1
-    real_t get_growth_factor(real_t a) const
+    real_t get_growth_factor(real_t a) const noexcept
     {
-        return std::exp(gsl_spline_eval(gsl_sp_D_, std::log(a), gsl_ia_D_)) / Dnow_;
+        return D_of_a_(a) / Dnow_;
+    }
+
+    //! Computes the inverse of get_growth_factor
+    real_t get_a( real_t Dplus ) const noexcept
+    {
+        return a_of_D_( Dplus * Dnow_ );
     }
 
     //! Computes the linear theory growth rate f
     /*! Function computes (by interpolating on precalculated table)
      *   f = dlog D+ / dlog a
      */
-    real_t get_f(real_t a) const
+    real_t get_f(real_t a) const noexcept
     {
-        return std::exp(gsl_spline_eval(gsl_sp_f_, std::log(a), gsl_ia_f_));
+        return f_of_a_(a);
     }
 
     //! Compute the factor relating particle displacement and velocity
     /*! Function computes
      *  vfac = a * (H(a)/h) * dlogD+ / dlog a 
      */
-    real_t get_vfact(real_t a) const
+    real_t get_vfact(real_t a) const noexcept
     {
         return a * H_of_a(a) / cosmo_param_.h * this->get_f(a);
     }
@@ -302,24 +295,12 @@ public:
         return k * k * w * w * pow((double)k, (double)nspect) * tf * tf;
     }
 
-    //! Computes the square of the transfer function
-    /*! Function evaluates the supplied transfer function ptransfer_fun_
-	 * and returns the square of its value at wave number k
-	 * @param k wave number at which to evaluate the transfer function
-	 */
-    inline real_t TransferSq(real_t k) const
-    {
-        //.. parameter supplied transfer function
-        real_t tf1 = transfer_function_->compute(k, total);
-        return tf1 * tf1;
-    }
-
     //! Computes the amplitude of a mode from the power spectrum
     /*! Function evaluates the supplied transfer function ptransfer_fun_
 	 * and returns the amplitude of fluctuations at wave number k at z=0
 	 * @param k wave number at which to evaluate
 	 */
-    inline real_t GetAmplitude(real_t k, tf_type type) const
+    inline real_t get_amplitude(real_t k, tf_type type) const
     {
         return std::pow(k, 0.5 * cosmo_param_.nspect) * transfer_function_->compute(k, type) * cosmo_param_.sqrtpnorm;
     }
@@ -329,7 +310,7 @@ public:
 	 * integrates the power spectrum to fix the normalization to that given
 	 * by the sigma_8 parameter
 	 */
-    real_t ComputePNorm(void)
+    real_t compute_sigma8(void)
     {
         real_t sigma0, kmin, kmax;
         kmax = transfer_function_->get_kmax();
@@ -337,10 +318,22 @@ public:
 
         if (!transfer_function_->tf_has_total0())
             sigma0 = 4.0 * M_PI * integrate(&dSigma8, (double)kmin, (double)kmax, this);
-        else
+        else{
             sigma0 = 4.0 * M_PI * integrate(&dSigma8_0, (double)kmin, (double)kmax, this);
+        }
 
-        return cosmo_param_.sigma8 * cosmo_param_.sigma8 / sigma0;
+        return std::sqrt(sigma0);
+    }
+
+    //! Computes the normalization for the power spectrum
+    /*!
+	 * integrates the power spectrum to fix the normalization to that given
+	 * by the sigma_8 parameter
+	 */
+    real_t compute_pnorm_from_sigma8(void)
+    {
+        auto measured_sigma8 = this->compute_sigma8();
+        return cosmo_param_.sigma8 * cosmo_param_.sigma8 / (measured_sigma8  * measured_sigma8);
     }
 };
 

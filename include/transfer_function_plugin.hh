@@ -30,10 +30,12 @@ class TransferFunction_plugin
     bool tf_withvel_;    //!< bool if also have velocity transfer functions
     bool tf_withtotal0_; //!< have the z=0 spectrum for normalisation purposes
     bool tf_velunits_;   //!< velocities are in velocity units (km/s)
+    bool tf_isnormalised_; //!< assume that transfer functions come already correctly normalised and need be re-normalised to a specified value
+    
   public:
     //! constructor
     TransferFunction_plugin(ConfigFile &cf)
-        : pcf_(&cf), tf_distinct_(false), tf_withvel_(false), tf_withtotal0_(false), tf_velunits_(false)
+        : pcf_(&cf), tf_distinct_(false), tf_withvel_(false), tf_withtotal0_(false), tf_velunits_(false), tf_isnormalised_(false)
     { }
 
     //! destructor
