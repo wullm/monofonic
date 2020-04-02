@@ -613,7 +613,7 @@ void music_wnoise_generator<T>::register_cube(int i, int j, int k)
     rnums_.push_back(NULL);
     cubemap_[icube] = rnums_.size() - 1;
 #ifdef DEBUG
-    LOGDEBUG("registering new cube %d,%d,%d . ID = %ld, memloc = %ld", i, j, k, icube, cubemap_[icube]);
+    csoca::dlog.Print("registering new cube %d,%d,%d . ID = %ld, memloc = %ld", i, j, k, icube, cubemap_[icube]);
 #endif
   }
 }
@@ -741,8 +741,8 @@ double music_wnoise_generator<T>::fill_subvolume(int *i0, int *n)
   ncube[2] = (int)(n[2] / cubesize_) + 2;
 
 #ifdef DEBUG
-  LOGDEBUG("random numbers needed for region %d,%d,%d ..+ %d,%d,%d", i0[0], i0[1], i0[2], n[0], n[1], n[2]);
-  LOGDEBUG("filling cubes %d,%d,%d ..+ %d,%d,%d", i0cube[0], i0cube[1], i0cube[2], ncube[0], ncube[1], ncube[2]);
+  csoca::dlog.Print("random numbers needed for region %d,%d,%d ..+ %d,%d,%d", i0[0], i0[1], i0[2], n[0], n[1], n[2]);
+  csoca::dlog.Print("filling cubes %d,%d,%d ..+ %d,%d,%d", i0cube[0], i0cube[1], i0cube[2], ncube[0], ncube[1], ncube[2]);
 #endif
 
   double mean = 0.0;
