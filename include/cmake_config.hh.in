@@ -1,8 +1,8 @@
 #pragma once
 
-#define USE_PRECISION_${CODE_PRECISION}
 constexpr char CMAKE_BUILDTYPE_STR[] = "${CMAKE_BUILD_TYPE}";
 
+#define USE_PRECISION_${CODE_PRECISION}
 #if defined(USE_PRECISION_FLOAT)
   constexpr char CMAKE_PRECISION_STR[] = "single";
 #elif defined(USE_PRECISION_DOUBLE)
@@ -10,3 +10,16 @@ constexpr char CMAKE_BUILDTYPE_STR[] = "${CMAKE_BUILD_TYPE}";
 #elif defined(USE_PRECISION_LONGDOUBLE)
   constexpr char CMAKE_PRECISION_STR[] = "long double";
 #endif 
+
+#define USE_CONVOLVER_${CONVOLVER_TYPE}
+#if defined(USE_CONVOLVER_ORSZAG)
+  constexpr char CMAKE_CONVOLVER_STR[] = "Orszag3/2";
+#elif defined(USE_CONVOLVER_NAIVE)
+  constexpr char CMAKE_CONVOLVER_STR[] = "Aliased";
+#endif
+
+#if defined(ENABLE_PLT)
+  constexpr char CMAKE_PLT_STR[] = "PLT corr. on";
+#else
+  constexpr char CMAKE_PLT_STR[] = "PLT corr. off";
+#endif
