@@ -28,6 +28,20 @@ int  num_threads = 1;
 
 #include "system_stat.hh"
 
+#include <exception>
+#include <stdexcept>
+ 
+void handle_eptr(std::exception_ptr eptr) // passing by value is ok
+{
+    try {
+        if (eptr) {
+            std::rethrow_exception(eptr);
+        }
+    } catch(const std::exception& e) {
+        csoca::elog << "This happened: \"" << e.what() << "\"" << std::endl;
+    }
+}
+
 int main( int argc, char** argv )
 {
     csoca::Logger::SetLevel(csoca::LogLevel::Info);
@@ -175,6 +189,7 @@ int main( int argc, char** argv )
     {
         ic_generator::Initialise( the_config );
     }catch(...){
+        handle_eptr( std::current_exception() );
         csoca::elog << "Problem during initialisation. See error(s) above. Exiting..." << std::endl;
         #if defined(USE_MPI) 
         MPI_Finalize();
