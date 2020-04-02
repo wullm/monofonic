@@ -429,10 +429,9 @@ private:
             for (size_t j = 0; j < 2 * fp.size(1) / 3; ++j)
             {
                 size_t jp = (j > nhalf[1]) ? j + nhalf[1] : j;
-                for (size_t k = 0; k < 2 * fp.size(2) / 3; ++k)
+                for (size_t k = 0; k < nhalf[2]+1; ++k)
                 {
                     size_t kp = (k > nhalf[2]) ? k + nhalf[2] : k;
-                    // if( i==nhalf[0]||j==nhalf[1]||k==nhalf[2]) continue;
                     fp.kelem(ip, jp, kp) = kfunc(i, j, k) * rfac;
                 }
             }
@@ -618,8 +617,11 @@ private:
                 for (size_t k = 0; k < fbuf_->size(2); ++k)
                 {
                     size_t kp = (k > nhalf[2]) ? k + nhalf[2] : k;
-                    // if( i==nhalf[0]||j==nhalf[1]||k==nhalf[2]) continue;
                     fbuf_->kelem(i, j, k) = fp.kelem(ip, jp, kp) / rfac;
+                    // zero Nyquist modes since they are not unique after convolution
+                    if( i==nhalf[0]||j==nhalf[1]||k==nhalf[2]){
+                        fbuf_->kelem(i, j, k) = 0.0; 
+                    }
                 }
             }
         }
@@ -691,7 +693,7 @@ private:
             int recvfrom = 0;
             if (iglobal <= fny[0])
             {
-                real_t wi = (iglobal == fny[0]) ? 0.5 : 1.0;
+                real_t wi = (iglobal == fny[0]) ? 0.0 : 1.0;
 
                 recvfrom = get_task(iglobal, offsetsp_, sizesp_, CONFIG::MPI_task_size);
                 MPI_Recv(&recvbuf_[0], (int)slicesz, datatype, recvfrom, (int)iglobal,
@@ -699,7 +701,7 @@ private:
 
                 for (size_t j = 0; j < nf[1]; ++j)
                 {
-                    real_t wj = (j == fny[1]) ? 0.5 : 1.0;
+                    real_t wj = (j == fny[1]) ? 0.0 : 1.0;
                     if (j <= fny[1])
                     {
                         size_t jp = j;
@@ -707,21 +709,22 @@ private:
                         {
                             if (typeid(data_t) == typeid(real_t))
                             {
-                                real_t w = wi * wj;
+                                real_t wk = (k == fny[2]) ? 0.0 : 1.0;
+                                real_t w = wi * wj * wk;
                                 fbuf_->kelem(i, j, k) += w * crecvbuf_[jp * nfp[3] + k] / rfac;
                             }
                             else
                             {
-                                real_t wk = (k == fny[2]) ? 0.5 : 1.0;
+                                real_t wk = (k == fny[2]) ? 0.0 : 1.0;
                                 real_t w = wi * wj * wk;
-                                if (k <= fny[2])
+                                if (k < fny[2])
                                     fbuf_->kelem(i, j, k) += w * crecvbuf_[jp * nfp[3] + k] / rfac;
-                                if (k >= fny[2])
+                                if (k > fny[2])
                                     fbuf_->kelem(i, j, k) += w * crecvbuf_[jp * nfp[3] + k + fny[2]] / rfac;
-                                if (w < 1.0)
-                                {
-                                    fbuf_->kelem(i, j, k) = std::real(fbuf_->kelem(i, j, k));
-                                }
+                                // if (w < 1.0)
+                                // {
+                                //     fbuf_->kelem(i, j, k) = std::real(fbuf_->kelem(i, j, k));
+                                // }
                             }
                         }
                     }
@@ -732,21 +735,22 @@ private:
                         {
                             if (typeid(data_t) == typeid(real_t))
                             {
-                                real_t w = wi * wj;
+                                real_t wk = (k == fny[2]) ? 0.0 : 1.0;
+                                real_t w = wi * wj * wk;
                                 fbuf_->kelem(i, j, k) += w * crecvbuf_[jp * nfp[3] + k] / rfac;
                             }
                             else
                             {
-                                real_t wk = (k == fny[2]) ? 0.5 : 1.0;
+                                real_t wk = (k == fny[2]) ? 0.0 : 1.0;
                                 real_t w = wi * wj * wk;
-                                if (k <= fny[2])
+                                if (k < fny[2])
                                     fbuf_->kelem(i, j, k) += w * crecvbuf_[jp * nfp[3] + k] / rfac;
-                                if (k >= fny[2])
+                                if (k > fny[2])
                                     fbuf_->kelem(i, j, k) += w * crecvbuf_[jp * nfp[3] + k + fny[2]] / rfac;
-                                if (w < 1.0)
-                                {
-                                    fbuf_->kelem(i, j, k) = std::real(fbuf_->kelem(i, j, k));
-                                }
+                                // if (w < 1.0)
+                                // {
+                                //     fbuf_->kelem(i, j, k) = std::real(fbuf_->kelem(i, j, k));
+                                // }
                             }
                         }
                     }
@@ -754,7 +758,7 @@ private:
             }
             if (iglobal >= fny[0])
             {
-                real_t wi = (iglobal == fny[0]) ? 0.5 : 1.0;
+                real_t wi = (iglobal == fny[0]) ? 0.0 : 1.0;
 
                 recvfrom = get_task(iglobal + fny[0], offsetsp_, sizesp_, CONFIG::MPI_task_size);
                 MPI_Recv(&recvbuf_[0], (int)slicesz, datatype, recvfrom,
@@ -762,29 +766,26 @@ private:
 
                 for (size_t j = 0; j < nf[1]; ++j)
                 {
-                    real_t wj = (j == fny[1]) ? 0.5 : 1.0;
+                    real_t wj = (j == fny[1]) ? 0.0 : 1.0;
                     if (j <= fny[1])
                     {
                         size_t jp = j;
                         for (size_t k = 0; k < nf[2]; ++k)
                         {
+                            const real_t wk = (k == fny[2]) ? 0.0 : 1.0;
+                            const real_t w = wi * wj * wk;
                             if (typeid(data_t) == typeid(real_t))
                             {
-                                real_t w = wi * wj;
+                                real_t wk = (k == fny[2]) ? 0.0 : 1.0;
+                                real_t w = wi * wj * wk;
                                 fbuf_->kelem(i, j, k) += w * crecvbuf_[jp * nfp[3] + k] / rfac;
                             }
                             else
                             {
-                                real_t wk = (k == fny[2]) ? 0.5 : 1.0;
-                                real_t w = wi * wj * wk;
-                                if (k <= fny[2])
+                                if (k < fny[2])
                                     fbuf_->kelem(i, j, k) += w * crecvbuf_[jp * nfp[3] + k] / rfac;
-                                if (k >= fny[2])
+                                if (k > fny[2])
                                     fbuf_->kelem(i, j, k) += w * crecvbuf_[jp * nfp[3] + k + fny[2]] / rfac;
-                                if (w < 1.0)
-                                {
-                                    fbuf_->kelem(i, j, k) = std::real(fbuf_->kelem(i, j, k));
-                                }
                             }
                         }
                     }
@@ -793,23 +794,18 @@ private:
                         size_t jp = j + fny[1];
                         for (size_t k = 0; k < nf[2]; ++k)
                         {
+                            const real_t wk = (k == fny[2]) ? 0.0 : 1.0;
+                            const real_t w = wi * wj * wk;
                             if (typeid(data_t) == typeid(real_t))
                             {
-                                real_t w = wi * wj;
                                 fbuf_->kelem(i, j, k) += w * crecvbuf_[jp * nfp[3] + k] / rfac;
                             }
                             else
                             {
-                                real_t wk = (k == fny[2]) ? 0.5 : 1.0;
-                                real_t w = wi * wj * wk;
-                                if (k <= fny[2])
+                                if (k < fny[2])
                                     fbuf_->kelem(i, j, k) += w * crecvbuf_[jp * nfp[3] + k] / rfac;
-                                if (k >= fny[2])
+                                if (k > fny[2])
                                     fbuf_->kelem(i, j, k) += w * crecvbuf_[jp * nfp[3] + k + fny[2]] / rfac;
-                                if (w < 1.0)
-                                {
-                                    fbuf_->kelem(i, j, k) = std::real(fbuf_->kelem(i, j, k));
-                                }
                             }
                         }
                     }
@@ -817,8 +813,8 @@ private:
             }
         }
 
-//... copy data back
-#pragma omp parallel for
+        //... copy data back
+        #pragma omp parallel for
         for (size_t i = 0; i < fbuf_->ntot_; ++i)
         {
             output_op(i, (*fbuf_)[i]);
