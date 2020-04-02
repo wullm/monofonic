@@ -415,12 +415,12 @@ private:
     {
         assert(fp.space_ == kspace_id);
 
-        const double rfac = std::pow(1.5, 1.5);
+        const real_t rfac = std::pow(1.5, 1.5);
 
         fp.zero();
 
 #if !defined(USE_MPI) ////////////////////////////////////////////////////////////////////////////////////
-        size_t nhalf[3] = {fp.n_[0] / 3, fp.n_[1] / 3, fp.n_[2] / 3};
+        const size_t nhalf[3] = {fp.n_[0] / 3, fp.n_[1] / 3, fp.n_[2] / 3};
 
 #pragma omp parallel for
         for (size_t i = 0; i < 2 * fp.size(0) / 3; ++i)
@@ -460,7 +460,10 @@ private:
         size_t slicesz = fbuf_->size(1) * fbuf_->size(3);
 
         MPI_Datatype datatype =
-            (typeid(data_t) == typeid(float)) ? MPI_COMPLEX : (typeid(data_t) == typeid(double)) ? MPI_DOUBLE_COMPLEX : MPI_BYTE;
+            (typeid(data_t) == typeid(float)) ? MPI_C_FLOAT_COMPLEX 
+            : (typeid(data_t) == typeid(double)) ? MPI_C_DOUBLE_COMPLEX 
+            : (typeid(data_t) == typeid(long double)) ? MPI_C_LONG_DOUBLE_COMPLEX
+            : MPI_BYTE;
 
         // fill MPI send buffer with results of kfunc
 
@@ -596,7 +599,7 @@ private:
     template <typename operator_t>
     void unpad(const Grid_FFT<data_t> &fp, operator_t output_op)
     {
-        const double rfac = std::sqrt(fp.n_[0] * fp.n_[1] * fp.n_[2]) / std::sqrt(fbuf_->n_[0] * fbuf_->n_[1] * fbuf_->n_[2]);
+        const real_t rfac = std::sqrt(fp.n_[0] * fp.n_[1] * fp.n_[2]) / std::sqrt(fbuf_->n_[0] * fbuf_->n_[1] * fbuf_->n_[2]);
 
         // make sure we're in Fourier space...
         assert(fp.space_ == kspace_id);
@@ -645,7 +648,10 @@ private:
         size_t slicesz = fp.size(1) * fp.size(3);
 
         MPI_Datatype datatype =
-            (typeid(data_t) == typeid(float)) ? MPI_COMPLEX : (typeid(data_t) == typeid(double)) ? MPI_DOUBLE_COMPLEX : MPI_BYTE;
+            (typeid(data_t) == typeid(float)) ? MPI_C_FLOAT_COMPLEX 
+            : (typeid(data_t) == typeid(double)) ? MPI_C_DOUBLE_COMPLEX 
+            : (typeid(data_t) == typeid(long double)) ? MPI_C_LONG_DOUBLE_COMPLEX 
+            : MPI_BYTE;
 
         MPI_Status status;
 

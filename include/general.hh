@@ -16,14 +16,21 @@
 
 #define _unused(x) ((void)(x))
 
-#ifdef USE_SINGLEPRECISION
+// include CMake controlled configuration settings
+#include <cmake_config.hh>
+
+#if defined(USE_PRECISION_FLOAT)
 using real_t = float;
 using complex_t = fftwf_complex;
 #define FFTW_PREFIX fftwf
-#else
+#elif defined(USE_PRECISION_DOUBLE)
 using real_t = double;
 using complex_t = fftw_complex;
 #define FFTW_PREFIX fftw
+#elif defined(USE_PRECISION_LONGDOUBLE)
+using real_t = long double;
+using complex_t = fftwl_complex;
+#define FFTW_PREFIX fftwl
 #endif
 
 enum class fluid_component

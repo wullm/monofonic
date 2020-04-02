@@ -1,16 +1,34 @@
 cmake_minimum_required(VERSION 3.9)
 set(PRGNAME monofonIC)
-project(monofonIC)
 
+project(monofonIC C CXX)
+
+#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -march=native -Wall -fno-omit-frame-pointer -g  -fsanitize=address")
+set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -march=native -Wall -pedantic" CACHE STRING "Flags used by the compiler during Release builds." FORCE)
+set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} -march=native -fno-omit-frame-pointer -Wall -pedantic" CACHE STRING "Flags used by the compiler during RelWithDebInfo builds." FORCE)
+set(CMAKE_CXX_FLAGS_DEBUG "-g -O0 -march=native -DDEBUG -fno-omit-frame-pointer -Wall -pedantic" CACHE STRING "Flags used by the compiler during Debug builds." FORCE)
+set(CMAKE_CXX_FLAGS_DEBUGSANADD "${CMAKE_CXX_FLAGS_DEBUG} -fsanitize=address " CACHE STRING "Flags used by the compiler during Debug builds with Sanitizer for address." FORCE)
+set(CMAKE_CXX_FLAGS_DEBUGSANUNDEF "${CMAKE_CXX_FLAGS_DEBUG} -fsanitize=undefined" CACHE STRING "Flags used by the compiler during Debug builds with Sanitizer for undefineds." FORCE)
+
+set(default_build_type "Release")
+if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+  message(STATUS "Setting build type to '${default_build_type}' as none was specified.")
+  set(CMAKE_BUILD_TYPE "${default_build_type}" CACHE
+      STRING "Choose the type of build." FORCE)
+  # Set the possible values of build type for cmake-gui
+  set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS
+    "Debug" "Release" "RelWithDebInfo" "DebugSanAdd" "DebugSanUndef")
+endif()
+mark_as_advanced(CMAKE_CXX_FLAGS_DEBUGSANADD CMAKE_CXX_FLAGS_DEBUGSANUNDEF CMAKE_EXECUTABLE_FORMAT CMAKE_OSX_ARCHITECTURES CMAKE_OSX_DEPLOYMENT_TARGET CMAKE_OSX_SYSROOT)
+
+
+########################################################################################################################
 # include class submodule
 include(${CMAKE_CURRENT_SOURCE_DIR}/external/class.cmake)
 
-# set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -march=native -Wall -fno-omit-frame-pointer -g  -fsanitize=address")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -march=native -Wall -pedantic")
 find_package(PkgConfig REQUIRED)
 
-set(CMAKE_MODULE_PATH
-        "${CMAKE_MODULE_PATH};${PROJECT_SOURCE_DIR}")
+set(CMAKE_MODULE_PATH "${CMAKE_MODULE_PATH};${PROJECT_SOURCE_DIR}")
 
 
 ########################################################################################################################
@@ -48,6 +66,16 @@ if(ENABLE_MPI)
   endif(MPI_CXX_FOUND)
 endif(ENABLE_MPI)
 
+########################################################################################################################
+# floating point precision
+set (
+  CODE_PRECISION "DOUBLE"
+  CACHE STRING "Floating point type used for internal computations and FFTs"
+)
+set_property (
+  CACHE CODE_PRECISION
+  PROPERTY STRINGS FLOAT DOUBLE LONGDOUBLE
+)
 
 ########################################################################################################################
 # FFTW
@@ -55,18 +83,25 @@ if(POLICY CMP0074)
     cmake_policy(SET CMP0074 NEW)
 endif()
 if(ENABLE_MPI)
-  find_package(FFTW3 COMPONENTS SINGLE DOUBLE OPENMP THREADS MPI)
+  find_package(FFTW3 COMPONENTS SINGLE DOUBLE LONGDOUBLE OPENMP THREADS MPI)
 else()
-  find_package(FFTW3 COMPONENTS SINGLE DOUBLE OPENMP THREADS)
+  find_package(FFTW3 COMPONENTS SINGLE DOUBLE LONGDOUBLE OPENMP THREADS)
 endif(ENABLE_MPI)
+mark_as_advanced(FFTW3_SINGLE_MPI_LIBRARY FFTW3_SINGLE_OPENMP_LIBRARY FFTW3_SINGLE_SERIAL_LIBRARY FFTW3_SINGLE_THREADS_LIBRARY)
+mark_as_advanced(FFTW3_DOUBLE_MPI_LIBRARY FFTW3_DOUBLE_OPENMP_LIBRARY FFTW3_DOUBLE_SERIAL_LIBRARY FFTW3_DOUBLE_THREADS_LIBRARY)
+mark_as_advanced(FFTW3_LONGDOUBLE_MPI_LIBRARY FFTW3_LONGDOUBLE_OPENMP_LIBRARY FFTW3_LONGDOUBLE_SERIAL_LIBRARY FFTW3_LONGDOUBLE_THREADS_LIBRARY)
+mark_as_advanced(FFTW3_INCLUDE_DIR FFTW3_MPI_INCLUDE_DIR)
+mark_as_advanced(pkgcfg_lib_PC_FFTW_fftw3)
 
 ########################################################################################################################
 # GSL
 find_package(GSL REQUIRED)
+mark_as_advanced(pkgcfg_lib_GSL_gsl pkgcfg_lib_GSL_gslcblas pkgcfg_lib_GSL_m)
 
 ########################################################################################################################
 # HDF5
 find_package(HDF5 REQUIRED)
+mark_as_advanced(HDF5_C_LIBRARY_dl HDF5_C_LIBRARY_hdf5 HDF5_C_LIBRARY_m HDF5_C_LIBRARY_pthread HDF5_C_LIBRARY_z HDF5_C_LIBRARY_sz)
 
 ########################################################################################################################
 # INCLUDES
@@ -86,28 +121,61 @@ file( GLOB PLUGINS
   ${PROJECT_SOURCE_DIR}/src/plugins/*.cc
 )
 
+# project configuration header
+configure_file(
+  ${PROJECT_SOURCE_DIR}/include/cmake_config.hh.in
+  ${PROJECT_SOURCE_DIR}/include/cmake_config.hh
+)
+
 add_executable(${PRGNAME} ${SOURCES} ${PLUGINS})
 target_setup_class(${PRGNAME})
 
 set_target_properties(${PRGNAME} PROPERTIES CXX_STANDARD 14)
 
+
 # mpi flags
 if(MPI_CXX_FOUND)
-  if(FFTW3_DOUBLE_MPI_FOUND)
-    target_link_libraries(${PRGNAME} ${FFTW3_DOUBLE_MPI_LIBRARY})
-    target_include_directories(${PRGNAME} PRIVATE ${FFTW3_INCLUDE_DIR_PARALLEL})
-    target_compile_options(${PRGNAME} PRIVATE "-DUSE_FFTW_MPI")
-  endif(FFTW3_DOUBLE_MPI_FOUND)
+  if(CODE_PRECISION STREQUAL "FLOAT")
+    if(FFTW3_SINGLE_MPI_FOUND)
+      target_link_libraries(${PRGNAME} ${FFTW3_SINGLE_MPI_LIBRARY})
+      target_include_directories(${PRGNAME} PRIVATE ${FFTW3_INCLUDE_DIR_PARALLEL})
+      target_compile_options(${PRGNAME} PRIVATE "-DUSE_FFTW_MPI")
+    else()
+      message(SEND_ERROR "MPI enabled but FFTW3 library not found with MPI support for single precision!")
+    endif()
+  elseif(CODE_PRECISION STREQUAL "DOUBLE")
+    if(FFTW3_DOUBLE_MPI_FOUND)
+      target_link_libraries(${PRGNAME} ${FFTW3_DOUBLE_MPI_LIBRARY})
+      target_include_directories(${PRGNAME} PRIVATE ${FFTW3_INCLUDE_DIR_PARALLEL})
+      target_compile_options(${PRGNAME} PRIVATE "-DUSE_FFTW_MPI")
+    else()
+      message(SEND_ERROR "MPI enabled but FFTW3 library not found with MPI support for double precision!")
+    endif()
+  elseif(CODE_PRECISION STREQUAL "LONGDOUBLE")
+    if(FFTW3_LONGDOUBLE_MPI_FOUND)
+      target_link_libraries(${PRGNAME} ${FFTW3_LONGDOUBLE_MPI_LIBRARY})
+      target_include_directories(${PRGNAME} PRIVATE ${FFTW3_INCLUDE_DIR_PARALLEL})
+      target_compile_options(${PRGNAME} PRIVATE "-DUSE_FFTW_MPI")
+    else()
+      message(SEND_ERROR "MPI enabled but FFTW3 library not found with MPI support for long double precision!")
+    endif()
+  endif()
 
   target_include_directories(${PRGNAME} PRIVATE ${MPI_CXX_INCLUDE_PATH})
   target_compile_options(${PRGNAME} PRIVATE "-DUSE_MPI")
   target_link_libraries(${PRGNAME} ${MPI_LIBRARIES})
 endif(MPI_CXX_FOUND)
 
-if(FFTW3_DOUBLE_THREADS_FOUND) 
+if(CODE_PRECISION STREQUAL "FLOAT" AND FFTW3_SINGLE_THREADS_FOUND) 
+  target_link_libraries(${PRGNAME} ${FFTW3_SINGLE_THREADS_LIBRARY})
+  target_compile_options(${PRGNAME} PRIVATE "-DUSE_FFTW_THREADS")
+elseif(CODE_PRECISION STREQUAL "DOUBLE" AND FFTW3_DOUBLE_THREADS_FOUND) 
   target_link_libraries(${PRGNAME} ${FFTW3_DOUBLE_THREADS_LIBRARY})
   target_compile_options(${PRGNAME} PRIVATE "-DUSE_FFTW_THREADS")
-endif(FFTW3_DOUBLE_THREADS_FOUND)
+elseif(CODE_PRECISION STREQUAL "LONGDOUBLE" AND FFTW3_LONGDOUBLE_THREADS_FOUND) 
+  target_link_libraries(${PRGNAME} ${FFTW3_LONGDOUBLE_THREADS_LIBRARY})
+  target_compile_options(${PRGNAME} PRIVATE "-DUSE_FFTW_THREADS")
+endif()
 
 if(HDF5_FOUND)
   # target_link_libraries(${PRGNAME} ${HDF5_C_LIBRARY_DIRS})
