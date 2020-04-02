@@ -55,19 +55,18 @@ struct parameters
 
         w_a = cf.GetValueSafe<double>("cosmology", "wa", 0.0);
 
-        Tcmb = cf.GetValueSafe<double>("cosmology", "Tcmb", 2.725);
+        Tcmb = cf.GetValueSafe<double>("cosmology", "Tcmb", 2.7255);
 
-        Neff = cf.GetValueSafe<double>("cosmology", "Neff", 3.04);
+        Neff = cf.GetValueSafe<double>("cosmology", "Neff", 3.046);
 
         sigma8 = cf.GetValue<double>("cosmology", "sigma_8");
 
         // calculate energy density in ultrarelativistic species from Tcmb and Neff
         double Omega_gamma = 4 * phys_const::sigma_SI / std::pow(phys_const::c_SI, 3) * std::pow(Tcmb, 4.0) / phys_const::rhocrit_h2_SI / (h * h);
         double Omega_nu = Neff * Omega_gamma * 7. / 8. * std::pow(4. / 11., 4. / 3.);
-
         Omega_r = Omega_gamma + Omega_nu;
 
-        if (cf.GetValueSafe<bool>("cosmology", "NoRadiation", false))
+        if (cf.GetValueSafe<bool>("cosmology", "ZeroRadiation", false))
         {
             Omega_r = 0.0;
         }
@@ -75,8 +74,25 @@ struct parameters
         {
             csoca::wlog << "Radiation enabled, using Omega_r=" << Omega_r << " internally. Make sure your sim code supports this..." << std::endl;
         }
-
+#if 1
+        // assume zero curvature, take difference from dark energy
+        Omega_DE += 1.0 - Omega_m - Omega_DE - Omega_r;
+#else
+        // allow for curvature 
         Omega_k = 1.0 - Omega_m - Omega_DE - Omega_r;
+#endif
+
+        csoca::ilog << "-------------------------------------------------------------------------------" << std::endl;
+        csoca::ilog << "Cosmological parameters are: " << std::endl;
+        csoca::ilog << " H0       = " << std::setw(16) << H0          << "sigma_8  = " << std::setw(16) << sigma8 << std::endl;
+        csoca::ilog << " Omega_c  = " << std::setw(16) << Omega_m-Omega_b << "Omega_b  = " << std::setw(16) << Omega_b << std::endl;
+        if (!cf.GetValueSafe<bool>("cosmology", "ZeroRadiation", false)){
+            csoca::ilog << " Omega_g  = " << std::setw(16) << Omega_gamma << "Omega_nu = " << std::setw(16) << Omega_nu << std::endl;
+        }else{
+            csoca::ilog << " Omega_r  = " << std::setw(16) << Omega_r << std::endl;
+        }
+        csoca::ilog << " Omega_DE = " << std::setw(16) << Omega_DE    << "nspect   = " << std::setw(16) << nspect << std::endl;
+        csoca::ilog << " w0       = " << std::setw(16) << w_0         << "w_a      = " << std::setw(16) << w_a << std::endl;
 
         dplus = 0.0;
         pnorm = 0.0;
