@@ -37,7 +37,7 @@ public:
 private:
     static constexpr double REL_PRECISION = 1e-9;
     interpolated_function_1d<true,true,false> D_of_a_, f_of_a_, a_of_D_;
-    double Dnow_, astart_;
+    double Dnow_, Dplus_start_, astart_;
 
     real_t integrate(double (*func)(double x, void *params), double a, double b, void *params) const
     {
@@ -140,6 +140,8 @@ public:
         a_of_D_.set_data(tab_D,tab_a);
         Dnow_ = D_of_a_(1.0);
 
+        Dplus_start_ = D_of_a_( astart_ ) / Dnow_;
+
         // set up transfer functions and compute normalisation
         transfer_function_ = std::move(select_TransferFunction_plugin(cf));
         transfer_function_->intialise();
@@ -147,7 +149,7 @@ public:
             cosmo_param_.pnorm = this->compute_pnorm_from_sigma8();
         else{
             cosmo_param_.pnorm = 1.0;
-            csoca::ilog << "Measured sigma8 for fixed PS normalisation is " << this->compute_sigma8() << std::endl;
+            csoca::ilog << "Measured sigma_8 for given PS normalisation is " << this->compute_sigma8() << std::endl;
         }
         cosmo_param_.sqrtpnorm = std::sqrt(cosmo_param_.pnorm);
 
@@ -193,11 +195,11 @@ public:
             for (double k = kmin; k < transfer_function_->get_kmax(); k *= 1.05)
             {
                 ofs << std::setw(20) << std::setprecision(10) << k
-                    << std::setw(20) << std::setprecision(10) << std::pow(this->get_amplitude(k, total), 2.0)
-                    << std::setw(20) << std::setprecision(10) << std::pow(this->get_amplitude(k, cdm), 2.0)
-                    << std::setw(20) << std::setprecision(10) << std::pow(this->get_amplitude(k, baryon), 2.0)
-                    << std::setw(20) << std::setprecision(10) << std::pow(this->get_amplitude(k, vcdm), 2.0)
-                    << std::setw(20) << std::setprecision(10) << std::pow(this->get_amplitude(k, vbaryon), 2.0)
+                    << std::setw(20) << std::setprecision(10) << std::pow(this->get_amplitude(k, total)*Dplus_start_, 2.0)
+                    << std::setw(20) << std::setprecision(10) << std::pow(this->get_amplitude(k, cdm)*Dplus_start_, 2.0)
+                    << std::setw(20) << std::setprecision(10) << std::pow(this->get_amplitude(k, baryon)*Dplus_start_, 2.0)
+                    << std::setw(20) << std::setprecision(10) << std::pow(this->get_amplitude(k, vcdm)*Dplus_start_, 2.0)
+                    << std::setw(20) << std::setprecision(10) << std::pow(this->get_amplitude(k, vbaryon)*Dplus_start_, 2.0)
                     << std::setw(20) << std::setprecision(10) << std::pow(this->get_amplitude(k, total0), 2.0)
                     << std::setw(20) << std::setprecision(10) << std::pow(this->get_amplitude(k, cdm0), 2.0)
                     << std::setw(20) << std::setprecision(10) << std::pow(this->get_amplitude(k, baryon0), 2.0)
@@ -302,7 +304,9 @@ public:
 	 */
     inline real_t get_amplitude(real_t k, tf_type type) const
     {
-        return std::pow(k, 0.5 * cosmo_param_.nspect) * transfer_function_->compute(k, type) * cosmo_param_.sqrtpnorm;
+        // if the transfer function doesn't need backscaling, then divide out growth factor
+        real_t f = transfer_function_->tf_isnormalised_? 1.0/Dplus_start_ : 1.0;
+        return f * std::pow(k, 0.5 * cosmo_param_.nspect) * transfer_function_->compute(k, type) * cosmo_param_.sqrtpnorm;
     }
 
     //! Computes the normalization for the power spectrum

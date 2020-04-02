@@ -10,10 +10,10 @@ class interpolated_function_1d
 {
 
 private:
+  bool isinit_;
   std::vector<double> data_x_, data_y_;
   gsl_interp_accel *gsl_ia_;
   gsl_spline *gsl_sp_;
-  bool isinit_;
 
   void deallocate()
   {
@@ -22,11 +22,12 @@ private:
   }
 
 public:
-  interpolated_function_1d(const interpolated_function_1d &i) = delete;
+  interpolated_function_1d(const interpolated_function_1d &) = delete;
 
-  interpolated_function_1d(){}
+  interpolated_function_1d() : isinit_(false){}
 
   interpolated_function_1d(const std::vector<double> &data_x, const std::vector<double> &data_y)
+  : isinit_(false)
   {
     this->set_data( data_x, data_y );
   }
