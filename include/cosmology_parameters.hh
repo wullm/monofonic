@@ -38,6 +38,9 @@ struct parameters
         sqrtpnorm, //!< sqrt of power spectrum normalisation factor
         vfact;     //!< velocity<->displacement conversion factor in Zel'dovich approx.
 
+    parameters( const parameters& ) = default;
+    parameters() = delete;
+
     explicit parameters(ConfigFile cf)
     {
         H0 = cf.GetValue<double>("cosmology", "H0");
@@ -77,6 +80,7 @@ struct parameters
 #if 1
         // assume zero curvature, take difference from dark energy
         Omega_DE += 1.0 - Omega_m - Omega_DE - Omega_r;
+        Omega_k  = 0.0;
 #else
         // allow for curvature 
         Omega_k = 1.0 - Omega_m - Omega_DE - Omega_r;
@@ -99,8 +103,5 @@ struct parameters
         vfact = 0.0;
     }
 
-    parameters(void)
-    {
-    }
 };
 } // namespace cosmology
