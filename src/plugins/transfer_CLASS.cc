@@ -50,6 +50,7 @@ private:
     add_class_parameter("z_max_pk", std::max(zstart_, ztarget_) * 1.2); // use 1.2 as safety
     add_class_parameter("P_k_max_h/Mpc", kmax_);
     add_class_parameter("output", "dTk,vTk");
+    add_class_parameter("extra metric transfer functions","yes");
     // add_class_parameter("lensing", "no");
 
     //--- choose gauge ------------------------------------------------

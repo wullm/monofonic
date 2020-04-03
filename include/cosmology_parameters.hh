@@ -38,9 +38,10 @@ struct parameters
         sqrtpnorm, //!< sqrt of power spectrum normalisation factor
         vfact;     //!< velocity<->displacement conversion factor in Zel'dovich approx.
 
-    parameters( const parameters& ) = default;
     parameters() = delete;
-
+    
+    parameters( const parameters& ) = default;
+    
     explicit parameters(ConfigFile cf)
     {
         H0 = cf.GetValue<double>("cosmology", "H0");
@@ -73,10 +74,6 @@ struct parameters
         {
             Omega_r = 0.0;
         }
-        else
-        {
-            csoca::wlog << "Radiation enabled, using Omega_r=" << Omega_r << " internally. Make sure your sim code supports this..." << std::endl;
-        }
 #if 1
         // assume zero curvature, take difference from dark energy
         Omega_DE += 1.0 - Omega_m - Omega_DE - Omega_r;
@@ -85,6 +82,10 @@ struct parameters
         // allow for curvature 
         Omega_k = 1.0 - Omega_m - Omega_DE - Omega_r;
 #endif
+
+        dplus = 0.0;
+        pnorm = 0.0;
+        vfact = 0.0;
 
         csoca::ilog << "-------------------------------------------------------------------------------" << std::endl;
         csoca::ilog << "Cosmological parameters are: " << std::endl;
@@ -98,9 +99,11 @@ struct parameters
         csoca::ilog << " Omega_DE = " << std::setw(16) << Omega_DE    << "nspect   = " << std::setw(16) << nspect << std::endl;
         csoca::ilog << " w0       = " << std::setw(16) << w_0         << "w_a      = " << std::setw(16) << w_a << std::endl;
 
-        dplus = 0.0;
-        pnorm = 0.0;
-        vfact = 0.0;
+        if( Omega_r > 0.0 )
+        {
+            csoca::wlog << "Radiation enabled, using Omega_r=" << Omega_r << " internally."<< std::endl;
+            csoca::wlog << "Make sure your sim code supports this..." << std::endl;
+        }
     }
 
 };

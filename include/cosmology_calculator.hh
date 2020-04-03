@@ -35,7 +35,7 @@ public:
     std::unique_ptr<TransferFunction_plugin> transfer_function_;
 
 private:
-    static constexpr double REL_PRECISION = 1e-9;
+    static constexpr double REL_PRECISION = 1e-10;
     interpolated_function_1d<true,true,false> D_of_a_, f_of_a_, a_of_D_;
     double Dnow_, Dplus_start_, astart_;
 
@@ -123,6 +123,8 @@ private:
     }
 
 public:
+    calculator() = delete;
+    calculator(const calculator& c) = delete;
     //! constructor for a cosmology calculator object
     /*!
 	 * @param acosmo a cosmological parameters structure
@@ -149,7 +151,8 @@ public:
             cosmo_param_.pnorm = this->compute_pnorm_from_sigma8();
         else{
             cosmo_param_.pnorm = 1.0;
-            csoca::ilog << "Measured sigma_8 for given PS normalisation is " << this->compute_sigma8() << std::endl;
+            auto sigma8 = this->compute_sigma8();
+            csoca::ilog << "Measured sigma_8 for given PS normalisation is " <<  sigma8 << std::endl;
         }
         cosmo_param_.sqrtpnorm = std::sqrt(cosmo_param_.pnorm);
 
@@ -256,7 +259,7 @@ public:
      */
     real_t get_vfact(real_t a) const noexcept
     {
-        return a * H_of_a(a) / cosmo_param_.h * this->get_f(a);
+        return f_of_a_(a) * a * H_of_a(a) / cosmo_param_.h;
     }
 
     //! Integrand for the sigma_8 normalization of the power spectrum
