@@ -32,6 +32,7 @@ if(ENABLE_CLASS)
       ${CMAKE_CURRENT_LIST_DIR}/class/build/history.o
       ${CMAKE_CURRENT_LIST_DIR}/class/build/hydrogen.o
       ${CMAKE_CURRENT_LIST_DIR}/class/build/hyperspherical.o
+      ${CMAKE_CURRENT_LIST_DIR}/class/tools/trigonometric_integrals.o
       ${CMAKE_CURRENT_LIST_DIR}/class/build/hyrectools.o
       ${CMAKE_CURRENT_LIST_DIR}/class/build/input.o
       ${CMAKE_CURRENT_LIST_DIR}/class/build/lensing.o
