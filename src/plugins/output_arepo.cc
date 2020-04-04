@@ -154,7 +154,7 @@ public:
     HDFWriteGroupAttribute(this_fname_, "Header", "suggested_highressoft", from_value<double>(softening_));
     HDFWriteGroupAttribute(this_fname_, "Header", "suggested_gas_Tinit", from_value<double>(Tini_));
 
-    csoca::ilog << "Wrote" << std::endl;
+    music::ilog << "Wrote" << std::endl;
   }
 
   output_type write_species_as(const cosmo_species &) const { return output_type::particles; }

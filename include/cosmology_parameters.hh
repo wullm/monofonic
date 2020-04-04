@@ -87,22 +87,22 @@ struct parameters
         pnorm = 0.0;
         vfact = 0.0;
 
-        csoca::ilog << "-------------------------------------------------------------------------------" << std::endl;
-        csoca::ilog << "Cosmological parameters are: " << std::endl;
-        csoca::ilog << " H0       = " << std::setw(16) << H0          << "sigma_8  = " << std::setw(16) << sigma8 << std::endl;
-        csoca::ilog << " Omega_c  = " << std::setw(16) << Omega_m-Omega_b << "Omega_b  = " << std::setw(16) << Omega_b << std::endl;
+        music::ilog << "-------------------------------------------------------------------------------" << std::endl;
+        music::ilog << "Cosmological parameters are: " << std::endl;
+        music::ilog << " H0       = " << std::setw(16) << H0          << "sigma_8  = " << std::setw(16) << sigma8 << std::endl;
+        music::ilog << " Omega_c  = " << std::setw(16) << Omega_m-Omega_b << "Omega_b  = " << std::setw(16) << Omega_b << std::endl;
         if (!cf.GetValueSafe<bool>("cosmology", "ZeroRadiation", false)){
-            csoca::ilog << " Omega_g  = " << std::setw(16) << Omega_gamma << "Omega_nu = " << std::setw(16) << Omega_nu << std::endl;
+            music::ilog << " Omega_g  = " << std::setw(16) << Omega_gamma << "Omega_nu = " << std::setw(16) << Omega_nu << std::endl;
         }else{
-            csoca::ilog << " Omega_r  = " << std::setw(16) << Omega_r << std::endl;
+            music::ilog << " Omega_r  = " << std::setw(16) << Omega_r << std::endl;
         }
-        csoca::ilog << " Omega_DE = " << std::setw(16) << Omega_DE    << "nspect   = " << std::setw(16) << nspect << std::endl;
-        csoca::ilog << " w0       = " << std::setw(16) << w_0         << "w_a      = " << std::setw(16) << w_a << std::endl;
+        music::ilog << " Omega_DE = " << std::setw(16) << Omega_DE    << "nspect   = " << std::setw(16) << nspect << std::endl;
+        music::ilog << " w0       = " << std::setw(16) << w_0         << "w_a      = " << std::setw(16) << w_a << std::endl;
 
         if( Omega_r > 0.0 )
         {
-            csoca::wlog << "Radiation enabled, using Omega_r=" << Omega_r << " internally."<< std::endl;
-            csoca::wlog << "Make sure your sim code supports this..." << std::endl;
+            music::wlog << "Radiation enabled, using Omega_r=" << Omega_r << " internally."<< std::endl;
+            music::wlog << "Make sure your sim code supports this..." << std::endl;
         }
     }
 

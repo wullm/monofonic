@@ -57,7 +57,7 @@ private:
         gsl_set_error_handler(NULL);
 
         if (error / result > REL_PRECISION)
-            csoca::wlog << "no convergence in function 'integrate', rel. error=" << error / result << std::endl;
+            music::wlog << "no convergence in function 'integrate', rel. error=" << error / result << std::endl;
 
         return (real_t)result;
     }
@@ -152,17 +152,17 @@ public:
         else{
             cosmo_param_.pnorm = 1.0;
             auto sigma8 = this->compute_sigma8();
-            csoca::ilog << "Measured sigma_8 for given PS normalisation is " <<  sigma8 << std::endl;
+            music::ilog << "Measured sigma_8 for given PS normalisation is " <<  sigma8 << std::endl;
         }
         cosmo_param_.sqrtpnorm = std::sqrt(cosmo_param_.pnorm);
 
-        csoca::ilog << std::setw(32) << std::left << "TF supports distinct CDM+baryons"
+        music::ilog << std::setw(32) << std::left << "TF supports distinct CDM+baryons"
                     << " : " << (transfer_function_->tf_is_distinct() ? "yes" : "no") << std::endl;
-        csoca::ilog << std::setw(32) << std::left << "TF maximum wave number"
+        music::ilog << std::setw(32) << std::left << "TF maximum wave number"
                     << " : " << transfer_function_->get_kmax() << " h/Mpc" << std::endl;
 
-        // csoca::ilog << "D+(MUSIC) = " << this->get_growth_factor( 1.0/(1.0+cf.GetValue<double>("setup","zstart")) ) << std::endl;
-        // csoca::ilog << "pnrom     = " << cosmo_param_.pnorm << std::endl;
+        // music::ilog << "D+(MUSIC) = " << this->get_growth_factor( 1.0/(1.0+cf.GetValue<double>("setup","zstart")) ) << std::endl;
+        // music::ilog << "pnrom     = " << cosmo_param_.pnorm << std::endl;
     }
 
     ~calculator()
@@ -213,7 +213,7 @@ public:
                     #warning Check whether output is at redshift that is indicated!
             }
         }
-        csoca::ilog << "Wrote power spectrum at a=" << a << " to file \'" << fname << "\'" << std::endl;
+        music::ilog << "Wrote power spectrum at a=" << a << " to file \'" << fname << "\'" << std::endl;
     }
 
     const cosmology::parameters &get_parameters(void) const noexcept

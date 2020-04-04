@@ -66,7 +66,7 @@ public:
 
     if (!ss.eof()) {
       //.. conversion error
-      csoca::elog << "Error: conversion of \'" << ival << "\' failed."
+      music::elog << "Error: conversion of \'" << ival << "\' failed."
                 << std::endl;
       throw ErrInvalidConversion(std::string("invalid conversion to ") +
                                  typeid(out_value).name() + '.');
@@ -80,7 +80,7 @@ public:
     std::ifstream file(FileName.c_str());
 
     if (!file.is_open()){
-      csoca::elog << "Could not open config file \'" << FileName << "\'." << std::endl;
+      music::elog << "Could not open config file \'" << FileName << "\'." << std::endl;
       throw std::runtime_error(
           std::string("Error: Could not open config file \'") + FileName +
           std::string("\'"));
@@ -117,19 +117,19 @@ public:
 
       if ((size_t)posEqual == std::string::npos &&
           (name.size() != 0 || value.size() != 0)) {
-        csoca::wlog << "Ignoring non-assignment in " << FileName << ":"
+        music::wlog << "Ignoring non-assignment in " << FileName << ":"
                   << m_iLine << std::endl;
         continue;
       }
 
       if (name.length() == 0 && value.size() != 0) {
-        csoca::wlog << "Ignoring assignment missing entry name in "
+        music::wlog << "Ignoring assignment missing entry name in "
                   << FileName << ":" << m_iLine << std::endl;
         continue;
       }
 
       if (value.length() == 0 && name.size() != 0) {
-        csoca::wlog << "Empty entry will be ignored in " << FileName << ":"
+        music::wlog << "Empty entry will be ignored in " << FileName << ":"
                   << m_iLine << std::endl;
         continue;
       }
@@ -139,7 +139,7 @@ public:
 
       //.. add key/value pair to hash table ..
       if (m_Items.find(inSection + '/' + name) != m_Items.end()) {
-        csoca::wlog << "Redeclaration overwrites previous value in "
+        music::wlog << "Redeclaration overwrites previous value in "
                   << FileName << ":" << m_iLine << std::endl;
       }
 
@@ -232,7 +232,7 @@ public:
     }
     catch (ErrItemNotFound& e)
     {
-      csoca::elog << e.what() << std::endl;
+      music::elog << e.what() << std::endl;
       throw;
     }
     return r;
@@ -282,11 +282,11 @@ public:
   }
 
   void LogDump(void) {
-    csoca::ilog << "List of all configuration options:" << std::endl;
+    music::ilog << "List of all configuration options:" << std::endl;
     std::map<std::string, std::string>::const_iterator i = m_Items.begin();
     while (i != m_Items.end()) {
       if (i->second.length() > 0)
-        csoca::ilog << std::setw(28) << i->first << " = " << i->second
+        music::ilog << std::setw(28) << i->first << " = " << i->second
                   << std::endl;
       ++i;
     }
@@ -330,7 +330,7 @@ inline bool ConfigFile::GetValue<bool>(std::string const &strSection,
     return true;
   if (r1 == "false" || r1 == "no" || r1 == "off" || r1 == "0")
     return false;
-  csoca::elog << "Illegal identifier \'" << r1 << "\' in \'" << strEntry << "\'." << std::endl;
+  music::elog << "Illegal identifier \'" << r1 << "\' in \'" << strEntry << "\'." << std::endl;
   throw ErrIllegalIdentifier(std::string("Illegal identifier \'") + r1 +
                              std::string("\' in \'") + strEntry +
                              std::string("\'."));

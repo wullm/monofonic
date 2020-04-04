@@ -131,7 +131,7 @@ public:
 		uint32_t blocksz;
 		std::ofstream ofs(fname.c_str(), std::ios::binary);
 
-		csoca::ilog << "Writer \'" << this->interface_name_ << "\' : Writing data for " << pc.get_global_num_particles() << " particles." << std::endl;
+		music::ilog << "Writer \'" << this->interface_name_ << "\' : Writing data for " << pc.get_global_num_particles() << " particles." << std::endl;
 
 		blocksz = sizeof(header);
 		ofs.write(reinterpret_cast<char *>(&blocksz), sizeof(uint32_t));

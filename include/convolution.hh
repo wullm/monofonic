@@ -444,7 +444,7 @@ private:
         /////////////////////////////////////////////////////////////////////
 
         double tstart = get_wtime();
-        csoca::dlog << "[MPI] Started scatter for convolution" << std::endl;
+        music::dlog << "[MPI] Started scatter for convolution" << std::endl;
 
         //... collect offsets
 
@@ -589,7 +589,7 @@ private:
         // std::cerr << ">>>>> task " << CONFIG::MPI_task_rank << " all transfers completed! <<<<<"
         // << std::endl;  ofs << ">>>>> task " << CONFIG::MPI_task_rank << " all transfers completed!
         // <<<<<" << std::endl;
-        csoca::dlog.Print("[MPI] Completed scatter for convolution, took %fs\n",
+        music::dlog.Print("[MPI] Completed scatter for convolution, took %fs\n",
                           get_wtime() - tstart);
 
 #endif /// end of ifdef/ifndef USE_MPI ///////////////////////////////////////////////////////////////
@@ -639,7 +639,7 @@ private:
 
         double tstart = get_wtime();
 
-        csoca::dlog << "[MPI] Started gather for convolution";
+        music::dlog << "[MPI] Started gather for convolution";
 
         MPI_Barrier(MPI_COMM_WORLD);
 
@@ -833,7 +833,7 @@ private:
 
         MPI_Barrier(MPI_COMM_WORLD);
 
-        csoca::dlog.Print("[MPI] Completed gather for convolution, took %fs", get_wtime() - tstart);
+        music::dlog.Print("[MPI] Completed gather for convolution, took %fs", get_wtime() - tstart);
 
 #endif /// end of ifdef/ifndef USE_MPI //////////////////////////////////////////////////////////////
     }

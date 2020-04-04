@@ -56,7 +56,7 @@ public:
 
     if (restart_ && !disk_cached_)
     {
-      csoca::elog.Print("Cannot restart from mem cached random numbers.");
+      music::elog.Print("Cannot restart from mem cached random numbers.");
       throw std::runtime_error("Cannot restart from mem cached random numbers.");
     }
 
@@ -116,7 +116,7 @@ void RNG_music::parse_random_parameters(void)
       {
         if (ltemp <= 0)
         {
-          csoca::elog.Print("Specified seed [random]/%s needs to be a number >0!", seedstr);
+          music::elog.Print("Specified seed [random]/%s needs to be a number >0!", seedstr);
           throw std::runtime_error("Seed values need to be >0");
         }
         rngseeds_.push_back(ltemp);
@@ -126,7 +126,7 @@ void RNG_music::parse_random_parameters(void)
     {
       rngfnames_.push_back(tempstr);
       rngseeds_.push_back(-1);
-      csoca::ilog.Print("Random numbers for level %3d will be read from file.", i);
+      music::ilog.Print("Random numbers for level %3d will be read from file.", i);
     }
   }
 
@@ -160,7 +160,7 @@ void RNG_music::compute_random_numbers(void)
       //#warning add possibility to read noise from file also here!
 
       if (rngfnames_[i].size() > 0)
-        csoca::ilog.Print("Warning: Cannot use filenames for higher levels currently! Ignoring!");
+        music::ilog.Print("Warning: Cannot use filenames for higher levels currently! Ignoring!");
 
       randc[i] = new rng(*randc[i - 1], ran_cube_size_, rngseeds_[i], true);
       delete randc[i - 1];
@@ -180,7 +180,7 @@ void RNG_music::compute_random_numbers(void)
     for (int ilevel = levelmin_seed_ - 1; ilevel >= (int)levelmin_; --ilevel)
     {
       if (rngseeds_[ilevel - levelmin_] > 0)
-        csoca::ilog.Print("Warning: random seed for level %d will be ignored.\n"
+        music::ilog.Print("Warning: random seed for level %d will be ignored.\n"
                 "            consistency requires that it is obtained by restriction from level %d",
                 ilevel, levelmin_seed_);
 

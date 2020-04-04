@@ -142,8 +142,8 @@ protected:
 		ifs.read((char *)&blk, sizeof(size_t));
 		if (blk != npart * (size_t)sizeof(T_store))
 		{
-			csoca::elog.Print("Internal consistency error in gadget2 output plug-in");
-			csoca::elog.Print("Expected %ld bytes in temp file but found %ld", npart * (size_t)sizeof(T_store), blk);
+			music::elog.Print("Internal consistency error in gadget2 output plug-in");
+			music::elog.Print("Expected %ld bytes in temp file but found %ld", npart * (size_t)sizeof(T_store), blk);
 			throw std::runtime_error("Internal consistency error in gadget2 output plug-in");
 		}
 		ifs.seekg(offset, std::ios::cur);
@@ -161,7 +161,7 @@ protected:
 
 			if (!this->good())
 			{
-				csoca::elog.Print("Could not open buffer file in gadget2 output plug-in");
+				music::elog.Print("Could not open buffer file in gadget2 output plug-in");
 				throw std::runtime_error("Could not open buffer file in gadget2 output plug-in");
 			}
 
@@ -169,8 +169,8 @@ protected:
 
 			if (blk != npart * sizeof(T_store))
 			{
-				csoca::elog.Print("Internal consistency error in gadget2 output plug-in");
-				csoca::elog.Print("Expected %ld bytes in temp file but found %ld", npart * sizeof(T_store), blk);
+				music::elog.Print("Internal consistency error in gadget2 output plug-in");
+				music::elog.Print("Expected %ld bytes in temp file but found %ld", npart * sizeof(T_store), blk);
 				throw std::runtime_error("Internal consistency error in gadget2 output plug-in");
 			}
 
@@ -188,7 +188,7 @@ protected:
 
 			if (!this->good())
 			{
-				csoca::elog.Print("Could not open buffer file \'%s\' in gadget2 output plug-in", fname.c_str());
+				music::elog.Print("Could not open buffer file \'%s\' in gadget2 output plug-in", fname.c_str());
 				throw std::runtime_error("Could not open buffer file in gadget2 output plug-in");
 			}
 
@@ -196,8 +196,8 @@ protected:
 
 			if (blk != npart * sizeof(T_store))
 			{
-				csoca::elog.Print("Internal consistency error in gadget2 output plug-in");
-				csoca::elog.Print("Expected %ld bytes in temp file but found %ld", npart * sizeof(T_store), blk);
+				music::elog.Print("Internal consistency error in gadget2 output plug-in");
+				music::elog.Print("Expected %ld bytes in temp file but found %ld", npart * sizeof(T_store), blk);
 				throw std::runtime_error("Internal consistency error in gadget2 output plug-in");
 			}
 
@@ -215,7 +215,7 @@ protected:
 
 			if (!this->good())
 			{
-				csoca::elog.Print("Could not open buffer file in gadget2 output plug-in");
+				music::elog.Print("Could not open buffer file in gadget2 output plug-in");
 				throw std::runtime_error("Could not open buffer file in gadget2 output plug-in");
 			}
 
@@ -223,8 +223,8 @@ protected:
 
 			if (blk != npart * sizeof(T_store))
 			{
-				csoca::elog.Print("Internal consistency error in gadget2 output plug-in");
-				csoca::elog.Print("Expected %ld bytes in temp file but found %ld", npart * sizeof(T_store), blk);
+				music::elog.Print("Internal consistency error in gadget2 output plug-in");
+				music::elog.Print("Expected %ld bytes in temp file but found %ld", npart * sizeof(T_store), blk);
 				throw std::runtime_error("Internal consistency error in gadget2 output plug-in");
 			}
 
@@ -246,7 +246,7 @@ protected:
 
 			if (!this->good())
 			{
-				csoca::elog.Print("Could not open buffer file \'%s\' in gadget2 output plug-in", fname.c_str());
+				music::elog.Print("Could not open buffer file \'%s\' in gadget2 output plug-in", fname.c_str());
 				throw std::runtime_error("Could not open buffer file in gadget2 output plug-in");
 			}
 
@@ -254,8 +254,8 @@ protected:
 
 			if (blk != npart * sizeof(T_store))
 			{
-				csoca::elog.Print("Internal consistency error in gadget2 output plug-in");
-				csoca::elog.Print("Expected %ld bytes in temp file but found %ld", npart * sizeof(T_store), blk);
+				music::elog.Print("Internal consistency error in gadget2 output plug-in");
+				music::elog.Print("Expected %ld bytes in temp file but found %ld", npart * sizeof(T_store), blk);
 				throw std::runtime_error("Internal consistency error in gadget2 output plug-in");
 			}
 
@@ -394,7 +394,7 @@ protected:
 		std::cout << " - Gadget2 : writing " << nptot << " particles to file...\n";
 		for (int i = 0; i < 6; ++i)
 			if (np_per_type_[i] > 0)
-				csoca::ilog.Print("      type   %d : %12llu [m=%g]", i, np_per_type_[i], header_.mass[i]);
+				music::ilog.Print("      type   %d : %12llu [m=%g]", i, np_per_type_[i], header_.mass[i]);
 
 		bool bbaryons = np_per_type_[0] > 0;
 
@@ -419,10 +419,10 @@ protected:
 
 		if (nfiles_ > 1)
 		{
-			csoca::ilog.Print("Gadget2 : distributing particles to %d files", nfiles_);
+			music::ilog.Print("Gadget2 : distributing particles to %d files", nfiles_);
 			//<< "                 " << std::setw(12) << "type 0" << "," << std::setw(12) << "type 1" << "," << std::setw(12) << "type " << bndparticletype_ << std::endl;
 			for (unsigned i = 0; i < nfiles_; ++i)
-				csoca::ilog.Print("      file %i : %12llu", i, np_tot_per_file[i], header_.mass[i]);
+				music::ilog.Print("      file %i : %12llu", i, np_tot_per_file[i], header_.mass[i]);
 		}
 
 		size_t curr_block_buf_size = block_buf_size_;
@@ -432,7 +432,7 @@ protected:
 		if (nptot >= 1ul << 32 && !bneed_long_ids)
 		{
 			bneed_long_ids = true;
-			csoca::wlog.Print("Need long particle IDs, will write 64bit, make sure to enable in Gadget!");
+			music::wlog.Print("Need long particle IDs, will write 64bit, make sure to enable in Gadget!");
 		}
 
 		for (unsigned ifile = 0; ifile < nfiles_; ++ifile)
@@ -700,7 +700,7 @@ protected:
 				static bool bdisplayed = false;
 				if (!bdisplayed)
 				{
-					csoca::ilog.Print("Gadget2 : set initial gas temperature to %.2f K/mu", Tini / mu);
+					music::ilog.Print("Gadget2 : set initial gas temperature to %.2f K/mu", Tini / mu);
 					bdisplayed = true;
 				}
 			}
@@ -827,7 +827,7 @@ public:
 		shift_halfcell_ = cf.GetValueSafe<bool>("output", "gadget_cell_centered", false);
 
 		//if( nfiles_ < (int)ceil((double)npart/(double)npartmax_) )
-		//	csoca::wlog.Print("Should use more files.");
+		//	music::wlog.Print("Should use more files.");
 
 		if (nfiles_ > 1)
 		{
@@ -838,7 +838,7 @@ public:
 				ofs_.open(ffname, std::ios::binary | std::ios::trunc);
 				if (!ofs_.good())
 				{
-					csoca::elog.Print("gadget-2 output plug-in could not open output file \'%s\' for writing!", ffname);
+					music::elog.Print("gadget-2 output plug-in could not open output file \'%s\' for writing!", ffname);
 					throw std::runtime_error(std::string("gadget-2 output plug-in could not open output file \'") + std::string(ffname) + "\' for writing!\n");
 				}
 				ofs_.close();
@@ -849,7 +849,7 @@ public:
 			ofs_.open(fname_.c_str(), std::ios::binary | std::ios::trunc);
 			if (!ofs_.good())
 			{
-				csoca::elog.Print("gadget-2 output plug-in could not open output file \'%s\' for writing!", fname_.c_str());
+				music::elog.Print("gadget-2 output plug-in could not open output file \'%s\' for writing!", fname_.c_str());
 				throw std::runtime_error(std::string("gadget-2 output plug-in could not open output file \'") + fname_ + "\' for writing!\n");
 			}
 			ofs_.close();
@@ -875,7 +875,7 @@ public:
 			header_.flag_doubleprecision = 1;
 		else
 		{
-			csoca::elog.Print("Internal error: gadget-2 output plug-in called for neither \'float\' nor \'double\'");
+			music::elog.Print("Internal error: gadget-2 output plug-in called for neither \'float\' nor \'double\'");
 			throw std::runtime_error("Internal error: gadget-2 output plug-in called for neither \'float\' nor \'double\'");
 		}
 
@@ -896,7 +896,7 @@ public:
 			unit_length_chosen_ = (*mapit).second;
 		else
 		{
-			csoca::elog.Print("Gadget: length unit \'%s\' unknown in gadget_lunit", lunitstr.c_str());
+			music::elog.Print("Gadget: length unit \'%s\' unknown in gadget_lunit", lunitstr.c_str());
 			throw std::runtime_error("Unknown length unit specified for Gadget output plugin");
 		}
 
@@ -904,7 +904,7 @@ public:
 			unit_mass_chosen_ = (*mapit).second;
 		else
 		{
-			csoca::elog.Print("Gadget: mass unit \'%s\' unknown in gadget_munit", munitstr.c_str());
+			music::elog.Print("Gadget: mass unit \'%s\' unknown in gadget_munit", munitstr.c_str());
 			throw std::runtime_error("Unknown mass unit specified for Gadget output plugin");
 		}
 
@@ -912,7 +912,7 @@ public:
 			unit_vel_chosen_ = (*mapit).second;
 		else
 		{
-			csoca::elog.Print("Gadget: velocity unit \'%s\' unknown in gadget_vunit", vunitstr.c_str());
+			music::elog.Print("Gadget: velocity unit \'%s\' unknown in gadget_vunit", vunitstr.c_str());
 			throw std::runtime_error("Unknown velocity unit specified for Gadget output plugin");
 		}
 
@@ -922,14 +922,14 @@ public:
 			kpcunits_ = cf.GetValueSafe<bool>("output", "gadget_usekpc", false);
 			if (kpcunits_)
 				unit_length_chosen_ = 1e-3;
-			csoca::wlog.Print("Deprecated option \'gadget_usekpc\' may override unit selection. Use \'gadget_lunit\' instead.");
+			music::wlog.Print("Deprecated option \'gadget_usekpc\' may override unit selection. Use \'gadget_lunit\' instead.");
 		}
 		if (cf.ContainsKey("output", "gadget_usemsol"))
 		{
 			msolunits_ = cf.GetValueSafe<bool>("output", "gadget_usemsol", false);
 			if (msolunits_)
 				unit_mass_chosen_ = 1e-10;
-			csoca::wlog.Print("Deprecated option \'gadget_usemsol\' may override unit selection. Use \'gadget_munit\' instead.");
+			music::wlog.Print("Deprecated option \'gadget_usemsol\' may override unit selection. Use \'gadget_munit\' instead.");
 		}
 
 		//... coarse particle properties...
@@ -944,14 +944,14 @@ public:
 			if (bndparticletype_ == 0 || //bndparticletype_ == 1 || bndparticletype_ == 4 ||
 					bndparticletype_ > 5)
 			{
-				csoca::elog.Print("Coarse particles cannot be of Gadget particle type %d in output plugin.", bndparticletype_);
+				music::elog.Print("Coarse particles cannot be of Gadget particle type %d in output plugin.", bndparticletype_);
 				throw std::runtime_error("Specified illegal Gadget particle type for coarse particles");
 			}
 		}
 		else
 		{
 			if (cf.GetValueSafe<unsigned>("output", "gadget_coarsetype", 5) != 5)
-				csoca::wlog.Print("Gadget: Option \'gadget_spreadcoarse\' forces \'gadget_coarsetype=5\'! Will override.");
+				music::wlog.Print("Gadget: Option \'gadget_spreadcoarse\' forces \'gadget_coarsetype=5\'! Will override.");
 		}
 
 		//... set time ......................................................
@@ -1056,7 +1056,7 @@ public:
 
 			if (nwritten != npcoarse)
 			{
-				csoca::elog.Print("nwritten = %llu != npcoarse = %llu\n", nwritten, npcoarse);
+				music::elog.Print("nwritten = %llu != npcoarse = %llu\n", nwritten, npcoarse);
 				throw std::runtime_error("Internal consistency error while writing temporary file for masses");
 			}
 

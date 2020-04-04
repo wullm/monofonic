@@ -6,7 +6,7 @@
 #include <fstream>
 #include <iostream>
 
-namespace csoca {
+namespace music {
 
 enum LogLevel : int {
   Off     = 0,
@@ -132,4 +132,4 @@ extern LogStream wlog;
 extern LogStream ilog;
 extern LogStream dlog;
 
-} // namespace csoca
+} // namespace music

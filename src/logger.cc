@@ -1,6 +1,6 @@
 #include <logger.hh>
 
-namespace csoca {
+namespace music {
 
 std::ofstream Logger::output_file_;
 LogLevel Logger::log_level_ = LogLevel::Off;
@@ -39,4 +39,4 @@ LogStream wlog(glogger, LogLevel::Warning);
 LogStream ilog(glogger, LogLevel::Info);
 LogStream dlog(glogger, LogLevel::Debug);
 
-} // namespace csoca
+} // namespace music

@@ -508,7 +508,7 @@ public:
       grad_x_({ngrid_, ngrid_, ngrid_}, {1.0,1.0,1.0}), grad_y_({ngrid_, ngrid_, ngrid_}, {1.0,1.0,1.0}),
       grad_z_({ngrid_, ngrid_, ngrid_}, {1.0,1.0,1.0})
     { 
-        csoca::ilog << "-------------------------------------------------------------------------------" << std::endl;
+        music::ilog << "-------------------------------------------------------------------------------" << std::endl;
         std::string lattice_str = the_config.GetValueSafe<std::string>("setup","ParticleLoad","sc");
         const lattice lattice_type = 
             ((lattice_str=="bcc")? lattice_bcc 
@@ -516,15 +516,15 @@ public:
             : ((lattice_str=="rsc")? lattice_rsc 
             : lattice_sc)));
 
-        csoca::ilog << "PLT corrections for " << lattice_str << " lattice will be computed on " << ngrid_ << "**3 mesh" << std::endl;
+        music::ilog << "PLT corrections for " << lattice_str << " lattice will be computed on " << ngrid_ << "**3 mesh" << std::endl;
 
         double wtime = get_wtime();
-        csoca::ilog << std::setw(40) << std::setfill('.') << std::left << "Computing PLT eigenmodes "<< std::flush;
+        music::ilog << std::setw(40) << std::setfill('.') << std::left << "Computing PLT eigenmodes "<< std::flush;
         
         init_D( lattice_type );
         // init_D__old();
 
-        csoca::ilog << std::setw(20) << std::setfill(' ') << std::right << "took " << get_wtime()-wtime << "s" << std::endl;
+        music::ilog << std::setw(20) << std::setfill(' ') << std::right << "took " << get_wtime()-wtime << "s" << std::endl;
     }
 
     inline ccomplex_t gradient( const int idim, std::array<size_t,3> ijk ) const

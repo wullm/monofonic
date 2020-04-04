@@ -99,7 +99,7 @@ void generic_output_plugin::write_grid_data(const Grid_FFT<real_t> &g, const cos
 {
 	std::string field_name = this->get_field_name( s, c );
 	g.Write_to_HDF5(fname_, field_name);
-	csoca::ilog << interface_name_ << " : Wrote field \'" << field_name << "\' to file \'" << fname_ << "\'" << std::endl;
+	music::ilog << interface_name_ << " : Wrote field \'" << field_name << "\' to file \'" << fname_ << "\'" << std::endl;
 }
 
 namespace

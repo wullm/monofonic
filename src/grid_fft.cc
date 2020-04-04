@@ -9,7 +9,7 @@ void Grid_FFT<data_t, bdistributed>::Setup(void)
     {
         ntot_ = (n_[2] + 2) * n_[1] * n_[0];
 
-        csoca::dlog.Print("[FFT] Setting up a shared memory field %lux%lux%lu\n", n_[0], n_[1], n_[2]);
+        music::dlog.Print("[FFT] Setting up a shared memory field %lux%lux%lu\n", n_[0], n_[1], n_[2]);
         if (typeid(data_t) == typeid(real_t))
         {
             data_ = reinterpret_cast<data_t *>(fftw_malloc(ntot_ * sizeof(real_t)));
@@ -28,7 +28,7 @@ void Grid_FFT<data_t, bdistributed>::Setup(void)
         }
         else
         {
-            csoca::elog.Print("invalid data type in Grid_FFT<data_t>::setup_fft_interface\n");
+            music::elog.Print("invalid data type in Grid_FFT<data_t>::setup_fft_interface\n");
         }
 
         fft_norm_fac_ = 1.0 / std::sqrt((real_t)((size_t)n_[0] * (real_t)n_[1] * (real_t)n_[2]));
@@ -105,11 +105,11 @@ void Grid_FFT<data_t, bdistributed>::Setup(void)
         }
         else
         {
-            csoca::elog.Print("unknown data type in Grid_FFT<data_t>::setup_fft_interface\n");
+            music::elog.Print("unknown data type in Grid_FFT<data_t>::setup_fft_interface\n");
             abort();
         }
 
-        csoca::dlog.Print("[FFT] Setting up a distributed memory field %lux%lux%lu\n", n_[0], n_[1], n_[2]);
+        music::dlog.Print("[FFT] Setting up a distributed memory field %lux%lux%lu\n", n_[0], n_[1], n_[2]);
 
         fft_norm_fac_ = 1.0 / sqrt((real_t)n_[0] * (real_t)n_[1] * (real_t)n_[2]);
 
@@ -151,7 +151,7 @@ void Grid_FFT<data_t, bdistributed>::Setup(void)
             sizes_[3] = npc_; // holds the physical memory size along the 3rd dimension
         }
 #else
-        csoca::flog << "MPI is required for distributed FFT arrays!" << std::endl;
+        music::flog << "MPI is required for distributed FFT arrays!" << std::endl;
         throw std::runtime_error("MPI is required for distributed FFT arrays!");
 #endif //// of #ifdef #else USE_MPI ////////////////////////////////////////////////////////////////////////////////////
     }
@@ -178,13 +178,13 @@ void Grid_FFT<data_t, bdistributed>::FourierTransformForward(bool do_transform)
         if (do_transform)
         {
             double wtime = get_wtime();
-            csoca::dlog.Print("[FFT] Calling Grid_FFT::to_kspace (%lux%lux%lu)", sizes_[0], sizes_[1], sizes_[2]);
+            music::dlog.Print("[FFT] Calling Grid_FFT::to_kspace (%lux%lux%lu)", sizes_[0], sizes_[1], sizes_[2]);
             FFTW_API(execute)
             (plan_);
             this->ApplyNorm();
 
             wtime = get_wtime() - wtime;
-            csoca::dlog.Print("[FFT] Completed Grid_FFT::to_kspace (%lux%lux%lu), took %f s", sizes_[0], sizes_[1], sizes_[2], wtime);
+            music::dlog.Print("[FFT] Completed Grid_FFT::to_kspace (%lux%lux%lu), took %f s", sizes_[0], sizes_[1], sizes_[2], wtime);
         }
 
         sizes_[0] = local_1_size_;
@@ -209,14 +209,14 @@ void Grid_FFT<data_t, bdistributed>::FourierTransformBackward(bool do_transform)
         //.............................
         if (do_transform)
         {
-            csoca::dlog.Print("[FFT] Calling Grid_FFT::to_rspace (%dx%dx%d)\n", sizes_[0], sizes_[1], sizes_[2]);
+            music::dlog.Print("[FFT] Calling Grid_FFT::to_rspace (%dx%dx%d)\n", sizes_[0], sizes_[1], sizes_[2]);
             double wtime = get_wtime();
 
             FFTW_API(execute)(iplan_);
             this->ApplyNorm();
 
             wtime = get_wtime() - wtime;
-            csoca::dlog.Print("[FFT] Completed Grid_FFT::to_rspace (%dx%dx%d), took %f s\n", sizes_[0], sizes_[1], sizes_[2], wtime);
+            music::dlog.Print("[FFT] Completed Grid_FFT::to_rspace (%dx%dx%d), took %f s\n", sizes_[0], sizes_[1], sizes_[2], wtime);
         }
         sizes_[0] = local_0_size_;
         sizes_[1] = n_[1];
@@ -285,7 +285,7 @@ void Grid_FFT<data_t, bdistributed>::Read_from_HDF5(const std::string Filename, 
 {
     if (bdistributed)
     {
-        csoca::elog << "Attempt to read from HDF5 into MPI-distributed array. This is not supported yet!" << std::endl;
+        music::elog << "Attempt to read from HDF5 into MPI-distributed array. This is not supported yet!" << std::endl;
         abort();
     }
 
@@ -311,7 +311,7 @@ void Grid_FFT<data_t, bdistributed>::Read_from_HDF5(const std::string Filename, 
     //... dataset did not exist or was empty
     if (HDF_DatasetID < 0)
     {
-        csoca::elog << "Dataset \'" << ObjName.c_str() << "\' does not exist or is empty." << std::endl;
+        music::elog << "Dataset \'" << ObjName.c_str() << "\' does not exist or is empty." << std::endl;
         H5Fclose(HDF_FileID);
         abort();
     }
@@ -336,7 +336,7 @@ void Grid_FFT<data_t, bdistributed>::Read_from_HDF5(const std::string Filename, 
 
     if (Data.capacity() < HDF_StorageSize)
     {
-        csoca::elog << "Not enough memory to store all data in HDFReadDataset!" << std::endl;
+        music::elog << "Not enough memory to store all data in HDFReadDataset!" << std::endl;
         H5Sclose(HDF_DataspaceID);
         H5Dclose(HDF_DatasetID);
         H5Fclose(HDF_FileID);
@@ -348,7 +348,7 @@ void Grid_FFT<data_t, bdistributed>::Read_from_HDF5(const std::string Filename, 
 
     if (Data.size() != HDF_StorageSize)
     {
-        csoca::elog << "Something went wrong while reading!" << std::endl;
+        music::elog << "Something went wrong while reading!" << std::endl;
         H5Sclose(HDF_DataspaceID);
         H5Dclose(HDF_DatasetID);
         H5Fclose(HDF_FileID);
@@ -360,7 +360,7 @@ void Grid_FFT<data_t, bdistributed>::Read_from_HDF5(const std::string Filename, 
     H5Fclose(HDF_FileID);
 
     assert(dimsize[0] == dimsize[1] && dimsize[0] == dimsize[2]);
-    csoca::ilog << "Read external constraint data of dimensions " << dimsize[0] << "**3." << std::endl;
+    music::ilog << "Read external constraint data of dimensions " << dimsize[0] << "**3." << std::endl;
 
     for (size_t i = 0; i < 3; ++i)
         this->n_[i] = dimsize[i];
@@ -390,7 +390,7 @@ void Grid_FFT<data_t, bdistributed>::Read_from_HDF5(const std::string Filename, 
     sum1 /= Data.size();
     sum2 /= Data.size();
     auto stdw = std::sqrt(sum2 - sum1 * sum1);
-    csoca::ilog << "Constraint field has <W>=" << sum1 << ", <W^2>-<W>^2=" << stdw << std::endl;
+    music::ilog << "Constraint field has <W>=" << sum1 << ", <W^2>-<W>^2=" << stdw << std::endl;
 
     #pragma omp parallel for reduction(+ : sum1, sum2)
     for (size_t i = 0; i < size(0); ++i)

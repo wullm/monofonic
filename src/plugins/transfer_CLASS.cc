@@ -131,13 +131,13 @@ private:
       zlist << std::max(ztarget_, zstart_) << ", " << std::min(ztarget_, zstart_) << ", 0.0";
     add_class_parameter("z_pk", zlist.str());
 
-    csoca::ilog << "Computing transfer function via ClassEngine..." << std::endl;
+    music::ilog << "Computing transfer function via ClassEngine..." << std::endl;
     double wtime = get_wtime();
 
     the_ClassEngine_ = std::move(std::make_unique<ClassEngine>(pars_, false));
 
     wtime = get_wtime() - wtime;
-    csoca::ilog << "CLASS took " << wtime << " s." << std::endl;
+    music::ilog << "CLASS took " << wtime << " s." << std::endl;
   }
 
   //! run ClassEngine with parameters set up
@@ -196,7 +196,7 @@ public:
     {
       this->tf_isnormalised_ = true;
       tnorm_ = std::sqrt(2.0 * M_PI * M_PI * A_s_ * std::pow(1.0 / k_p, n_s_ - 1) / std::pow(2.0 * M_PI, 3.0));
-      csoca::ilog << "Using A_s to normalise the transfer function!" << std::endl;
+      music::ilog << "Using A_s to normalise the transfer function!" << std::endl;
     }
 
     kmax_ = std::max(20.0, 2.0 * M_PI / lbox * nres / 2 * sqrt(3) * 2.0); // 120% of spatial diagonal, or k=10h Mpc-1
@@ -230,7 +230,7 @@ public:
     kmin_ = k[0];
     kmax_ = k.back();
 
-    csoca::ilog << "CLASS table contains k = " << this->get_kmin() << " to " << this->get_kmax() << " h Mpc-1." << std::endl;
+    music::ilog << "CLASS table contains k = " << this->get_kmin() << " to " << this->get_kmax() << " h Mpc-1." << std::endl;
 
     //--------------------------------------------------------------------------
     // single fluid growing/decaying mode decomposition

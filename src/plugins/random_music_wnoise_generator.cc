@@ -11,7 +11,7 @@ template <typename T>
 music_wnoise_generator<T>::music_wnoise_generator(unsigned res, unsigned cubesize, long baseseed, int *x0, int *lx)
     : res_(res), cubesize_(cubesize), ncubes_(1), baseseed_(baseseed)
 {
-  csoca::ilog.Print("Generating random numbers (1) with seed %ld", baseseed);
+  music::ilog.Print("Generating random numbers (1) with seed %ld", baseseed);
 
   initialize();
   fill_subvolume(x0, lx);
@@ -21,7 +21,7 @@ template <typename T>
 music_wnoise_generator<T>::music_wnoise_generator(unsigned res, unsigned cubesize, long baseseed, bool zeromean)
     : res_(res), cubesize_(cubesize), ncubes_(1), baseseed_(baseseed)
 {
-  csoca::ilog.Print("Generating random numbers (2) with seed %ld", baseseed);
+  music::ilog.Print("Generating random numbers (2) with seed %ld", baseseed);
 
   double mean = 0.0;
   size_t res_l = res;
@@ -31,7 +31,7 @@ music_wnoise_generator<T>::music_wnoise_generator(unsigned res, unsigned cubesiz
     cubesize_ = res_;
 
   if (!musicnoise)
-    csoca::elog.Print("This currently breaks compatibility. Need to disable by hand! Make sure to not check into repo");
+    music::elog.Print("This currently breaks compatibility. Need to disable by hand! Make sure to not check into repo");
 
   initialize();
 
@@ -90,7 +90,7 @@ music_wnoise_generator<T>::music_wnoise_generator(unsigned res, std::string rand
   std::ifstream ifs(randfname.c_str(), std::ios::binary);
   if (!ifs)
   {
-    csoca::elog.Print("Could not open random number file \'%s\'!", randfname.c_str());
+    music::elog.Print("Could not open random number file \'%s\'!", randfname.c_str());
     throw std::runtime_error(std::string("Could not open random number file \'") + randfname + std::string("\'!"));
   }
 
@@ -186,7 +186,7 @@ music_wnoise_generator<T>::music_wnoise_generator(unsigned res, std::string rand
   std::vector<float> in_float;
   std::vector<double> in_double;
 
-  csoca::ilog.Print("Random number file \'%s\'\n   contains %ld numbers. Reading...", randfname.c_str(), nx * ny * nz);
+  music::ilog.Print("Random number file \'%s\'\n   contains %ld numbers. Reading...", randfname.c_str(), nx * ny * nz);
 
   long double sum = 0.0, sum2 = 0.0;
   size_t count = 0;
@@ -285,7 +285,7 @@ music_wnoise_generator<T>::music_wnoise_generator(unsigned res, std::string rand
   mean = sum / count;
   var = sum2 / count - mean * mean;
 
-  csoca::ilog.Print("Random numbers in file have \n     mean = %f and var = %f", mean, var);
+  music::ilog.Print("Random numbers in file have \n     mean = %f and var = %f", mean, var);
 }
 
 //... copy construct by averaging down
@@ -298,7 +298,7 @@ music_wnoise_generator<T>::music_wnoise_generator(/*const*/ music_wnoise_generat
   long double sum = 0.0, sum2 = 0.0;
   size_t count = 0;
 
-  csoca::ilog.Print("Generating a coarse white noise field by k-space degrading");
+  music::ilog.Print("Generating a coarse white noise field by k-space degrading");
   //... initialize properties of container
   res_ = rc.res_ / 2;
   cubesize_ = res_;
@@ -307,7 +307,7 @@ music_wnoise_generator<T>::music_wnoise_generator(/*const*/ music_wnoise_generat
 
   if (sizeof(real_t) != sizeof(T))
   {
-    csoca::elog.Print("type mismatch with real_t in k-space averaging");
+    music::elog.Print("type mismatch with real_t in k-space averaging");
     throw std::runtime_error("type mismatch with real_t in k-space averaging");
   }
 
@@ -405,7 +405,7 @@ music_wnoise_generator<T>::music_wnoise_generator(/*const*/ music_wnoise_generat
   rmean = sum / count;
   rvar = sum2 / count - rmean * rmean;
 
-  csoca::ilog.Print("Restricted random numbers have\n       mean = %f, var = %f", rmean, rvar);
+  music::ilog.Print("Restricted random numbers have\n       mean = %f, var = %f", rmean, rvar);
 }
 
 template <typename T>
@@ -438,7 +438,7 @@ music_wnoise_generator<T>::music_wnoise_generator(music_wnoise_generator<T> &rc,
   if (kspace)
   {
 
-    csoca::ilog.Print("Generating a constrained random number set with seed %ld\n    using coarse mode replacement...", baseseed);
+    music::ilog.Print("Generating a constrained random number set with seed %ld\n    using coarse mode replacement...", baseseed);
     assert(lx[0] % 2 == 0 && lx[1] % 2 == 0 && lx[2] % 2 == 0);
     size_t nx = lx[0], ny = lx[1], nz = lx[2],
            nxc = lx[0] / 2, nyc = lx[1] / 2, nzc = lx[2] / 2;
@@ -573,7 +573,7 @@ music_wnoise_generator<T>::music_wnoise_generator(music_wnoise_generator<T> &rc,
   }
   else
   {
-    csoca::ilog.Print("Generating a constrained random number set with seed %ld\n    using Hoffman-Ribak constraints...", baseseed);
+    music::ilog.Print("Generating a constrained random number set with seed %ld\n    using Hoffman-Ribak constraints...", baseseed);
 
     double fac = 1.0 / sqrt(8.0); //1./sqrt(8.0);
 
@@ -613,7 +613,7 @@ void music_wnoise_generator<T>::register_cube(int i, int j, int k)
     rnums_.push_back(NULL);
     cubemap_[icube] = rnums_.size() - 1;
 #ifdef DEBUG
-    csoca::dlog.Print("registering new cube %d,%d,%d . ID = %ld, memloc = %ld", i, j, k, icube, cubemap_[icube]);
+    music::dlog.Print("registering new cube %d,%d,%d . ID = %ld, memloc = %ld", i, j, k, icube, cubemap_[icube]);
 #endif
   }
 }
@@ -637,7 +637,7 @@ double music_wnoise_generator<T>::fill_cube(int i, int j, int k)
 
   if (it == cubemap_.end())
   {
-    csoca::elog.Print("Attempt to access non-registered random number cube!");
+    music::elog.Print("Attempt to access non-registered random number cube!");
     throw std::runtime_error("Attempt to access non-registered random number cube!");
   }
 
@@ -674,7 +674,7 @@ void music_wnoise_generator<T>::subtract_from_cube(int i, int j, int k, double v
 
   if (it == cubemap_.end())
   {
-    csoca::elog.Print("Attempt to access unallocated RND cube %d,%d,%d in music_wnoise_generator::subtract_from_cube", i, j, k);
+    music::elog.Print("Attempt to access unallocated RND cube %d,%d,%d in music_wnoise_generator::subtract_from_cube", i, j, k);
     throw std::runtime_error("Attempt to access unallocated RND cube in music_wnoise_generator::subtract_from_cube");
   }
 
@@ -700,7 +700,7 @@ void music_wnoise_generator<T>::free_cube(int i, int j, int k)
 
   if (it == cubemap_.end())
   {
-    csoca::elog.Print("Attempt to access unallocated RND cube %d,%d,%d in music_wnoise_generator::free_cube", i, j, k);
+    music::elog.Print("Attempt to access unallocated RND cube %d,%d,%d in music_wnoise_generator::free_cube", i, j, k);
     throw std::runtime_error("Attempt to access unallocated RND cube in music_wnoise_generator::free_cube");
   }
 
@@ -724,7 +724,7 @@ void music_wnoise_generator<T>::initialize(void)
     cubesize_ = res_;
   }
 
-  csoca::ilog.Print("Generating random numbers w/ sample cube size of %d", cubesize_);
+  music::ilog.Print("Generating random numbers w/ sample cube size of %d", cubesize_);
 }
 
 template <typename T>
@@ -741,8 +741,8 @@ double music_wnoise_generator<T>::fill_subvolume(int *i0, int *n)
   ncube[2] = (int)(n[2] / cubesize_) + 2;
 
 #ifdef DEBUG
-  csoca::dlog.Print("random numbers needed for region %d,%d,%d ..+ %d,%d,%d", i0[0], i0[1], i0[2], n[0], n[1], n[2]);
-  csoca::dlog.Print("filling cubes %d,%d,%d ..+ %d,%d,%d", i0cube[0], i0cube[1], i0cube[2], ncube[0], ncube[1], ncube[2]);
+  music::dlog.Print("random numbers needed for region %d,%d,%d ..+ %d,%d,%d", i0[0], i0[1], i0[2], n[0], n[1], n[2]);
+  music::dlog.Print("filling cubes %d,%d,%d ..+ %d,%d,%d", i0cube[0], i0cube[1], i0cube[2], ncube[0], ncube[1], ncube[2]);
 #endif
 
   double mean = 0.0;
@@ -836,7 +836,7 @@ void music_wnoise_generator<T>::print_allocated(void)
     if (rnums_[i] != NULL)
       ncount++;
 
-  csoca::ilog.Print(" -> %d of %d random number cubes currently allocated", ncount, ntot);
+  music::ilog.Print(" -> %d of %d random number cubes currently allocated", ncount, ntot);
 }
 
 template class music_wnoise_generator<float>;

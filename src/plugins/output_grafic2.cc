@@ -60,7 +60,7 @@ public:
 
         if (std::abs(std::pow(2.0, levelmin_) - double(ngrid)) > 1e-4)
         {
-            csoca::elog << interface_name_ << " plugin requires setup/GridRes to be power of 2!" << std::endl;
+            music::elog << interface_name_ << " plugin requires setup/GridRes to be power of 2!" << std::endl;
             abort();
         }
 
@@ -223,7 +223,7 @@ void grafic2_output_plugin::write_grid_data(const Grid_FFT<real_t> &g, const cos
 
     } // end loop over write_rank
 
-    csoca::ilog << interface_name_ << " : Wrote field to file \'" << file_name << "\'" << std::endl;
+    music::ilog << interface_name_ << " : Wrote field to file \'" << file_name << "\'" << std::endl;
 }
 
 void grafic2_output_plugin::write_ramses_namelist(void) const
@@ -279,7 +279,7 @@ void grafic2_output_plugin::write_ramses_namelist(void) const
          << "m_refine=" << 1 + naddref << "*8.,\n"
          << "/\n";
 
-    csoca::ilog << interface_name_ << " wrote partial RAMSES namelist file \'" << fname_ << "\'" << std::endl;
+    music::ilog << interface_name_ << " wrote partial RAMSES namelist file \'" << fname_ << "\'" << std::endl;
 }
 
 namespace

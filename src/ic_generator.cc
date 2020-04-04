@@ -97,7 +97,7 @@ int Run( ConfigFile& the_config )
                                | the_config.ContainsKey("cosmology", "LSS_aniso_ly") 
                                | the_config.ContainsKey("cosmology", "LSS_aniso_lz") ))
     {
-        csoca::elog << "Not all dimensions of LSS_aniso_l{x,y,z} specified! Will ignore external tidal field!" << std::endl;
+        music::elog << "Not all dimensions of LSS_aniso_l{x,y,z} specified! Will ignore external tidal field!" << std::endl;
         bAddExternalTides = false;
     }
     // Anisotropy parameters for beyond box tidal field 
@@ -108,7 +108,7 @@ int Run( ConfigFile& the_config )
     };  
     
     if( std::abs(lss_aniso_lambda[0]+lss_aniso_lambda[1]+lss_aniso_lambda[2]) > 1e-10 ){
-        csoca::elog << "External tidal field is not trace-free! Will subtract trace!" << std::endl;
+        music::elog << "External tidal field is not trace-free! Will subtract trace!" << std::endl;
         auto tr_l_3 = (lss_aniso_lambda[0]+lss_aniso_lambda[1]+lss_aniso_lambda[2])/3.0;
         lss_aniso_lambda[0] -= tr_l_3;
         lss_aniso_lambda[1] -= tr_l_3;
@@ -122,10 +122,10 @@ int Run( ConfigFile& the_config )
 
     the_cosmo_calc->write_powerspectrum(astart, "input_powerspec.txt" );
 
-    //csoca::ilog << "-----------------------------------------------------------------------------" << std::endl;
+    //music::ilog << "-----------------------------------------------------------------------------" << std::endl;
 
     // if( bSymplecticPT && LPTorder!=2 ){
-    //     csoca::wlog << "SymplecticPT has been selected and will overwrite chosen order of LPT to 2" << std::endl;
+    //     music::wlog << "SymplecticPT has been selected and will overwrite chosen order of LPT to 2" << std::endl;
     //     LPTorder = 2;
     // }
 
@@ -180,8 +180,8 @@ int Run( ConfigFile& the_config )
     //--------------------------------------------------------------------
     // Fill the grid with a Gaussian white noise field
     //--------------------------------------------------------------------
-    csoca::ilog << "-------------------------------------------------------------------------------" << std::endl;
-    csoca::ilog << "Generating white noise field...." << std::endl;
+    music::ilog << "-------------------------------------------------------------------------------" << std::endl;
+    music::ilog << "Generating white noise field...." << std::endl;
 
     the_random_number_generator->Fill_Grid(wnoise);
     
@@ -241,11 +241,11 @@ int Run( ConfigFile& the_config )
             }
         }
 
-        // csoca::ilog << "  ... old field: re <w>=" << rs1/count << " <w^2>-<w>^2=" << rs2/count-rs1*rs1/count/count << std::endl;
-        // csoca::ilog << "  ... old field: im <w>=" << is1/count << " <w^2>-<w>^2=" << is2/count-is1*is1/count/count << std::endl;
-        // csoca::ilog << "  ... new field: re <w>=" << nrs1/count << " <w^2>-<w>^2=" << nrs2/count-nrs1*nrs1/count/count << std::endl;
-        // csoca::ilog << "  ... new field: im <w>=" << nis1/count << " <w^2>-<w>^2=" << nis2/count-nis1*nis1/count/count << std::endl;
-        csoca::ilog << "White noise field large-scale modes overwritten with external field." << std::endl;
+        // music::ilog << "  ... old field: re <w>=" << rs1/count << " <w^2>-<w>^2=" << rs2/count-rs1*rs1/count/count << std::endl;
+        // music::ilog << "  ... old field: im <w>=" << is1/count << " <w^2>-<w>^2=" << is2/count-is1*is1/count/count << std::endl;
+        // music::ilog << "  ... new field: re <w>=" << nrs1/count << " <w^2>-<w>^2=" << nrs2/count-nrs1*nrs1/count/count << std::endl;
+        // music::ilog << "  ... new field: im <w>=" << nis1/count << " <w^2>-<w>^2=" << nis2/count-nis1*nis1/count/count << std::endl;
+        music::ilog << "White noise field large-scale modes overwritten with external field." << std::endl;
     }
 
     //--------------------------------------------------------------------
@@ -293,11 +293,11 @@ int Run( ConfigFile& the_config )
     //======================================================================
     // phi = - delta / k^2
 
-    csoca::ilog << "-------------------------------------------------------------------------------" << std::endl;
-    csoca::ilog << "Generating white noise field...." << std::endl;
+    music::ilog << "-------------------------------------------------------------------------------" << std::endl;
+    music::ilog << "Generating white noise field...." << std::endl;
 
     double wtime = get_wtime();
-    csoca::ilog << std::setw(40) << std::setfill('.') << std::left << "Computing phi(1) term" << std::flush;
+    music::ilog << std::setw(40) << std::setfill('.') << std::left << "Computing phi(1) term" << std::flush;
 
     phi.FourierTransformForward(false);
     phi.assign_function_of_grids_kdep([&](auto k, auto wn) {
@@ -308,7 +308,7 @@ int Run( ConfigFile& the_config )
 
     phi.zero_DC_mode();
 
-    csoca::ilog << std::setw(20) << std::setfill(' ') << std::right << "took " << get_wtime() - wtime << "s" << std::endl;
+    music::ilog << std::setw(20) << std::setfill(' ') << std::right << "took " << get_wtime() - wtime << "s" << std::endl;
 
     //======================================================================
     //... compute 2LPT displacement potential ....
@@ -316,7 +316,7 @@ int Run( ConfigFile& the_config )
     if (LPTorder > 1)
     {
         wtime = get_wtime();
-        csoca::ilog << std::setw(40) << std::setfill('.') << std::left << "Computing phi(2) term" << std::flush;
+        music::ilog << std::setw(40) << std::setfill('.') << std::left << "Computing phi(2) term" << std::flush;
         phi2.FourierTransformForward(false);
         Conv.convolve_SumOfHessians(phi, {0, 0}, phi, {1, 1}, {2, 2}, op::assign_to(phi2));
         Conv.convolve_Hessians(phi, {1, 1}, phi, {2, 2}, op::add_to(phi2));
@@ -334,12 +334,12 @@ int Run( ConfigFile& the_config )
         }
 
         phi2.apply_InverseLaplacian();
-        csoca::ilog << std::setw(20) << std::setfill(' ') << std::right << "took " << get_wtime() - wtime << "s" << std::endl;
+        music::ilog << std::setw(20) << std::setfill(' ') << std::right << "took " << get_wtime() - wtime << "s" << std::endl;
 
         if (bAddExternalTides)
         {
-            csoca::wlog << "Added external tide contribution to phi(2)... Make sure your N-body code supports this!" << std::endl;
-            csoca::wlog << " lss_aniso = (" << lss_aniso_lambda[0] << ", " << lss_aniso_lambda[1] << ", " << lss_aniso_lambda[2] << ")" << std::endl;
+            music::wlog << "Added external tide contribution to phi(2)... Make sure your N-body code supports this!" << std::endl;
+            music::wlog << " lss_aniso = (" << lss_aniso_lambda[0] << ", " << lss_aniso_lambda[1] << ", " << lss_aniso_lambda[2] << ")" << std::endl;
         }
     }
 
@@ -350,7 +350,7 @@ int Run( ConfigFile& the_config )
     {
         //... 3a term ...
         wtime = get_wtime();
-        csoca::ilog << std::setw(40) << std::setfill('.') << std::left << "Computing phi(3a) term" << std::flush;
+        music::ilog << std::setw(40) << std::setfill('.') << std::left << "Computing phi(3a) term" << std::flush;
         phi3a.FourierTransformForward(false);
         Conv.convolve_Hessians(phi, {0, 0}, phi, {1, 1}, phi, {2, 2}, op::assign_to(phi3a));
         Conv.convolve_Hessians(phi, {0, 1}, phi, {0, 2}, phi, {1, 2}, op::add_twice_to(phi3a));
@@ -358,11 +358,11 @@ int Run( ConfigFile& the_config )
         Conv.convolve_Hessians(phi, {0, 2}, phi, {0, 2}, phi, {1, 1}, op::subtract_from(phi3a));
         Conv.convolve_Hessians(phi, {0, 1}, phi, {0, 1}, phi, {2, 2}, op::subtract_from(phi3a));
         phi3a.apply_InverseLaplacian();
-        csoca::ilog << std::setw(20) << std::setfill(' ') << std::right << "took " << get_wtime() - wtime << "s" << std::endl;
+        music::ilog << std::setw(20) << std::setfill(' ') << std::right << "took " << get_wtime() - wtime << "s" << std::endl;
 
         //... 3b term ...
         wtime = get_wtime();
-        csoca::ilog << std::setw(40) << std::setfill('.') << std::left << "Computing phi(3b) term" << std::flush;
+        music::ilog << std::setw(40) << std::setfill('.') << std::left << "Computing phi(3b) term" << std::flush;
         phi3b.FourierTransformForward(false);
         Conv.convolve_SumOfHessians(phi, {0, 0}, phi2, {1, 1}, {2, 2}, op::assign_to(phi3b));
         Conv.convolve_SumOfHessians(phi, {1, 1}, phi2, {2, 2}, {0, 0}, op::add_to(phi3b));
@@ -372,11 +372,11 @@ int Run( ConfigFile& the_config )
         Conv.convolve_Hessians(phi, {1, 2}, phi2, {1, 2}, op::subtract_twice_from(phi3b));
         phi3b.apply_InverseLaplacian();
         phi3b *= 0.5; // factor 1/2 from definition of phi(3b)!
-        csoca::ilog << std::setw(20) << std::setfill(' ') << std::right << "took " << get_wtime() - wtime << "s" << std::endl;
+        music::ilog << std::setw(20) << std::setfill(' ') << std::right << "took " << get_wtime() - wtime << "s" << std::endl;
 
         //... transversal term ...
         wtime = get_wtime();
-        csoca::ilog << std::setw(40) << std::setfill('.') << std::left << "Computing A(3) term" << std::flush;
+        music::ilog << std::setw(40) << std::setfill('.') << std::left << "Computing A(3) term" << std::flush;
         for (int idim = 0; idim < 3; ++idim)
         {
             // cyclic rotations of indices
@@ -388,13 +388,13 @@ int Run( ConfigFile& the_config )
             Conv.convolve_DifferenceOfHessians(phi2, {idimp, idimpp}, phi, {idimp, idimp}, {idimpp, idimpp}, op::subtract_from(*A3[idim]));
             A3[idim]->apply_InverseLaplacian();
         }
-        csoca::ilog << std::setw(20) << std::setfill(' ') << std::right << "took " << get_wtime() - wtime << "s" << std::endl;
+        music::ilog << std::setw(20) << std::setfill(' ') << std::right << "took " << get_wtime() - wtime << "s" << std::endl;
     }
 
     // if( bSymplecticPT ){
     //     //... transversal term ...
     //     wtime = get_wtime();
-    //     csoca::ilog << std::setw(40) << std::setfill('.') << std::left << "Computing vNLO(3) term" << std::flush;
+    //     music::ilog << std::setw(40) << std::setfill('.') << std::left << "Computing vNLO(3) term" << std::flush;
     //     for( int idim=0; idim<3; ++idim ){
     //         // cyclic rotations of indices
     //         A3[idim]->FourierTransformForward(false);
@@ -402,7 +402,7 @@ int Run( ConfigFile& the_config )
     //         Conv.convolve_Gradient_and_Hessian( phi, {1},  phi2, {idim,1}, add_to(*A3[idim]) );
     //         Conv.convolve_Gradient_and_Hessian( phi, {2},  phi2, {idim,2}, add_to(*A3[idim]) );
     //     }
-    //     csoca::ilog << std::setw(20) << std::setfill(' ') << std::right << "took " << get_wtime()-wtime << "s" << std::endl;
+    //     music::ilog << std::setw(20) << std::setfill(' ') << std::right << "took " << get_wtime()-wtime << "s" << std::endl;
 
     // }
 
@@ -415,7 +415,7 @@ int Run( ConfigFile& the_config )
     (*A3[1]) *= g3c;
     (*A3[2]) *= g3c;
 
-    csoca::ilog << "-------------------------------------------------------------------------------" << std::endl;
+    music::ilog << "-------------------------------------------------------------------------------" << std::endl;
 
     ///////////////////////////////////////////////////////////////////////
     // we store the densities here if we compute them
@@ -426,7 +426,7 @@ int Run( ConfigFile& the_config )
 
     if (testing != "none")
     {
-        csoca::wlog << "you are running in testing mode. No ICs, only diagnostic output will be written out!" << std::endl;
+        music::wlog << "you are running in testing mode. No ICs, only diagnostic output will be written out!" << std::endl;
         if (testing == "potentials_and_densities"){
             testing::output_potentials_and_densities(the_config, ngrid, boxlen, phi, phi2, phi3a, phi3b, A3);
         }
@@ -437,14 +437,14 @@ int Run( ConfigFile& the_config )
             testing::output_convergence(the_config, the_cosmo_calc.get(), ngrid, boxlen, vfac, Dplus0, phi, phi2, phi3a, phi3b, A3);
         }
         else{
-            csoca::flog << "unknown test '" << testing << "'" << std::endl;
+            music::flog << "unknown test '" << testing << "'" << std::endl;
             std::abort();
         }
     }
 
     for( auto& this_species : species_list )
     {
-        csoca::ilog << std::endl
+        music::ilog << std::endl
                     << ">>> Computing ICs for species \'" << cosmo_species_name[this_species] << "\' <<<\n" << std::endl;
 
         {
@@ -468,7 +468,7 @@ int Run( ConfigFile& the_config )
                 real_t std_phi1 = phi.std();
 
                 const real_t hbar = 2.0 * M_PI/ngrid * (2*std_phi1/Dplus0); //3sigma, but this might rather depend on gradients of phi...
-                csoca::ilog << "Semiclassical PT : hbar = " << hbar << " from sigma(phi1) = " << std_phi1 << std::endl;
+                music::ilog << "Semiclassical PT : hbar = " << hbar << " from sigma(phi1) = " << std_phi1 << std::endl;
                 
                 if( LPTorder == 1 ){
                     psi.assign_function_of_grids_r([hbar,Dplus0]( real_t pphi ){
