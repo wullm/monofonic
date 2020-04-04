@@ -6,9 +6,15 @@ project(monofonIC C CXX)
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -march=native -Wall -fno-omit-frame-pointer -g  -fsanitize=address")
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -march=native -Wall -pedantic" CACHE STRING "Flags used by the compiler during Release builds." FORCE)
 set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} -march=native -fno-omit-frame-pointer -Wall -pedantic" CACHE STRING "Flags used by the compiler during RelWithDebInfo builds." FORCE)
-set(CMAKE_CXX_FLAGS_DEBUG "-g -O0 -march=native -DDEBUG -fno-omit-frame-pointer -Wall -pedantic" CACHE STRING "Flags used by the compiler during Debug builds." FORCE)
+set(CMAKE_CXX_FLAGS_DEBUG "-g -O1 -march=native -DDEBUG -fno-omit-frame-pointer -Wall -pedantic" CACHE STRING "Flags used by the compiler during Debug builds." FORCE)
 set(CMAKE_CXX_FLAGS_DEBUGSANADD "${CMAKE_CXX_FLAGS_DEBUG} -fsanitize=address " CACHE STRING "Flags used by the compiler during Debug builds with Sanitizer for address." FORCE)
 set(CMAKE_CXX_FLAGS_DEBUGSANUNDEF "${CMAKE_CXX_FLAGS_DEBUG} -fsanitize=undefined" CACHE STRING "Flags used by the compiler during Debug builds with Sanitizer for undefineds." FORCE)
+set(CMAKE_C_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE}" CACHE STRING "Flags used by the compiler during Release builds." FORCE)
+set(CMAKE_C_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO}" CACHE STRING "Flags used by the compiler during RelWithDebInfo builds." FORCE)
+set(CMAKE_C_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}" CACHE STRING "Flags used by the compiler during Debug builds." FORCE)
+set(CMAKE_C_FLAGS_DEBUGSANADD "${CMAKE_CXX_FLAGS_DEBUGSANADD}" CACHE STRING "Flags used by the compiler during Debug builds with Sanitizer for address." FORCE)
+set(CMAKE_C_FLAGS_DEBUGSANUNDEF "${CMAKE_CXX_FLAGS_DEBUGSANUNDEF}" CACHE STRING "Flags used by the compiler during Debug builds with Sanitizer for undefineds." FORCE)
+
 
 set(default_build_type "Release")
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
@@ -19,7 +25,9 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
   set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS
     "Debug" "Release" "RelWithDebInfo" "DebugSanAdd" "DebugSanUndef")
 endif()
-mark_as_advanced(CMAKE_CXX_FLAGS_DEBUGSANADD CMAKE_CXX_FLAGS_DEBUGSANUNDEF CMAKE_EXECUTABLE_FORMAT CMAKE_OSX_ARCHITECTURES CMAKE_OSX_DEPLOYMENT_TARGET CMAKE_OSX_SYSROOT)
+mark_as_advanced(CMAKE_CXX_FLAGS_DEBUGSANADD CMAKE_CXX_FLAGS_DEBUGSANUNDEF)
+mark_as_advanced(CMAKE_C_FLAGS_DEBUGSANADD CMAKE_C_FLAGS_DEBUGSANUNDEF)
+mark_as_advanced(CMAKE_EXECUTABLE_FORMAT CMAKE_OSX_ARCHITECTURES CMAKE_OSX_DEPLOYMENT_TARGET CMAKE_OSX_SYSROOT)
 
 
 ########################################################################################################################
