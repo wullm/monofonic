@@ -1,10 +1,18 @@
 #pragma once
-
+/*
+ 
+ operators.hh - This file is part of MUSIC2 -
+ a code to generate multi-scale initial conditions 
+ for cosmological simulations 
+ 
+ Copyright (C) 2019  Oliver Hahn
+ 
+*/
 #include <general.hh>
 
 namespace op{
 
-//!== long list of primitive operators to work on fields ==!//
+//!== list of primitive operators to work on fields ==!//
 
 template< typename field>
 inline auto assign_to( field& g ){return [&g](auto i, auto v){ g[i] = v; };}
@@ -16,13 +24,7 @@ template< typename field>
 inline auto add_to( field& g ){return [&g](auto i, auto v){ g[i] += v; };}
 
 template< typename field>
-inline auto add_twice_to( field& g ){return [&g](auto i, auto v){ g[i] += 2*v; };}
-
-template< typename field>
 inline auto subtract_from( field& g ){return [&g](auto i, auto v){ g[i] -= v; };}
-
-template< typename field>
-inline auto subtract_twice_from( field& g ){return [&g](auto i, auto v){ g[i] -= 2*v; };}
 
 //! vanilla standard gradient
 class fourier_gradient{
