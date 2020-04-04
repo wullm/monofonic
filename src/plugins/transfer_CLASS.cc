@@ -16,7 +16,7 @@
 #include <general.hh>
 #include <config_file.hh>
 #include <transfer_function_plugin.hh>
-#include <interpolate.hh>
+#include <math/interpolate.hh>
 
 class transfer_CLASS_plugin : public TransferFunction_plugin
 {

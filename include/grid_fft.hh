@@ -4,7 +4,7 @@
 #include <array>
 #include <vector>
 
-#include <vec3.hh>
+#include <math/vec3.hh>
 #include <general.hh>
 #include <bounding_box.hh>
 #include <typeinfo>

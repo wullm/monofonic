@@ -7,7 +7,7 @@
 \*******************************************************************/
 #pragma once
 
-#include <vec3.hh>
+#include <math/vec3.hh>
 
 namespace particle {
 

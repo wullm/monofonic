@@ -1,7 +1,7 @@
 #include <gsl/gsl_math.h>
 #include <gsl/gsl_eigen.h>
 
-#include <vec3.hh>
+#include <math/vec3.hh>
 
 template<typename T>
 class mat3_t{

@@ -6,10 +6,10 @@
 #include <cosmology_parameters.hh>
 #include <physical_constants.hh>
 #include <transfer_function_plugin.hh>
-#include <ode_integrate.hh>
+#include <math/ode_integrate.hh>
 #include <logger.hh>
 
-#include <interpolate.hh>
+#include <math/interpolate.hh>
 
 #include <gsl/gsl_integration.h>
 // #include <gsl/gsl_spline.h>
@@ -210,7 +210,6 @@ public:
                     << std::setw(20) << std::setprecision(10) << std::pow(this->get_amplitude(k, vbaryon0), 2.0)
                     << std::setw(20) << std::setprecision(10) << std::pow(this->get_amplitude(k, vtotal), 2.0)
                     << std::endl;
-                    #warning Check whether output is at redshift that is indicated!
             }
         }
         music::ilog << "Wrote power spectrum at a=" << a << " to file \'" << fname << "\'" << std::endl;

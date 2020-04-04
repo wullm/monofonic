@@ -1,6 +1,6 @@
 #pragma once
 
-#include <vec3.hh>
+#include <math/vec3.hh>
 
 template <typename T>
 struct bounding_box

@@ -13,7 +13,7 @@
 
 #include <particle_generator.hh>
 #include <grid_fft.hh>
-#include <mat3.hh>
+#include <math/mat3.hh>
 
 #include <gsl/gsl_sf_hyperg.h>
 inline double Hypergeometric2F1( double a, double b, double c, double x )
