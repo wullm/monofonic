@@ -81,6 +81,7 @@ int main( int argc, char** argv )
     // Compilation CMake configuration, time etc info:
     music::ilog << "This " << CMAKE_BUILDTYPE_STR << " build was compiled at " << __TIME__ << " on " <<  __DATE__ << std::endl;            
     music::ilog << "Compiled with " << __VERSION__ << std::endl;
+
     // git and versioning info:
     music::ilog << "Version: v0.1a, git rev.: " << GIT_REV << ", tag: " << GIT_TAG << ", branch: " << GIT_BRANCH << std::endl;
     
