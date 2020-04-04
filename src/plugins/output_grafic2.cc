@@ -40,22 +40,22 @@ protected:
 
 public:
     //! constructor
-    explicit grafic2_output_plugin(ConfigFile &cf)
+    explicit grafic2_output_plugin(config_file &cf)
         : output_plugin(cf, "GRAFIC2/RAMSES")
     {
         lunit_ = 1.0;
         vunit_ = 1.0;
 
         double
-            boxlength = cf_.GetValue<double>("setup", "BoxLength"),
-            H0 = cf_.GetValue<double>("cosmology", "H0"),
-            zstart = cf_.GetValue<double>("setup", "zstart"),
+            boxlength = cf_.get_value<double>("setup", "BoxLength"),
+            H0 = cf_.get_value<double>("cosmology", "H0"),
+            zstart = cf_.get_value<double>("setup", "zstart"),
             astart = 1.0 / (1.0 + zstart),
-            omegam = cf_.GetValue<double>("cosmology", "Omega_m"),
-            omegaL = cf_.GetValue<double>("cosmology", "Omega_L");
-        uint32_t ngrid = cf_.GetValue<int>("setup", "GridRes");
+            omegam = cf_.get_value<double>("cosmology", "Omega_m"),
+            omegaL = cf_.get_value<double>("cosmology", "Omega_L");
+        uint32_t ngrid = cf_.get_value<int>("setup", "GridRes");
 
-        bUseSPT_ = cf_.GetValueSafe<bool>("output", "grafic_use_SPT", false);
+        bUseSPT_ = cf_.get_value_safe<bool>("output", "grafic_use_SPT", false);
         levelmin_ = uint32_t(std::log2(double(ngrid)) + 1e-6);
 
         if (std::abs(std::pow(2.0, levelmin_) - double(ngrid)) > 1e-4)
@@ -64,7 +64,7 @@ public:
             abort();
         }
 
-        bhavebaryons_ = cf_.GetValueSafe<bool>("setup", "baryons", false);
+        bhavebaryons_ = cf_.get_value_safe<bool>("setup", "baryons", false);
 
         header_.n1 = ngrid;
         header_.n2 = ngrid;
@@ -89,7 +89,7 @@ public:
         mkdir(dirname_.c_str(), 0777);
 
         // write RAMSES namelist file? if so only with one task
-        if (cf_.GetValueSafe<bool>("output", "ramses_nml", true) && CONFIG::MPI_task_rank==0 )
+        if (cf_.get_value_safe<bool>("output", "ramses_nml", true) && CONFIG::MPI_task_rank==0 )
         {
             write_ramses_namelist();
         }
@@ -196,7 +196,7 @@ void grafic2_output_plugin::write_grid_data(const Grid_FFT<real_t> &g, const cos
             }
 
             // check field size against buffer size...
-            uint32_t ngrid = cf_.GetValue<int>("setup", "GridRes");
+            uint32_t ngrid = cf_.get_value<int>("setup", "GridRes");
             assert( g.global_size(0) == ngrid && g.global_size(1) == ngrid && g.global_size(2) == ngrid);
             assert( g.size(1) == ngrid && g.size(2) == ngrid);
             // write actual field slice by slice

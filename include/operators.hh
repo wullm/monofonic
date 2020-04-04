@@ -30,10 +30,10 @@ private:
     real_t boxlen_, k0_;
     size_t n_, nhalf_;
 public:
-    explicit fourier_gradient( const ConfigFile& the_config )
-    : boxlen_( the_config.GetValue<double>("setup", "BoxLength") ), 
+    explicit fourier_gradient( const config_file& the_config )
+    : boxlen_( the_config.get_value<double>("setup", "BoxLength") ), 
       k0_(2.0*M_PI/boxlen_),
-      n_( the_config.GetValue<size_t>("setup","GridRes") ),
+      n_( the_config.get_value<size_t>("setup","GridRes") ),
       nhalf_( n_/2 )
     {}
 

@@ -24,9 +24,9 @@ void print_RNG_plugins()
     music::ilog << std::endl;
 }
 
-std::unique_ptr<RNG_plugin> select_RNG_plugin(ConfigFile &cf)
+std::unique_ptr<RNG_plugin> select_RNG_plugin(config_file &cf)
 {
-    std::string rngname = cf.GetValueSafe<std::string>("random", "generator", "MUSIC");
+    std::string rngname = cf.get_value_safe<std::string>("random", "generator", "MUSIC");
 
     RNG_plugin_creator *the_RNG_plugin_creator = get_RNG_plugin_map()[rngname];
 

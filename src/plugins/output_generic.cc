@@ -21,13 +21,13 @@ protected:
 	bool out_eulerian_;
 public:
 	//! constructor
-	explicit generic_output_plugin(ConfigFile &cf )
+	explicit generic_output_plugin(config_file &cf )
 	: output_plugin(cf, "Generic HDF5")
 	{
-		real_t astart   = 1.0/(1.0+cf_.GetValue<double>("setup", "zstart"));
-		real_t boxsize  = cf_.GetValue<double>("setup", "BoxLength");
+		real_t astart   = 1.0/(1.0+cf_.get_value<double>("setup", "zstart"));
+		real_t boxsize  = cf_.get_value<double>("setup", "BoxLength");
 
-		out_eulerian_   = cf_.GetValueSafe<bool>("output", "generic_out_eulerian",false);
+		out_eulerian_   = cf_.get_value_safe<bool>("output", "generic_out_eulerian",false);
 
 		if( CONFIG::MPI_task_rank == 0 )
 		{

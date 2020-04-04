@@ -207,13 +207,13 @@ public:
 	 \param Tcmb mean temperature of the CMB fluctuations (defaults to
 	 Tcmb = 2.726 if not specified)
 	 */
-  transfer_eisenstein_plugin(ConfigFile &cf)
+  transfer_eisenstein_plugin(config_file &cf)
       : TransferFunction_plugin(cf)
   {
-    double Tcmb = pcf_->GetValueSafe<double>("cosmology", "Tcmb", 2.726);
-    double H0 = pcf_->GetValue<double>("cosmology", "H0");
-    double Omega_m = pcf_->GetValue<double>("cosmology", "Omega_m");
-    double Omega_b = pcf_->GetValue<double>("cosmology", "Omega_b");
+    double Tcmb = pcf_->get_value_safe<double>("cosmology", "Tcmb", 2.726);
+    double H0 = pcf_->get_value<double>("cosmology", "H0");
+    double Omega_m = pcf_->get_value<double>("cosmology", "Omega_m");
+    double Omega_b = pcf_->get_value<double>("cosmology", "Omega_b");
 
     etf_.set_parameters(H0, Omega_m, Omega_b, Tcmb);
     
@@ -257,15 +257,15 @@ protected:
   };
 
 public:
-  transfer_eisenstein_wdm_plugin(ConfigFile &cf)
+  transfer_eisenstein_wdm_plugin(config_file &cf)
       : TransferFunction_plugin(cf)
   {
-    double Tcmb = pcf_->GetValueSafe("cosmology", "Tcmb", 2.726);
-    omegam_ = pcf_->GetValue<double>("cosmology", "Omega_m");
-    omegab_ = pcf_->GetValue<double>("cosmology", "Omega_b");
-    H0_ = pcf_->GetValue<double>("cosmology", "H0");
+    double Tcmb = pcf_->get_value_safe("cosmology", "Tcmb", 2.726);
+    omegam_ = pcf_->get_value<double>("cosmology", "Omega_m");
+    omegab_ = pcf_->get_value<double>("cosmology", "Omega_b");
+    H0_ = pcf_->get_value<double>("cosmology", "H0");
     m_h0 = H0_ / 100.0;
-    wdmm_ = pcf_->GetValue<double>("cosmology", "WDMmass");
+    wdmm_ = pcf_->get_value<double>("cosmology", "WDMmass");
 
     etf_.set_parameters(H0_, omegam_, omegab_, Tcmb);
 
@@ -273,7 +273,7 @@ public:
     typemap_.insert(std::pair<std::string, int>("VIEL", wdm_viel));             // add the other types
     typemap_.insert(std::pair<std::string, int>("BODE_WRONG", wdm_bode_wrong)); // add the other types
 
-    type_ = pcf_->GetValueSafe<std::string>("cosmology", "WDMtftype", "BODE");
+    type_ = pcf_->get_value_safe<std::string>("cosmology", "WDMtftype", "BODE");
 
     //type_ = std::string( toupper( type_.c_str() ) );
 
@@ -286,29 +286,29 @@ public:
     {
     //... parameterisation from Bode et al. (2001), ApJ, 556, 93
     case wdm_bode:
-      wdmnu_ = pcf_->GetValueSafe<double>("cosmology", "WDMnu", 1.0);
-      wdmgx_ = pcf_->GetValueSafe<double>("cosmology", "WDMg_x", 1.5);
+      wdmnu_ = pcf_->get_value_safe<double>("cosmology", "WDMnu", 1.0);
+      wdmgx_ = pcf_->get_value_safe<double>("cosmology", "WDMg_x", 1.5);
       m_WDMalpha = 0.05 * pow(omegam_ / 0.4, 0.15) * pow(H0_ * 0.01 / 0.65, 1.3) * pow(wdmm_, -1.15) * pow(1.5 / wdmgx_, 0.29);
 
       break;
 
     //... parameterisation from Viel et al. (2005), Phys Rev D, 71
     case wdm_viel:
-      wdmnu_ = pcf_->GetValueSafe<double>("cosmology", "WDMnu", 1.12);
+      wdmnu_ = pcf_->get_value_safe<double>("cosmology", "WDMnu", 1.12);
       m_WDMalpha = 0.049 * pow(omegam_ / 0.25, 0.11) * pow(H0_ * 0.01 / 0.7, 1.22) * pow(wdmm_, -1.11);
       break;
 
     //.... below is for historical reasons due to the buggy parameterisation
     //.... in early versions of MUSIC, but apart from H instead of h, Bode et al.
     case wdm_bode_wrong:
-      wdmnu_ = pcf_->GetValueSafe<double>("cosmology", "WDMnu", 1.0);
-      wdmgx_ = pcf_->GetValueSafe<double>("cosmology", "WDMg_x", 1.5);
+      wdmnu_ = pcf_->get_value_safe<double>("cosmology", "WDMnu", 1.0);
+      wdmgx_ = pcf_->get_value_safe<double>("cosmology", "WDMg_x", 1.5);
       m_WDMalpha = 0.05 * pow(omegam_ / 0.4, 0.15) * pow(H0_ / 0.65, 1.3) * pow(wdmm_, -1.15) * pow(1.5 / wdmgx_, 0.29);
       break;
 
     default:
-      wdmnu_ = pcf_->GetValueSafe<double>("cosmology", "WDMnu", 1.0);
-      wdmgx_ = pcf_->GetValueSafe<double>("cosmology", "WDMg_x", 1.5);
+      wdmnu_ = pcf_->get_value_safe<double>("cosmology", "WDMnu", 1.0);
+      wdmgx_ = pcf_->get_value_safe<double>("cosmology", "WDMg_x", 1.5);
       m_WDMalpha = 0.05 * pow(omegam_ / 0.4, 0.15) * pow(H0_ * 0.01 / 0.65, 1.3) * pow(wdmm_, -1.15) * pow(1.5 / wdmgx_, 0.29);
       break;
     }
@@ -340,20 +340,20 @@ protected:
   eisenstein_transfer etf_;
 
 public:
-  transfer_eisenstein_cdmbino_plugin(ConfigFile &cf)
+  transfer_eisenstein_cdmbino_plugin(config_file &cf)
       : TransferFunction_plugin(cf)
   { 
-    double Tcmb = pcf_->GetValueSafe("cosmology", "Tcmb", 2.726);
+    double Tcmb = pcf_->get_value_safe("cosmology", "Tcmb", 2.726);
 
-    omegam_ = pcf_->GetValue<double>("cosmology", "Omega_m");
-    omegab_ = pcf_->GetValue<double>("cosmology", "Omega_b");
-    H0_ = pcf_->GetValue<double>("cosmology", "H0");
+    omegam_ = pcf_->get_value<double>("cosmology", "Omega_m");
+    omegab_ = pcf_->get_value<double>("cosmology", "Omega_b");
+    H0_ = pcf_->get_value<double>("cosmology", "H0");
     m_h0 = H0_ / 100.0;
 
     etf_.set_parameters(H0_, omegam_, omegab_, Tcmb);
 
-    mcdm_ = pcf_->GetValueSafe<double>("cosmology", "CDM_mass", 100.0); // bino particle mass in GeV
-    Tkd_ = pcf_->GetValueSafe<double>("cosmology", "CDM_Tkd", 33.0);    // temperature at which CDM particle kinetically decouples (in MeV)
+    mcdm_ = pcf_->get_value_safe<double>("cosmology", "CDM_mass", 100.0); // bino particle mass in GeV
+    Tkd_ = pcf_->get_value_safe<double>("cosmology", "CDM_Tkd", 33.0);    // temperature at which CDM particle kinetically decouples (in MeV)
 
     kfs_ = 1.7e6 / m_h0 * sqrt(mcdm_ / 100. * Tkd_ / 30.) / (1.0 + log(Tkd_ / 30.) / 19.2);
     kd_ = 3.8e7 / m_h0 * sqrt(mcdm_ / 100. * Tkd_ / 30.);
@@ -395,19 +395,19 @@ protected:
   eisenstein_transfer etf_;
 
 public:
-  transfer_eisenstein_cutoff_plugin(ConfigFile &cf)
+  transfer_eisenstein_cutoff_plugin(config_file &cf)
       : TransferFunction_plugin(cf)
   { 
-    double Tcmb = pcf_->GetValueSafe("cosmology", "Tcmb", 2.726);
+    double Tcmb = pcf_->get_value_safe("cosmology", "Tcmb", 2.726);
 
-    omegam_ = pcf_->GetValue<double>("cosmology", "Omega_m");
-    omegab_ = pcf_->GetValue<double>("cosmology", "Omega_b");
-    H0_ = pcf_->GetValue<double>("cosmology", "H0");
+    omegam_ = pcf_->get_value<double>("cosmology", "Omega_m");
+    omegab_ = pcf_->get_value<double>("cosmology", "Omega_b");
+    H0_ = pcf_->get_value<double>("cosmology", "H0");
     m_h0 = H0_ / 100.0;
 
     etf_.set_parameters(H0_, omegam_, omegab_, Tcmb);
 
-    Rcut_ = pcf_->GetValueSafe<double>("cosmology", "Rcut", 1.0);
+    Rcut_ = pcf_->get_value_safe<double>("cosmology", "Rcut", 1.0);
   }
 
   inline double compute(double k, tf_type type) const

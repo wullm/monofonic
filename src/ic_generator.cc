@@ -24,7 +24,7 @@ std::unique_ptr<RNG_plugin> the_random_number_generator;
 std::unique_ptr<output_plugin> the_output_plugin;
 std::unique_ptr<cosmology::calculator>  the_cosmo_calc;
 
-int Initialise( ConfigFile& the_config )
+int Initialise( config_file& the_config )
 {
     the_random_number_generator = std::move(select_RNG_plugin(the_config));
     the_output_plugin           = std::move(select_output_plugin(the_config));
@@ -33,7 +33,7 @@ int Initialise( ConfigFile& the_config )
     return 0;
 }
 
-int Run( ConfigFile& the_config )
+int Run( config_file& the_config )
 {
     //--------------------------------------------------------------------------------------------------------
     // Read run parameters
@@ -41,23 +41,23 @@ int Run( ConfigFile& the_config )
 
     //--------------------------------------------------------------------------------------------------------
     //! number of resolution elements per dimension
-    const size_t ngrid = the_config.GetValue<size_t>("setup", "GridRes");
+    const size_t ngrid = the_config.get_value<size_t>("setup", "GridRes");
 
     //--------------------------------------------------------------------------------------------------------
     //! box side length in h-1 Mpc
-    const real_t boxlen = the_config.GetValue<double>("setup", "BoxLength");
+    const real_t boxlen = the_config.get_value<double>("setup", "BoxLength");
 
     //--------------------------------------------------------------------------------------------------------
     //! starting redshift
-    const real_t zstart = the_config.GetValue<double>("setup", "zstart");
+    const real_t zstart = the_config.get_value<double>("setup", "zstart");
 
     //--------------------------------------------------------------------------------------------------------
     //! order of the LPT approximation 
-    int LPTorder = the_config.GetValueSafe<double>("setup","LPTorder",100);
+    int LPTorder = the_config.get_value_safe<double>("setup","LPTorder",100);
 
     //--------------------------------------------------------------------------------------------------------
     //! initialice particles on a bcc or fcc lattice instead of a standard sc lattice (doubles and quadruples the number of particles) 
-    std::string lattice_str = the_config.GetValueSafe<std::string>("setup","ParticleLoad","sc");
+    std::string lattice_str = the_config.get_value_safe<std::string>("setup","ParticleLoad","sc");
     const particle::lattice lattice_type = 
           ((lattice_str=="bcc")? particle::lattice_bcc 
         : ((lattice_str=="fcc")? particle::lattice_fcc 
@@ -66,45 +66,45 @@ int Run( ConfigFile& the_config )
 
     //--------------------------------------------------------------------------------------------------------
     //! apply fixing of the complex mode amplitude following Angulo & Pontzen (2016) [https://arxiv.org/abs/1603.05253]
-    const bool bDoFixing = the_config.GetValueSafe<bool>("setup", "DoFixing", false);
+    const bool bDoFixing = the_config.get_value_safe<bool>("setup", "DoFixing", false);
 
     //--------------------------------------------------------------------------------------------------------
     //! do baryon ICs?
-    const bool bDoBaryons = the_config.GetValueSafe<bool>("setup", "DoBaryons", false );
+    const bool bDoBaryons = the_config.get_value_safe<bool>("setup", "DoBaryons", false );
     std::map< cosmo_species, double > Omega;
     if( bDoBaryons ){
-        double Om = the_config.GetValue<double>("cosmology", "Omega_m");
-        double Ob = the_config.GetValue<double>("cosmology", "Omega_b");
+        double Om = the_config.get_value<double>("cosmology", "Omega_m");
+        double Ob = the_config.get_value<double>("cosmology", "Omega_b");
         Omega[cosmo_species::dm] = Om-Ob;
         Omega[cosmo_species::baryon] = Ob;
     }else{
-        double Om = the_config.GetValue<double>("cosmology", "Omega_m");
+        double Om = the_config.get_value<double>("cosmology", "Omega_m");
         Omega[cosmo_species::dm] = Om;
         Omega[cosmo_species::baryon] = 0.0;
     }
 
     //--------------------------------------------------------------------------------------------------------
     //! do constrained ICs?
-    const bool bAddConstrainedModes =  the_config.ContainsKey("setup", "ConstraintFieldFile" );
+    const bool bAddConstrainedModes =  the_config.contains_key("setup", "ConstraintFieldFile" );
 
     //--------------------------------------------------------------------------------------------------------
     //! add beyond box tidal field modes following Schmidt et al. (2018) [https://arxiv.org/abs/1803.03274]
-    bool bAddExternalTides = the_config.ContainsKey("cosmology", "LSS_aniso_lx") 
-                           & the_config.ContainsKey("cosmology", "LSS_aniso_ly") 
-                           & the_config.ContainsKey("cosmology", "LSS_aniso_lz");
+    bool bAddExternalTides = the_config.contains_key("cosmology", "LSS_aniso_lx") 
+                           & the_config.contains_key("cosmology", "LSS_aniso_ly") 
+                           & the_config.contains_key("cosmology", "LSS_aniso_lz");
 
-    if( bAddExternalTides && !(  the_config.ContainsKey("cosmology", "LSS_aniso_lx") 
-                               | the_config.ContainsKey("cosmology", "LSS_aniso_ly") 
-                               | the_config.ContainsKey("cosmology", "LSS_aniso_lz") ))
+    if( bAddExternalTides && !(  the_config.contains_key("cosmology", "LSS_aniso_lx") 
+                               | the_config.contains_key("cosmology", "LSS_aniso_ly") 
+                               | the_config.contains_key("cosmology", "LSS_aniso_lz") ))
     {
         music::elog << "Not all dimensions of LSS_aniso_l{x,y,z} specified! Will ignore external tidal field!" << std::endl;
         bAddExternalTides = false;
     }
     // Anisotropy parameters for beyond box tidal field 
     std::array<real_t,3> lss_aniso_lambda = {
-        the_config.GetValueSafe<double>("cosmology", "LSS_aniso_lx", 0.0),
-        the_config.GetValueSafe<double>("cosmology", "LSS_aniso_ly", 0.0),
-        the_config.GetValueSafe<double>("cosmology", "LSS_aniso_lz", 0.0),
+        the_config.get_value_safe<double>("cosmology", "LSS_aniso_lx", 0.0),
+        the_config.get_value_safe<double>("cosmology", "LSS_aniso_ly", 0.0),
+        the_config.get_value_safe<double>("cosmology", "LSS_aniso_lz", 0.0),
     };  
     
     if( std::abs(lss_aniso_lambda[0]+lss_aniso_lambda[1]+lss_aniso_lambda[2]) > 1e-10 ){
@@ -192,8 +192,8 @@ int Run( ConfigFile& the_config )
     //--------------------------------------------------------------------
     if( bAddConstrainedModes ){
         Grid_FFT<real_t,false> cwnoise({8,8,8}, {boxlen,boxlen,boxlen});
-        cwnoise.Read_from_HDF5( the_config.GetValue<std::string>("setup", "ConstraintFieldFile"), 
-                the_config.GetValue<std::string>("setup", "ConstraintFieldName") );
+        cwnoise.Read_from_HDF5( the_config.get_value<std::string>("setup", "ConstraintFieldFile"), 
+                the_config.get_value<std::string>("setup", "ConstraintFieldName") );
         cwnoise.FourierTransformForward();
 
         size_t ngrid_c = cwnoise.size(0), ngrid_c_2 = ngrid_c/2;
@@ -422,7 +422,7 @@ int Run( ConfigFile& the_config )
     //======================================================================
 
     // Testing
-    const std::string testing = the_config.GetValueSafe<std::string>("testing", "test", "none");
+    const std::string testing = the_config.get_value_safe<std::string>("testing", "test", "none");
 
     if (testing != "none")
     {

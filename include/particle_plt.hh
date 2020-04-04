@@ -496,12 +496,12 @@ private:
 
 public:
     // real_t boxlen, size_t ngridother
-    explicit lattice_gradient( ConfigFile& the_config, size_t ngridself=64 )
-    : boxlen_( the_config.GetValue<double>("setup", "BoxLength") ), 
-      aini_ ( 1.0/(1.0+the_config.GetValue<double>("setup", "zstart")) ),
-      ngmapto_( the_config.GetValue<size_t>("setup", "GridRes") ), 
+    explicit lattice_gradient( config_file& the_config, size_t ngridself=64 )
+    : boxlen_( the_config.get_value<double>("setup", "BoxLength") ), 
+      aini_ ( 1.0/(1.0+the_config.get_value<double>("setup", "zstart")) ),
+      ngmapto_( the_config.get_value<size_t>("setup", "GridRes") ), 
       ngrid_( ngridself ), ngrid32_( std::pow(ngrid_, 1.5) ), mapratio_(real_t(ngrid_)/real_t(ngmapto_)),
-      XmL_ ( the_config.GetValue<double>("cosmology", "Omega_L") / the_config.GetValue<double>("cosmology", "Omega_m") ),
+      XmL_ ( the_config.get_value<double>("cosmology", "Omega_L") / the_config.get_value<double>("cosmology", "Omega_m") ),
       D_xx_({ngrid_, ngrid_, ngrid_}, {1.0,1.0,1.0}), D_xy_({ngrid_, ngrid_, ngrid_}, {1.0,1.0,1.0}),
       D_xz_({ngrid_, ngrid_, ngrid_}, {1.0,1.0,1.0}), D_yy_({ngrid_, ngrid_, ngrid_}, {1.0,1.0,1.0}),
       D_yz_({ngrid_, ngrid_, ngrid_}, {1.0,1.0,1.0}), D_zz_({ngrid_, ngrid_, ngrid_}, {1.0,1.0,1.0}),
@@ -509,7 +509,7 @@ public:
       grad_z_({ngrid_, ngrid_, ngrid_}, {1.0,1.0,1.0})
     { 
         music::ilog << "-------------------------------------------------------------------------------" << std::endl;
-        std::string lattice_str = the_config.GetValueSafe<std::string>("setup","ParticleLoad","sc");
+        std::string lattice_str = the_config.get_value_safe<std::string>("setup","ParticleLoad","sc");
         const lattice lattice_type = 
             ((lattice_str=="bcc")? lattice_bcc 
             : ((lattice_str=="fcc")? lattice_fcc 

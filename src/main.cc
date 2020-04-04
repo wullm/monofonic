@@ -44,8 +44,12 @@ void handle_eptr(std::exception_ptr eptr) // passing by value is ok
 
 int main( int argc, char** argv )
 {
+
+#if defined(NDEBUG)
     music::logger::set_level(music::log_level::info);
-    // music::logger::set_level(music::log_level::Debug);
+#else
+    music::logger::set_level(music::log_level::debug);
+#endif
 
     //------------------------------------------------------------------------------
     // initialise MPI 
@@ -104,7 +108,7 @@ int main( int argc, char** argv )
     }
 
     // open the configuration file 
-    ConfigFile the_config(argv[1]);
+    config_file the_config(argv[1]);
 
     //------------------------------------------------------------------------------
     // Set up FFTW
@@ -123,7 +127,7 @@ int main( int argc, char** argv )
     FFTW_API(mpi_init)();
 #endif
 
-    CONFIG::num_threads = the_config.GetValueSafe<unsigned>("execution", "NumThreads",std::thread::hardware_concurrency());
+    CONFIG::num_threads = the_config.get_value_safe<unsigned>("execution", "NumThreads",std::thread::hardware_concurrency());
     
 #if defined(USE_FFTW_THREADS)
     if (CONFIG::FFTW_threads_ok)

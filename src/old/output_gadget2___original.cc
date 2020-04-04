@@ -796,7 +796,7 @@ protected:
 	}
 
 public:
-	gadget2_output_plugin(ConfigFile &cf)
+	gadget2_output_plugin(config_file &cf)
 			: output_plugin(cf)
 	{
 
@@ -812,19 +812,19 @@ public:
 		units_vel_.insert(std::pair<std::string, double>("m/s", 1.0e-3));	// 1 m/s
 		units_vel_.insert(std::pair<std::string, double>("cm/s", 1.0e-5)); // 1 cm/s
 
-		block_buf_size_ = cf_.GetValueSafe<unsigned>("output", "gadget_blksize", 1048576);
+		block_buf_size_ = cf_.get_value_safe<unsigned>("output", "gadget_blksize", 1048576);
 
 		//... ensure that everyone knows we want to do SPH
-		cf.InsertValue("setup", "do_SPH", "yes");
+		cf.insert_value("setup", "do_SPH", "yes");
 
-		//bbndparticles_  = !cf_.GetValueSafe<bool>("output","gadget_nobndpart",false);
+		//bbndparticles_  = !cf_.get_value_safe<bool>("output","gadget_nobndpart",false);
 		npartmax_ = 1 << 30;
 
-		nfiles_ = cf.GetValueSafe<unsigned>("output", "gadget_num_files", 1);
+		nfiles_ = cf.get_value_safe<unsigned>("output", "gadget_num_files", 1);
 
-		blongids_ = cf.GetValueSafe<bool>("output", "gadget_longids", false);
+		blongids_ = cf.get_value_safe<bool>("output", "gadget_longids", false);
 
-		shift_halfcell_ = cf.GetValueSafe<bool>("output", "gadget_cell_centered", false);
+		shift_halfcell_ = cf.get_value_safe<bool>("output", "gadget_cell_centered", false);
 
 		//if( nfiles_ < (int)ceil((double)npart/(double)npartmax_) )
 		//	music::wlog.Print("Should use more files.");
@@ -879,16 +879,16 @@ public:
 			throw std::runtime_error("Internal error: gadget-2 output plug-in called for neither \'float\' nor \'double\'");
 		}
 
-		YHe_ = cf.GetValueSafe<double>("cosmology", "YHe", 0.248);
-		gamma_ = cf.GetValueSafe<double>("cosmology", "gamma", 5.0 / 3.0);
+		YHe_ = cf.get_value_safe<double>("cosmology", "YHe", 0.248);
+		gamma_ = cf.get_value_safe<double>("cosmology", "gamma", 5.0 / 3.0);
 
-		do_baryons_ = cf.GetValueSafe<bool>("setup", "baryons", false);
-		omegab_ = cf.GetValueSafe<double>("cosmology", "Omega_b", 0.045);
+		do_baryons_ = cf.get_value_safe<bool>("setup", "baryons", false);
+		omegab_ = cf.get_value_safe<double>("cosmology", "Omega_b", 0.045);
 
 		//... new way
-		std::string lunitstr = cf.GetValueSafe<std::string>("output", "gadget_lunit", "Mpc");
-		std::string munitstr = cf.GetValueSafe<std::string>("output", "gadget_munit", "1e10Msol");
-		std::string vunitstr = cf.GetValueSafe<std::string>("output", "gadget_vunit", "km/s");
+		std::string lunitstr = cf.get_value_safe<std::string>("output", "gadget_lunit", "Mpc");
+		std::string munitstr = cf.get_value_safe<std::string>("output", "gadget_munit", "1e10Msol");
+		std::string vunitstr = cf.get_value_safe<std::string>("output", "gadget_vunit", "km/s");
 
 		std::map<std::string, double>::iterator mapit;
 
@@ -917,16 +917,16 @@ public:
 		}
 
 		//... maintain compatibility with old way of setting units
-		if (cf.ContainsKey("output", "gadget_usekpc"))
+		if (cf.contains_key("output", "gadget_usekpc"))
 		{
-			kpcunits_ = cf.GetValueSafe<bool>("output", "gadget_usekpc", false);
+			kpcunits_ = cf.get_value_safe<bool>("output", "gadget_usekpc", false);
 			if (kpcunits_)
 				unit_length_chosen_ = 1e-3;
 			music::wlog.Print("Deprecated option \'gadget_usekpc\' may override unit selection. Use \'gadget_lunit\' instead.");
 		}
-		if (cf.ContainsKey("output", "gadget_usemsol"))
+		if (cf.contains_key("output", "gadget_usemsol"))
 		{
-			msolunits_ = cf.GetValueSafe<bool>("output", "gadget_usemsol", false);
+			msolunits_ = cf.get_value_safe<bool>("output", "gadget_usemsol", false);
 			if (msolunits_)
 				unit_mass_chosen_ = 1e-10;
 			music::wlog.Print("Deprecated option \'gadget_usemsol\' may override unit selection. Use \'gadget_munit\' instead.");
@@ -934,12 +934,12 @@ public:
 
 		//... coarse particle properties...
 
-		spread_coarse_acrosstypes_ = cf.GetValueSafe<bool>("output", "gadget_spreadcoarse", false);
+		spread_coarse_acrosstypes_ = cf.get_value_safe<bool>("output", "gadget_spreadcoarse", false);
 		bndparticletype_ = 5;
 
 		if (!spread_coarse_acrosstypes_)
 		{
-			bndparticletype_ = cf.GetValueSafe<unsigned>("output", "gadget_coarsetype", 5);
+			bndparticletype_ = cf.get_value_safe<unsigned>("output", "gadget_coarsetype", 5);
 
 			if (bndparticletype_ == 0 || //bndparticletype_ == 1 || bndparticletype_ == 4 ||
 					bndparticletype_ > 5)
@@ -950,12 +950,12 @@ public:
 		}
 		else
 		{
-			if (cf.GetValueSafe<unsigned>("output", "gadget_coarsetype", 5) != 5)
+			if (cf.get_value_safe<unsigned>("output", "gadget_coarsetype", 5) != 5)
 				music::wlog.Print("Gadget: Option \'gadget_spreadcoarse\' forces \'gadget_coarsetype=5\'! Will override.");
 		}
 
 		//... set time ......................................................
-		header_.redshift = cf.GetValue<double>("setup", "zstart");
+		header_.redshift = cf.get_value<double>("setup", "zstart");
 		header_.time = 1.0 / (1.0 + header_.redshift);
 
 		//... SF flags
@@ -965,10 +965,10 @@ public:
 
 		//...
 		header_.num_files = nfiles_; //1;
-		header_.BoxSize = cf.GetValue<double>("setup", "BoxLength");
-		header_.Omega0 = cf.GetValue<double>("cosmology", "Omega_m");
-		header_.OmegaLambda = cf.GetValue<double>("cosmology", "Omega_L");
-		header_.HubbleParam = cf.GetValue<double>("cosmology", "H0") / 100.0;
+		header_.BoxSize = cf.get_value<double>("setup", "BoxLength");
+		header_.Omega0 = cf.get_value<double>("cosmology", "Omega_m");
+		header_.OmegaLambda = cf.get_value<double>("cosmology", "Omega_L");
+		header_.HubbleParam = cf.get_value<double>("cosmology", "H0") / 100.0;
 
 		header_.flag_stellarage = 0;
 		header_.flag_metals = 0;

@@ -169,13 +169,13 @@ private:
   }
 
 public:
-  transfer_CAMB_file_plugin(ConfigFile &cf)
+  transfer_CAMB_file_plugin(config_file &cf)
       : TransferFunction_plugin(cf)
   {
-    m_filename_Tk = pcf_->GetValue<std::string>("cosmology", "transfer_file");
-    m_Omega_m = cf.GetValue<double>("cosmology", "Omega_m"); //MvD
-    m_Omega_b = cf.GetValue<double>("cosmology", "Omega_b"); //MvD
-    m_zstart = cf.GetValue<double>("setup", "zstart");       //MvD
+    m_filename_Tk = pcf_->get_value<std::string>("cosmology", "transfer_file");
+    m_Omega_m = cf.get_value<double>("cosmology", "Omega_m"); //MvD
+    m_Omega_b = cf.get_value<double>("cosmology", "Omega_b"); //MvD
+    m_zstart = cf.get_value<double>("setup", "zstart");       //MvD
 
     read_table();
 

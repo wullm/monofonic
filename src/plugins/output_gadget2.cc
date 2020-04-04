@@ -38,7 +38,7 @@ protected:
 
 public:
 	//! constructor
-	explicit gadget2_output_plugin(ConfigFile &cf)
+	explicit gadget2_output_plugin(config_file &cf)
 			: output_plugin(cf, "GADGET-2")
 	{
 		num_files_ = 1;
@@ -46,10 +46,10 @@ public:
 		// use as many output files as we have MPI tasks
 		MPI_Comm_size(MPI_COMM_WORLD, &num_files_);
 #endif
-		real_t astart = 1.0 / (1.0 + cf_.GetValue<double>("setup", "zstart"));
-		lunit_ = cf_.GetValue<double>("setup", "BoxLength");
+		real_t astart = 1.0 / (1.0 + cf_.get_value<double>("setup", "zstart"));
+		lunit_ = cf_.get_value<double>("setup", "BoxLength");
 		vunit_ = lunit_ / std::sqrt(astart);
-		blongids_ = cf_.GetValueSafe<bool>("output", "UseLongids", false);
+		blongids_ = cf_.get_value_safe<bool>("output", "UseLongids", false);
 	}
 
 	output_type write_species_as(const cosmo_species &) const { return output_type::particles; }
@@ -90,7 +90,7 @@ public:
 
 		/////
 		//... set time ......................................................
-		this_header_.redshift = cf_.GetValue<double>("setup", "zstart");
+		this_header_.redshift = cf_.get_value<double>("setup", "zstart");
 		this_header_.time = 1.0 / (1.0 + this_header_.redshift);
 
 		//... SF flags
@@ -100,10 +100,10 @@ public:
 
 		//...
 		this_header_.num_files = num_files_; //1;
-		this_header_.BoxSize = cf_.GetValue<double>("setup", "BoxLength");
-		this_header_.Omega0 = cf_.GetValue<double>("cosmology", "Omega_m");
-		this_header_.OmegaLambda = cf_.GetValue<double>("cosmology", "Omega_L");
-		this_header_.HubbleParam = cf_.GetValue<double>("cosmology", "H0") / 100.0;
+		this_header_.BoxSize = cf_.get_value<double>("setup", "BoxLength");
+		this_header_.Omega0 = cf_.get_value<double>("cosmology", "Omega_m");
+		this_header_.OmegaLambda = cf_.get_value<double>("cosmology", "Omega_L");
+		this_header_.HubbleParam = cf_.get_value<double>("cosmology", "H0") / 100.0;
 
 		this_header_.flag_stellarage = 0;
 		this_header_.flag_metals = 0;

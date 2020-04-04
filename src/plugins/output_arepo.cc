@@ -56,7 +56,7 @@ protected:
 
 public:
   //! constructor
-  explicit gadget_hdf5_output_plugin(ConfigFile &cf)
+  explicit gadget_hdf5_output_plugin(config_file &cf)
       : output_plugin(cf, "GADGET-HDF5")
   {
     num_files_ = 1;
@@ -64,11 +64,11 @@ public:
     // use as many output files as we have MPI tasks
     MPI_Comm_size(MPI_COMM_WORLD, &num_files_);
 #endif
-    real_t astart = 1.0 / (1.0 + cf_.GetValue<double>("setup", "zstart"));
-    lunit_ = cf_.GetValue<double>("setup", "BoxLength");
+    real_t astart = 1.0 / (1.0 + cf_.get_value<double>("setup", "zstart"));
+    lunit_ = cf_.get_value<double>("setup", "BoxLength");
     vunit_ = lunit_ / std::sqrt(astart);
-    blongids_ = cf_.GetValueSafe<bool>("output", "UseLongids", false);
-    num_simultaneous_writers_ = cf_.GetValueSafe<int>("output", "NumSimWriters", num_files_);
+    blongids_ = cf_.get_value_safe<bool>("output", "UseLongids", false);
+    num_simultaneous_writers_ = cf_.get_value_safe<int>("output", "NumSimWriters", num_files_);
 
     for (int i = 0; i < 6; ++i)
     {
@@ -85,9 +85,9 @@ public:
     header_.flag_cooling = 0;
     header_.num_files = num_files_;
     header_.BoxSize = lunit_;
-    header_.Omega0 = cf_.GetValue<double>("cosmology", "Omega_m");
-    header_.OmegaLambda = cf_.GetValue<double>("cosmology", "Omega_L");
-    header_.HubbleParam = cf_.GetValue<double>("cosmology", "H0") / 100.0;
+    header_.Omega0 = cf_.get_value<double>("cosmology", "Omega_m");
+    header_.OmegaLambda = cf_.get_value<double>("cosmology", "Omega_L");
+    header_.HubbleParam = cf_.get_value<double>("cosmology", "H0") / 100.0;
     header_.flag_stellarage = 0;
     header_.flag_metals = 0;
     header_.flag_entropy_instead_u = 0;
@@ -95,16 +95,16 @@ public:
 
     // initial gas temperature
     double Tcmb0 = 2.726;
-    double Omegab = cf_.GetValue<double>("cosmology", "Omega_b");
-    double h = cf_.GetValue<double>("cosmology", "H0") / 100.0, h2 = h*h;
+    double Omegab = cf_.get_value<double>("cosmology", "Omega_b");
+    double h = cf_.get_value<double>("cosmology", "H0") / 100.0, h2 = h*h;
     double adec = 1.0 / (160.0 * pow(Omegab * h2 / 0.022, 2.0 / 5.0));
     Tini_ = astart < adec ? Tcmb0 / astart : Tcmb0 / astart / astart * adec;
 
     // suggested PM res
-    pmgrid_ = 2*cf_.GetValue<double>("setup", "GridRes");
+    pmgrid_ = 2*cf_.get_value<double>("setup", "GridRes");
     gridboost_ = 1;
-    softening_ = cf_.GetValue<double>("setup", "BoxLength")/pmgrid_/20;
-    doBaryons_ = cf_.GetValue<bool>("setup", "DoBaryons");
+    softening_ = cf_.get_value<double>("setup", "BoxLength")/pmgrid_/20;
+    doBaryons_ = cf_.get_value<bool>("setup", "DoBaryons");
 #if !defined(USE_SINGLEPRECISION)
     doublePrec_ = 1;
 #else

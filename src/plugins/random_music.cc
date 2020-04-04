@@ -34,7 +34,7 @@ protected:
   //void store_rnd(int ilevel, rng *prng);
 
 public:
-  explicit RNG_music(ConfigFile &cf) : RNG_plugin(cf), initialized_(false) {}
+  explicit RNG_music(config_file &cf) : RNG_plugin(cf), initialized_(false) {}
 
   ~RNG_music() {}
 
@@ -45,12 +45,12 @@ public:
   void initialize_for_grid_structure()//const refinement_hierarchy &refh)
   {
     //prefh_ = &refh;
-    levelmin_ = pcf_->GetValue<unsigned>("setup", "levelmin");
-    levelmax_ = pcf_->GetValue<unsigned>("setup", "levelmax");
+    levelmin_ = pcf_->get_value<unsigned>("setup", "levelmin");
+    levelmax_ = pcf_->get_value<unsigned>("setup", "levelmax");
 
-    ran_cube_size_ = pcf_->GetValueSafe<unsigned>("random", "cubesize", DEF_RAN_CUBE_SIZE);
-    disk_cached_ = pcf_->GetValueSafe<bool>("random", "disk_cached", true);
-    restart_ = pcf_->GetValueSafe<bool>("random", "restart", false);
+    ran_cube_size_ = pcf_->get_value_safe<unsigned>("random", "cubesize", DEF_RAN_CUBE_SIZE);
+    disk_cached_ = pcf_->get_value_safe<bool>("random", "disk_cached", true);
+    restart_ = pcf_->get_value_safe<bool>("random", "restart", false);
 
     mem_cache_.assign(levelmax_ - levelmin_ + 1, (std::vector<real_t> *)NULL);
 
@@ -93,8 +93,8 @@ void RNG_music::parse_random_parameters(void)
     std::string tempstr;
     bool noseed = false;
     sprintf(seedstr, "seed[%d]", i);
-    if (pcf_->ContainsKey("random", seedstr))
-      tempstr = pcf_->GetValue<std::string>("random", seedstr);
+    if (pcf_->contains_key("random", seedstr))
+      tempstr = pcf_->get_value<std::string>("random", seedstr);
     else
     {
       // "-2" means that no seed entry was found for that level
@@ -105,7 +105,7 @@ void RNG_music::parse_random_parameters(void)
     if (is_number(tempstr))
     {
       long ltemp;
-      pcf_->Convert(tempstr, ltemp);
+      pcf_->convert(tempstr, ltemp);
       rngfnames_.push_back("");
       if (noseed) // ltemp < 0 )
         //... generate some dummy seed which only depends on the level, negative so we know it's not
@@ -141,7 +141,7 @@ void RNG_music::parse_random_parameters(void)
 
 void RNG_music::compute_random_numbers(void)
 {
-  bool rndsign = pcf_->GetValueSafe<bool>("random", "grafic_sign", false);
+  bool rndsign = pcf_->get_value_safe<bool>("random", "grafic_sign", false);
 
   std::vector<rng *> randc(std::max(levelmax_, levelmin_seed_) + 1, (rng *)NULL);
 
@@ -227,11 +227,11 @@ void RNG_music::compute_random_numbers(void)
   // {
   //   int lx[3], x0[3];
   //   int shift[3], levelmin_poisson;
-  //   shift[0] = pcf_->GetValue<int>("setup", "shift_x");
-  //   shift[1] = pcf_->GetValue<int>("setup", "shift_y");
-  //   shift[2] = pcf_->GetValue<int>("setup", "shift_z");
+  //   shift[0] = pcf_->get_value<int>("setup", "shift_x");
+  //   shift[1] = pcf_->get_value<int>("setup", "shift_y");
+  //   shift[2] = pcf_->get_value<int>("setup", "shift_z");
 
-  //   levelmin_poisson = pcf_->GetValue<unsigned>("setup", "levelmin");
+  //   levelmin_poisson = pcf_->get_value<unsigned>("setup", "levelmin");
 
   //   int lfac = 1 << (ilevel - levelmin_poisson);
 

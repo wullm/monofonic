@@ -170,25 +170,25 @@ private:
   }
 
 public:
-  explicit transfer_CLASS_plugin(ConfigFile &cf)
+  explicit transfer_CLASS_plugin(config_file &cf)
       : TransferFunction_plugin(cf)
   {
     ofs_class_input_.open("input_class_parameters.ini", std::ios::trunc);
 
-    h_ = pcf_->GetValue<double>("cosmology", "H0") / 100.0;
-    Omega_m_ = pcf_->GetValue<double>("cosmology", "Omega_m");
-    Omega_b_ = pcf_->GetValue<double>("cosmology", "Omega_b");
-    N_ur_ = pcf_->GetValueSafe<double>("cosmology", "Neff", 3.046);
-    ztarget_ = pcf_->GetValueSafe<double>("cosmology", "ztarget", 0.0);
+    h_ = pcf_->get_value<double>("cosmology", "H0") / 100.0;
+    Omega_m_ = pcf_->get_value<double>("cosmology", "Omega_m");
+    Omega_b_ = pcf_->get_value<double>("cosmology", "Omega_b");
+    N_ur_ = pcf_->get_value_safe<double>("cosmology", "Neff", 3.046);
+    ztarget_ = pcf_->get_value_safe<double>("cosmology", "ztarget", 0.0);
     atarget_ = 1.0 / (1.0 + ztarget_);
-    zstart_ = pcf_->GetValue<double>("setup", "zstart");
+    zstart_ = pcf_->get_value<double>("setup", "zstart");
     astart_ = 1.0 / (1.0 + zstart_);
-    double lbox = pcf_->GetValue<double>("setup", "BoxLength");
-    int nres = pcf_->GetValue<double>("setup", "GridRes");
-    A_s_ = pcf_->GetValueSafe<double>("cosmology", "A_s", -1.0);
-    double k_p = pcf_->GetValueSafe<double>("cosmology", "k_p", 0.05);
-    n_s_ = pcf_->GetValue<double>("cosmology", "nspec");
-    Tcmb_ = cf.GetValueSafe<double>("cosmology", "Tcmb", 2.7255);
+    double lbox = pcf_->get_value<double>("setup", "BoxLength");
+    int nres = pcf_->get_value<double>("setup", "GridRes");
+    A_s_ = pcf_->get_value_safe<double>("cosmology", "A_s", -1.0);
+    double k_p = pcf_->get_value_safe<double>("cosmology", "k_p", 0.05);
+    n_s_ = pcf_->get_value<double>("cosmology", "nspec");
+    Tcmb_ = cf.get_value_safe<double>("cosmology", "Tcmb", 2.7255);
 
     tnorm_ = 1.0;
 

@@ -131,8 +131,8 @@ public:
 	 * @param pTransferFunction pointer to an instance of a transfer function object
 	 */
 
-    explicit calculator(ConfigFile &cf)
-        : cosmo_param_(cf), astart_( 1.0/(1.0+cf.GetValue<double>("setup","zstart")) )
+    explicit calculator(config_file &cf)
+        : cosmo_param_(cf), astart_( 1.0/(1.0+cf.get_value<double>("setup","zstart")) )
     {
         // pre-compute growth factors and store for interpolation
         std::vector<double> tab_a, tab_D, tab_f;
@@ -161,7 +161,7 @@ public:
         music::ilog << std::setw(32) << std::left << "TF maximum wave number"
                     << " : " << transfer_function_->get_kmax() << " h/Mpc" << std::endl;
 
-        // music::ilog << "D+(MUSIC) = " << this->get_growth_factor( 1.0/(1.0+cf.GetValue<double>("setup","zstart")) ) << std::endl;
+        // music::ilog << "D+(MUSIC) = " << this->get_growth_factor( 1.0/(1.0+cf.get_value<double>("setup","zstart")) ) << std::endl;
         // music::ilog << "pnrom     = " << cosmo_param_.pnorm << std::endl;
     }
 

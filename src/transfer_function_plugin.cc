@@ -23,9 +23,9 @@ void print_TransferFunction_plugins()
     music::ilog << std::endl;
 }
 
-std::unique_ptr<TransferFunction_plugin> select_TransferFunction_plugin(ConfigFile &cf)
+std::unique_ptr<TransferFunction_plugin> select_TransferFunction_plugin(config_file &cf)
 {
-    std::string tfname = cf.GetValue<std::string>("cosmology", "transfer");
+    std::string tfname = cf.get_value<std::string>("cosmology", "transfer");
 
     TransferFunction_plugin_creator *the_TransferFunction_plugin_creator = get_TransferFunction_plugin_map()[tfname];
 

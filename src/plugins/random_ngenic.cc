@@ -18,11 +18,11 @@ private:
     std::vector<unsigned int> SeedTable_;
 
 public:
-    explicit RNG_ngenic(ConfigFile &cf) : RNG_plugin(cf)
+    explicit RNG_ngenic(config_file &cf) : RNG_plugin(cf)
     {
 
-        RandomSeed_ = cf.GetValue<long>("random", "seed");
-        nres_ = cf.GetValue<size_t>("setup", "GridRes");
+        RandomSeed_ = cf.get_value<long>("random", "seed");
+        nres_ = cf.get_value<size_t>("setup", "GridRes");
         pRandomGenerator_ = gsl_rng_alloc(gsl_rng_ranlxd1);
         gsl_rng_set(pRandomGenerator_, RandomSeed_);
 
