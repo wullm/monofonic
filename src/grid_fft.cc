@@ -276,7 +276,7 @@ hid_t hdf5_get_data_type(void)
     if (typeid(T) == typeid(size_t))
         return H5T_NATIVE_ULLONG;
 
-    std::cerr << " - Error: [HDF_IO] trying to evaluate unsupported type in GetDataType\n\n";
+    music::elog << "[HDF_IO] trying to evaluate unsupported type in GetDataType";
     return -1;
 }
 

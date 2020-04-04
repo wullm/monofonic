@@ -42,13 +42,13 @@ std::unique_ptr<output_plugin> select_output_plugin( ConfigFile& cf )
 	
 	if( !the_output_plugin_creator )
 	{	
-		music::elog << "Error: output plug-in \'" << formatname << "\' not found." << std::endl;
+		music::elog << "Output plug-in \'" << formatname << "\' not found." << std::endl;
 		print_output_plugins();
 		throw std::runtime_error("Unknown output plug-in");
 		
 	}else{
 		music::ilog << "-------------------------------------------------------------------------------" << std::endl;
-        music::ilog << std::setw(32) << std::left << "Output plugin" << " : " << formatname << std::endl;
+		music::ilog << std::setw(32) << std::left << "Output plugin" << " : " << formatname << std::endl;
 	}
 	
 	return std::move(the_output_plugin_creator->create( cf ));

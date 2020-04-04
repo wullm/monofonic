@@ -89,8 +89,8 @@ private:
 
         if (ss.bad() || ss.fail())
         {
-          music::elog.Print("Error reading the transfer function file (corrupt or not in expected format)!");
-          throw std::runtime_error("Error reading transfer function file \'" +
+          music::elog.Print("error reading the transfer function file (corrupt or not in expected format)!");
+          throw std::runtime_error("error reading transfer function file \'" +
                                    m_filename_Tk + "\'");
         }
 

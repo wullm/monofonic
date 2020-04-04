@@ -2,18 +2,18 @@
 
 namespace music {
 
-std::ofstream Logger::output_file_;
-LogLevel Logger::log_level_ = LogLevel::Off;
+std::ofstream logger::output_file_;
+log_level logger::log_level_ = log_level::off;
 
-void Logger::SetLevel(const LogLevel &level) {
+void logger::set_level(const log_level &level) {
   log_level_ = level;
 }
 
-LogLevel Logger::GetLevel() {
+log_level logger::get_level() {
   return log_level_;
 }
 
-void Logger::SetOutput(const std::string filename) {
+void logger::set_output(const std::string filename) {
   if (output_file_.is_open()) {
     output_file_.close();
   }
@@ -21,22 +21,22 @@ void Logger::SetOutput(const std::string filename) {
   assert(output_file_.is_open());
 }
 
-void Logger::UnsetOutput() {
+void logger::unset_output() {
   if (output_file_.is_open()) {
     output_file_.close();
   }
 }
 
-std::ofstream &Logger::GetOutput() {
+std::ofstream &logger::get_output() {
   return output_file_;
 }
 
 // global instantiations for different levels
-Logger glogger;
-LogStream flog(glogger, LogLevel::Fatal);
-LogStream elog(glogger, LogLevel::Error);
-LogStream wlog(glogger, LogLevel::Warning);
-LogStream ilog(glogger, LogLevel::Info);
-LogStream dlog(glogger, LogLevel::Debug);
+logger the_logger;
+log_stream flog(the_logger, log_level::fatal);
+log_stream elog(the_logger, log_level::error);
+log_stream wlog(the_logger, log_level::warning);
+log_stream ilog(the_logger, log_level::info);
+log_stream dlog(the_logger, log_level::debug);
 
 } // namespace music

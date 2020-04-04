@@ -44,8 +44,8 @@ void handle_eptr(std::exception_ptr eptr) // passing by value is ok
 
 int main( int argc, char** argv )
 {
-    music::Logger::SetLevel(music::LogLevel::Info);
-    // music::Logger::SetLevel(music::LogLevel::Debug);
+    music::logger::set_level(music::log_level::info);
+    // music::logger::set_level(music::log_level::Debug);
 
     //------------------------------------------------------------------------------
     // initialise MPI 
@@ -61,7 +61,7 @@ int main( int argc, char** argv )
     // set up lower logging levels for other tasks
     if( CONFIG::MPI_task_rank!=0 )
     {
-        music::Logger::SetLevel(music::LogLevel::Error);
+        music::logger::set_level(music::log_level::error);
     }
 #endif
 
