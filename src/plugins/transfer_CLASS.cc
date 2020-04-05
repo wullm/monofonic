@@ -195,7 +195,7 @@ public:
     if (A_s_ > 0)
     {
       this->tf_isnormalised_ = true;
-      tnorm_ = std::sqrt(2.0 * M_PI * M_PI * A_s_ * std::pow(1.0 / k_p, n_s_ - 1) / std::pow(2.0 * M_PI, 3.0));
+      tnorm_ = std::sqrt(2.0 * M_PI * M_PI * A_s_ * std::pow(1.0 / k_p * h_, n_s_ - 1) / std::pow(2.0 * M_PI, 3.0));
       music::ilog << "Using A_s to normalise the transfer function!" << std::endl;
     }
 

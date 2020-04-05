@@ -78,12 +78,18 @@ int main( int argc, char** argv )
                 << "  88  88  88 88.  .88 88    88 88.  .88 88     88.  .88 88    88 88 Y8.   .88 \n"
                 << "  dP  dP  dP `88888P\' dP    dP `88888P\' dP     `88888P\' dP    dP dP  Y88888P\' \n" << std::endl;
 
-    // Compilation CMake configuration, time etc info:
-    music::ilog << "This " << CMAKE_BUILDTYPE_STR << " build was compiled at " << __TIME__ << " on " <<  __DATE__ << std::endl;            
-    music::ilog << "Compiled with " << __VERSION__ << std::endl;
-
     // git and versioning info:
     music::ilog << "Version: v0.1a, git rev.: " << GIT_REV << ", tag: " << GIT_TAG << ", branch: " << GIT_BRANCH << std::endl;
+    
+    // Compilation CMake configuration, time etc info:
+    music::ilog << "This " << CMAKE_BUILDTYPE_STR << " build was compiled at " << __TIME__ << " on " <<  __DATE__ << std::endl;
+
+#ifdef __GNUC__
+    music::ilog << "Compiled with GNU C++ version " << __VERSION__ <<std::endl;
+#else
+    music::ilog << "Compiled with " << __VERSION__ << std::endl;
+#endif
+
     
     music::ilog << "-------------------------------------------------------------------------------" << std::endl;
     music::ilog << "Compile time options : " << std::endl;
