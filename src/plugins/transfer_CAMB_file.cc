@@ -39,7 +39,7 @@ private:
     if (MPI::COMM_WORLD.Get_rank() == 0)
     {
 #endif
-      csoca::ilog.Print("Reading tabulated transfer function data from file \n    \'%s\'", m_filename_Tk.c_str());
+      music::ilog.Print("Reading tabulated transfer function data from file \n    \'%s\'", m_filename_Tk.c_str());
 
       std::string line;
       std::ifstream ifs(m_filename_Tk.c_str());
@@ -89,8 +89,8 @@ private:
 
         if (ss.bad() || ss.fail())
         {
-          csoca::elog.Print("Error reading the transfer function file (corrupt or not in expected format)!");
-          throw std::runtime_error("Error reading transfer function file \'" +
+          music::elog.Print("error reading the transfer function file (corrupt or not in expected format)!");
+          throw std::runtime_error("error reading transfer function file \'" +
                                    m_filename_Tk + "\'");
         }
 
@@ -134,10 +134,10 @@ private:
 
       ifs.close();
 
-      csoca::ilog.Print("Read CAMB transfer function table with %d rows", m_nlines);
+      music::ilog.Print("Read CAMB transfer function table with %d rows", m_nlines);
 
       if (m_linbaryoninterp)
-        csoca::ilog.Print("Using log-lin interpolation for baryons\n    (TF is not "
+        music::ilog.Print("Using log-lin interpolation for baryons\n    (TF is not "
                           "positive definite)");
 
 #ifdef WITH_MPI
@@ -169,13 +169,13 @@ private:
   }
 
 public:
-  transfer_CAMB_file_plugin(ConfigFile &cf)
+  transfer_CAMB_file_plugin(config_file &cf)
       : TransferFunction_plugin(cf)
   {
-    m_filename_Tk = pcf_->GetValue<std::string>("cosmology", "transfer_file");
-    m_Omega_m = cf.GetValue<double>("cosmology", "Omega_m"); //MvD
-    m_Omega_b = cf.GetValue<double>("cosmology", "Omega_b"); //MvD
-    m_zstart = cf.GetValue<double>("setup", "zstart");       //MvD
+    m_filename_Tk = pcf_->get_value<std::string>("cosmology", "transfer_file");
+    m_Omega_m = cf.get_value<double>("cosmology", "Omega_m"); //MvD
+    m_Omega_b = cf.get_value<double>("cosmology", "Omega_b"); //MvD
+    m_zstart = cf.get_value<double>("setup", "zstart");       //MvD
 
     read_table();
 
@@ -340,5 +340,5 @@ public:
 
 namespace
 {
-TransferFunction_plugin_creator_concrete<transfer_CAMB_file_plugin> creator("file_CAMB");
+TransferFunction_plugin_creator_concrete<transfer_CAMB_file_plugin> creator("CAMB_file");
 }

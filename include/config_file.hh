@@ -12,20 +12,20 @@
 #include <logger.hh>
 
 /*!
- * @class ConfigFile
+ * @class config_file
  * @brief provides read/write access to configuration options
  *
  * This class provides access to the configuration file. The
  * configuration is stored in hash-pairs and can be queried and
  * validated by the responsible class/routine
  */
-class ConfigFile {
+class config_file {
 
   //! current line number
-  unsigned m_iLine;
+  unsigned iline_;
 
   //! hash table for key/value pairs, stored as strings
-  std::map<std::string, std::string> m_Items;
+  std::map<std::string, std::string> items_;
 
 public:
   //! removes all white space from string source
@@ -59,42 +59,42 @@ public:
    * @param oval the interpreted/converted value
    */
   template <class in_value, class out_value>
-  void Convert(const in_value &ival, out_value &oval) const {
+  void convert(const in_value &ival, out_value &oval) const {
     std::stringstream ss;
     ss << ival; //.. insert value into stream
     ss >> oval; //.. retrieve value from stream
 
     if (!ss.eof()) {
       //.. conversion error
-      csoca::elog << "Error: conversion of \'" << ival << "\' failed."
+      music::elog << "Error: conversion of \'" << ival << "\' failed."
                 << std::endl;
-      throw ErrInvalidConversion(std::string("invalid conversion to ") +
+      throw except_invalid_conversion(std::string("invalid conversion to ") +
                                  typeid(out_value).name() + '.');
     }
   }
 
   //! constructor of class config_file
-  /*! @param FileName the path/name of the configuration file to be parsed
+  /*! @param filename the path/name of the configuration file to be parsed
    */
-  explicit ConfigFile(std::string const &FileName) : m_iLine(0), m_Items() {
-    std::ifstream file(FileName.c_str());
+  explicit config_file(std::string const &filename) : iline_(0), items_() {
+    std::ifstream file(filename.c_str());
 
     if (!file.is_open()){
-      csoca::elog << "Could not open config file \'" << FileName << "\'." << std::endl;
+      music::elog << "Could not open config file \'" << filename << "\'." << std::endl;
       throw std::runtime_error(
-          std::string("Error: Could not open config file \'") + FileName +
+          std::string("Error: Could not open config file \'") + filename +
           std::string("\'"));
     }
 
     std::string line;
     std::string name;
     std::string value;
-    std::string inSection;
-    int posEqual;
-    m_iLine = 0;
+    std::string in_section;
+    int pos_equal;
+    iline_ = 0;
     //.. walk through all lines ..
     while (std::getline(file, line)) {
-      ++m_iLine;
+      ++iline_;
       //.. encounterd EOL ?
       if (!line.length())
         continue;
@@ -106,31 +106,31 @@ public:
 
       //.. encountered section tag ?
       if (line[0] == '[') {
-        inSection = trim(line.substr(1, line.find(']') - 1));
+        in_section = trim(line.substr(1, line.find(']') - 1));
         continue;
       }
 
       //.. seek end of entry name ..
-      posEqual = line.find('=');
-      name = trim(line.substr(0, posEqual));
-      value = trim(line.substr(posEqual + 1));
+      pos_equal = line.find('=');
+      name = trim(line.substr(0, pos_equal));
+      value = trim(line.substr(pos_equal + 1));
 
-      if ((size_t)posEqual == std::string::npos &&
+      if ((size_t)pos_equal == std::string::npos &&
           (name.size() != 0 || value.size() != 0)) {
-        csoca::wlog << "Ignoring non-assignment in " << FileName << ":"
-                  << m_iLine << std::endl;
+        music::wlog << "Ignoring non-assignment in " << filename << ":"
+                  << iline_ << std::endl;
         continue;
       }
 
       if (name.length() == 0 && value.size() != 0) {
-        csoca::wlog << "Ignoring assignment missing entry name in "
-                  << FileName << ":" << m_iLine << std::endl;
+        music::wlog << "Ignoring assignment missing entry name in "
+                  << filename << ":" << iline_ << std::endl;
         continue;
       }
 
       if (value.length() == 0 && name.size() != 0) {
-        csoca::wlog << "Empty entry will be ignored in " << FileName << ":"
-                  << m_iLine << std::endl;
+        music::wlog << "Empty entry will be ignored in " << filename << ":"
+                  << iline_ << std::endl;
         continue;
       }
 
@@ -138,12 +138,12 @@ public:
         continue;
 
       //.. add key/value pair to hash table ..
-      if (m_Items.find(inSection + '/' + name) != m_Items.end()) {
-        csoca::wlog << "Redeclaration overwrites previous value in "
-                  << FileName << ":" << m_iLine << std::endl;
+      if (items_.find(in_section + '/' + name) != items_.end()) {
+        music::wlog << "Redeclaration overwrites previous value in "
+                  << filename << ":" << iline_ << std::endl;
       }
 
-      m_Items[inSection + '/' + name] = value;
+      items_[in_section + '/' + name] = value;
     }
   }
 
@@ -151,8 +151,8 @@ public:
   /*! @param key the key value, usually "section/key"
    *  @param value the value of the key, also a string
    */
-  void InsertValue(std::string const &key, std::string const &value) {
-    m_Items[key] = value;
+  void insert_value(std::string const &key, std::string const &value) {
+    items_[key] = value;
   }
 
   //! inserts a key/value pair in the hash map
@@ -160,9 +160,9 @@ public:
    *  @param key the key value usually "section/key"
    *  @param value the value of the key, also a string
    */
-  void InsertValue(std::string const &section, std::string const &key,
+  void insert_value(std::string const &section, std::string const &key,
                    std::string const &value) {
-    m_Items[section + '/' + key] = value;
+    items_[section + '/' + key] = value;
   }
 
   //! checks if a key is part of the hash map
@@ -170,10 +170,10 @@ public:
    *  @param key the key name to be checked
    *  @return true if the key is present, false otherwise
    */
-  bool ContainsKey(std::string const &section, std::string const &key) {
+  bool contains_key(std::string const &section, std::string const &key) {
     std::map<std::string, std::string>::const_iterator i =
-        m_Items.find(section + '/' + key);
-    if (i == m_Items.end())
+        items_.find(section + '/' + key);
+    if (i == items_.end())
       return false;
     return true;
   }
@@ -182,57 +182,57 @@ public:
   /*! @param key the key name to be checked
    *  @return true if the key is present, false otherwise
    */
-  bool ContainsKey(std::string const &key) {
-    std::map<std::string, std::string>::const_iterator i = m_Items.find(key);
-    if (i == m_Items.end())
+  bool contains_key(std::string const &key) {
+    std::map<std::string, std::string>::const_iterator i = items_.find(key);
+    if (i == items_.end())
       return false;
     return true;
   }
 
   //! return value of a key
-  /*! returns the value of a given key, throws a ErrItemNotFound
+  /*! returns the value of a given key, throws a except_item_not_found
    *  exception if the key is not available in the hash map.
    *  @param key the key name
    *  @return the value of the key
-   *  @sa ErrItemNotFound
+   *  @sa except_item_not_found
    */
-  template <class T> T GetValue(std::string const &key) const {
-    return GetValue<T>("", key);
+  template <class T> T get_value(std::string const &key) const {
+    return get_value<T>("", key);
   }
 
   //! return value of a key
-  /*! returns the value of a given key, throws a ErrItemNotFound
+  /*! returns the value of a given key, throws a except_item_not_found
    *  exception if the key is not available in the hash map.
    *  @param section the section name for the key
    *  @param key the key name
    *  @return the value of the key
-   *  @sa ErrItemNotFound
+   *  @sa except_item_not_found
    */
   template <class T>
-  T GetValueBasic(std::string const &section, std::string const &key) const {
+  T get_value_basic(std::string const &section, std::string const &key) const {
     T r;
     std::map<std::string, std::string>::const_iterator i =
-        m_Items.find(section + '/' + key);
-    if (i == m_Items.end()){
-      throw ErrItemNotFound('\'' + section + '/' + key +
+        items_.find(section + '/' + key);
+    if (i == items_.end()){
+      throw except_item_not_found('\'' + section + '/' + key +
                             std::string("\' not found."));
     }
 
-    Convert(i->second, r);
+    convert(i->second, r);
     return r;
   }
 
   template <class T>
-  T GetValue(std::string const &section, std::string const &key) const
+  T get_value(std::string const &section, std::string const &key) const
   {
     T r;
     try
     {
-      r = GetValueBasic<T>(section, key);
+      r = get_value_basic<T>(section, key);
     }
-    catch (ErrItemNotFound& e)
+    catch (except_item_not_found& e)
     {
-      csoca::elog << e.what() << std::endl;
+      music::elog << e.what() << std::endl;
       throw;
     }
     return r;
@@ -240,40 +240,41 @@ public:
 
   //! exception safe version of getValue
   /*! returns the value of a given key, returns a default value rather
-   *  than a ErrItemNotFound exception if the key is not found.
+   *  than a except_item_not_found exception if the key is not found.
    *  @param section the section name for the key
    *  @param key the key name
    *  @param default_value the value that is returned if the key is not found
    *  @return the key value (if key found) otherwise default_value
    */
   template <class T>
-  T GetValueSafe(std::string const &section, std::string const &key,
+  T get_value_safe(std::string const &section, std::string const &key,
                  T default_value) const {
     T r;
     try {
-      r = GetValueBasic<T>(section, key);
-    } catch (ErrItemNotFound&) {
+      r = get_value_basic<T>(section, key);
+    } catch (except_item_not_found&) {
       r = default_value;
+      music::dlog << "Item \'" << section << "/" << key << " not found in config. Default = \'" << default_value << "\'" << std::endl;
     }
     return r;
   }
 
   //! exception safe version of getValue
   /*! returns the value of a given key, returns a default value rather
-   *  than a ErrItemNotFound exception if the key is not found.
+   *  than a except_item_not_found exception if the key is not found.
    *  @param key the key name
    *  @param default_value the value that is returned if the key is not found
    *  @return the key value (if key found) otherwise default_value
    */
   template <class T>
-  T GetValueSafe(std::string const &key, T default_value) const {
-    return GetValueSafe("", key, default_value);
+  T get_value_safe(std::string const &key, T default_value) const {
+    return get_value_safe("", key, default_value);
   }
 
   //! dumps all key-value pairs to a std::ostream
-  void Dump(std::ostream &out) {
-    std::map<std::string, std::string>::const_iterator i = m_Items.begin();
-    while (i != m_Items.end()) {
+  void dump(std::ostream &out) {
+    std::map<std::string, std::string>::const_iterator i = items_.begin();
+    while (i != items_.end()) {
       if (i->second.length() > 0)
         out << std::setw(24) << std::left << i->first << "  =  " << i->second
             << std::endl;
@@ -281,12 +282,12 @@ public:
     }
   }
 
-  void LogDump(void) {
-    csoca::ilog << "List of all configuration options:" << std::endl;
-    std::map<std::string, std::string>::const_iterator i = m_Items.begin();
-    while (i != m_Items.end()) {
+  void dump_to_log(void) {
+    music::ilog << "List of all configuration options:" << std::endl;
+    std::map<std::string, std::string>::const_iterator i = items_.begin();
+    while (i != items_.end()) {
       if (i->second.length() > 0)
-        csoca::ilog << std::setw(28) << i->first << " = " << i->second
+        music::ilog << std::setw(28) << i->first << " = " << i->second
                   << std::endl;
       ++i;
     }
@@ -295,16 +296,16 @@ public:
   //--- EXCEPTIONS ---
 
   //! runtime error that is thrown if key is not found in getValue
-  class ErrItemNotFound : public std::runtime_error {
+  class except_item_not_found : public std::runtime_error {
   public:
-    ErrItemNotFound(std::string itemname)
+    except_item_not_found(std::string itemname)
         : std::runtime_error(itemname.c_str()) {}
   };
 
   //! runtime error that is thrown if type conversion fails
-  class ErrInvalidConversion : public std::runtime_error {
+  class except_invalid_conversion : public std::runtime_error {
   public:
-    ErrInvalidConversion(std::string errmsg) : std::runtime_error(errmsg) {}
+    except_invalid_conversion(std::string errmsg) : std::runtime_error(errmsg) {}
   };
 
   //! runtime error that is thrown if identifier is not found in keys
@@ -323,14 +324,14 @@ public:
 //...           like "true" and "false" etc.
 //...           converts the string to type bool, returns type bool ...
 template <>
-inline bool ConfigFile::GetValue<bool>(std::string const &strSection,
+inline bool config_file::get_value<bool>(std::string const &strSection,
                                        std::string const &strEntry) const {
-  std::string r1 = GetValue<std::string>(strSection, strEntry);
+  std::string r1 = get_value<std::string>(strSection, strEntry);
   if (r1 == "true" || r1 == "yes" || r1 == "on" || r1 == "1")
     return true;
   if (r1 == "false" || r1 == "no" || r1 == "off" || r1 == "0")
     return false;
-  csoca::elog << "Illegal identifier \'" << r1 << "\' in \'" << strEntry << "\'." << std::endl;
+  music::elog << "Illegal identifier \'" << r1 << "\' in \'" << strEntry << "\'." << std::endl;
   throw ErrIllegalIdentifier(std::string("Illegal identifier \'") + r1 +
                              std::string("\' in \'") + strEntry +
                              std::string("\'."));
@@ -338,17 +339,17 @@ inline bool ConfigFile::GetValue<bool>(std::string const &strSection,
 }
 
 template <>
-inline bool ConfigFile::GetValueSafe<bool>(std::string const &strSection,
+inline bool config_file::get_value_safe<bool>(std::string const &strSection,
                                            std::string const &strEntry,
                                            bool defaultValue) const {
   std::string r1;
   try {
-    r1 = GetValueBasic<std::string>(strSection, strEntry);
+    r1 = get_value_basic<std::string>(strSection, strEntry);
     if (r1 == "true" || r1 == "yes" || r1 == "on" || r1 == "1")
       return true;
     if (r1 == "false" || r1 == "no" || r1 == "off" || r1 == "0")
       return false;
-  } catch (ErrItemNotFound&) {
+  } catch (except_item_not_found&) {
     return defaultValue;
   }
   return defaultValue;
@@ -356,7 +357,7 @@ inline bool ConfigFile::GetValueSafe<bool>(std::string const &strSection,
 
 template <>
 inline void
-ConfigFile::Convert<std::string, std::string>(const std::string &ival,
+config_file::convert<std::string, std::string>(const std::string &ival,
                                               std::string &oval) const {
   oval = ival;
 }

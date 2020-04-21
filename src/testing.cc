@@ -9,7 +9,7 @@ namespace testing
 {
 
 void output_potentials_and_densities(
-    ConfigFile &the_config,
+    config_file &the_config,
     size_t ngrid, real_t boxlen,
     Grid_FFT<real_t> &phi,
     Grid_FFT<real_t> &phi2,
@@ -17,8 +17,8 @@ void output_potentials_and_densities(
     Grid_FFT<real_t> &phi3b,
     std::array<Grid_FFT<real_t> *, 3> &A3)
 {
-    const std::string fname_hdf5 = the_config.GetValueSafe<std::string>("output", "fname_hdf5", "output.hdf5");
-    const std::string fname_analysis = the_config.GetValueSafe<std::string>("output", "fbase_analysis", "output");
+    const std::string fname_hdf5 = the_config.get_value_safe<std::string>("output", "fname_hdf5", "output.hdf5");
+    const std::string fname_analysis = the_config.get_value_safe<std::string>("output", "fbase_analysis", "output");
 
     Grid_FFT<real_t> delta({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
     Grid_FFT<real_t> delta2({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
@@ -98,7 +98,7 @@ void output_potentials_and_densities(
 }
 
 void output_velocity_displacement_symmetries(
-    ConfigFile &the_config,
+    config_file &the_config,
     size_t ngrid, real_t boxlen, real_t vfac, real_t dplus,
     Grid_FFT<real_t> &phi,
     Grid_FFT<real_t> &phi2,
@@ -107,8 +107,8 @@ void output_velocity_displacement_symmetries(
     std::array<Grid_FFT<real_t> *, 3> &A3,
     bool bwrite_out_fields)
 {
-    const std::string fname_hdf5 = the_config.GetValueSafe<std::string>("output", "fname_hdf5", "output.hdf5");
-    const std::string fname_analysis = the_config.GetValueSafe<std::string>("output", "fbase_analysis", "output");
+    const std::string fname_hdf5 = the_config.get_value_safe<std::string>("output", "fname_hdf5", "output.hdf5");
+    const std::string fname_analysis = the_config.get_value_safe<std::string>("output", "fbase_analysis", "output");
 
     real_t vfac1 = vfac;
     real_t vfac2 = 2 * vfac;
@@ -232,7 +232,7 @@ void output_velocity_displacement_symmetries(
     }
 
 
-    csoca::ilog << "std. deviation of invariant : ( D+ | I_xy | I_yz | I_zx ) \n"
+    music::ilog << "std. deviation of invariant : ( D+ | I_xy | I_yz | I_zx ) \n"
                     << std::setw(16) << dplus << " "
                     << std::setw(16) << Icomp[0] << " "
                     << std::setw(16) << Icomp[1] << " "
@@ -241,8 +241,8 @@ void output_velocity_displacement_symmetries(
 }
 
 void output_convergence(
-    ConfigFile &the_config,
-    CosmologyCalculator* the_cosmo_calc,
+    config_file &the_config,
+    cosmology::calculator* the_cosmo_calc,
     std::size_t ngrid, real_t boxlen, real_t vfac, real_t dplus,
     Grid_FFT<real_t> &phi,
     Grid_FFT<real_t> &phi2,
@@ -301,7 +301,7 @@ void output_convergence(
                 }
             }
             nabla_vini_mn.FourierTransformBackward();
-            nabla_vini_mn *= (3.2144004915 / the_cosmo_calc->CalcGrowthFactor(1.0));
+            nabla_vini_mn *= (3.2144004915 / the_cosmo_calc->get_growth_factor(1.0));
             // sum of squares
             #pragma omp parallel for //collapse(3)
             for (std::size_t i = 0; i < nabla_vini_norm.size(0); ++i) {
