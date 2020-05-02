@@ -8,10 +8,12 @@
 #pragma once
 
 #include <math/vec3.hh>
+#include <grid_interpolate.hh>
 
 namespace particle {
 
 enum lattice{
+    lattice_glass = -1,
     lattice_sc  = 0, // SC : simple cubic
     lattice_bcc = 1, // BCC: body-centered cubic
     lattice_fcc = 2, // FCC: face-centered cubic
@@ -37,11 +39,11 @@ const std::vector<vec3_t<real_t>> second_lattice_shift =
 };
 
 template<typename field_t>
-void initialize_lattice( container& particles, lattice lattice_type, const bool b64reals, const bool b64ids, const size_t IDoffset, const field_t& field ){
+void initialize_lattice( container& particles, lattice lattice_type, const bool b64reals, const bool b64ids, const size_t IDoffset, const field_t& field, size_t num_p = 0 ){
     // number of modes present in the field
-    const size_t num_p_in_load = field.local_size();
+    const size_t num_p_in_load = (lattice_type>=0)? field.local_size() : num_p;
     // unless SC lattice is used, particle number is a multiple of the number of modes (=num_p_in_load):
-    const size_t overload = 1ull<<lattice_type; // 1 for sc, 2 for bcc, 4 for fcc, 8 for rsc
+    const size_t overload = 1ull<<std::max<int>(0,lattice_type); // 1 for sc, 2 for bcc, 4 for fcc, 8 for rsc
     // allocate memory for all local particles
     particles.allocate( overload * num_p_in_load, b64reals, b64ids );
     // set particle IDs to the Lagrangian coordinate (1D encoded) with additionally the field shift encoded as well
@@ -64,32 +66,37 @@ void initialize_lattice( container& particles, lattice lattice_type, const bool 
 template<typename field_t>
 void set_positions( container& particles, const lattice lattice_type, bool is_second_lattice, int idim, real_t lunit, const bool b64reals, field_t& field )
 {
-    const size_t num_p_in_load = field.local_size();
-    for( int ishift=0; ishift<(1<<lattice_type); ++ishift ){
-        // if we are dealing with the secondary lattice, apply a global shift
-        if( ishift==0 && is_second_lattice ){
-            field.shift_field( second_lattice_shift[lattice_type] );
-        }
+    // works only for Bravais types
+    if( lattice_type >= 0 ){
+        const size_t num_p_in_load = field.local_size();
+        for( int ishift=0; ishift<(1<<lattice_type); ++ishift ){
+            // if we are dealing with the secondary lattice, apply a global shift
+            if( ishift==0 && is_second_lattice ){
+                field.shift_field( second_lattice_shift[lattice_type] );
+            }
 
-        // can omit first shift since zero by convention, unless shifted already above, otherwise apply relative phase shift
-        if( ishift>0 ){
-            field.shift_field( lattice_shifts[lattice_type][ishift] - lattice_shifts[lattice_type][ishift-1] );
-        }
-        // read out values from phase shifted field and set assoc. particle's value
-        const auto ipcount0 = ishift * num_p_in_load;
-        for( size_t i=0,ipcount=ipcount0; i<field.size(0); ++i ){
-            for( size_t j=0; j<field.size(1); ++j){
-                for( size_t k=0; k<field.size(2); ++k){
-                    auto pos = field.template get_unit_r_shifted<real_t>(i,j,k,lattice_shifts[lattice_type][ishift] 
-                        + (is_second_lattice? second_lattice_shift[lattice_type] : vec3_t<real_t>{0.,0.,0.}) );
-                    if( b64reals ){
-                        particles.set_pos64( ipcount++, idim, pos[idim]*lunit + field.relem(i,j,k) );
-                    }else{
-                        particles.set_pos32( ipcount++, idim, pos[idim]*lunit + field.relem(i,j,k) );
+            // can omit first shift since zero by convention, unless shifted already above, otherwise apply relative phase shift
+            if( ishift>0 ){
+                field.shift_field( lattice_shifts[lattice_type][ishift] - lattice_shifts[lattice_type][ishift-1] );
+            }
+            // read out values from phase shifted field and set assoc. particle's value
+            const auto ipcount0 = ishift * num_p_in_load;
+            for( size_t i=0,ipcount=ipcount0; i<field.size(0); ++i ){
+                for( size_t j=0; j<field.size(1); ++j){
+                    for( size_t k=0; k<field.size(2); ++k){
+                        auto pos = field.template get_unit_r_shifted<real_t>(i,j,k,lattice_shifts[lattice_type][ishift] 
+                            + (is_second_lattice? second_lattice_shift[lattice_type] : vec3_t<real_t>{0.,0.,0.}) );
+                        if( b64reals ){
+                            particles.set_pos64( ipcount++, idim, pos[idim]*lunit + field.relem(i,j,k) );
+                        }else{
+                            particles.set_pos32( ipcount++, idim, pos[idim]*lunit + field.relem(i,j,k) );
+                        }
                     }
                 }
             }
         }
+    }else{
+
     }
 }
 

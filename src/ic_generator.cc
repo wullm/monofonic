@@ -549,6 +549,8 @@ int Run( config_file& the_config )
                 // somewhat arbitrarily, start baryon particle IDs from 2**31 if we have 32bit and from 2**56 if we have 64 bits
                 size_t IDoffset = (this_species == cosmo_species::baryon)? ((the_output_plugin->has_64bit_ids())? 1ul<<56 : 1ul<<31): 0 ;
 
+                grid_interpolate<1,Grid_FFT<real_t>> interp( tmp );
+
                 // if output plugin wants particles, then we need to store them, along with their IDs
                 if( the_output_plugin->write_species_as( this_species ) == output_type::particles )
                 {
