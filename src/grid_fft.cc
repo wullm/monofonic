@@ -48,6 +48,7 @@ void Grid_FFT<data_t, bdistributed>::Setup(void)
         {
             nhalf_[i] = n_[i] / 2;
             kfac_[i] = 2.0 * M_PI / length_[i];
+            kny_[i] = kfac_[i] * n_[i]/2;
             dx_[i] = length_[i] / n_[i];
 
             global_range_.x1_[i] = 0;
@@ -128,6 +129,7 @@ void Grid_FFT<data_t, bdistributed>::Setup(void)
         {
             nhalf_[i] = n_[i] / 2;
             kfac_[i] = 2.0 * M_PI / length_[i];
+            kny_[i] = kfac_[i] * n_[i]/2;
             dx_[i] = length_[i] / n_[i];
 
             global_range_.x1_[i] = 0;
