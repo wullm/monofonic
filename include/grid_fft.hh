@@ -40,7 +40,7 @@ public:
     std::array<size_t, 4> sizes_;
     size_t npr_, npc_;
     size_t ntot_;
-    std::array<real_t, 3> length_, kfac_, dx_;
+    std::array<real_t, 3> length_, kfac_, kny_, dx_;
 
     space_t space_;
     data_t *data_;
@@ -95,6 +95,15 @@ public:
     const bounding_box<size_t> &get_global_range(void) const noexcept
     {
         return global_range_;
+    }
+
+    bool is_nyquist_mode( size_t i, size_t j, size_t k ) const
+    {
+        assert( this->space_ == kspace_id );
+        bool bres = (i+local_1_start_ == n_[1]/2);
+        bres |= (j == n_[0]/2);
+        bres |= (k == n_[2]/2);
+        return bres;
     }
 
     //! set all field elements to zero
@@ -466,9 +475,9 @@ public:
             {
                 for (size_t k = 0; k < sizes_[2]; ++k)
                 {
-                    const auto elem = std::real(this->relem(i, j, k));
-                    sum1 += elem;
-                    sum2 += elem * elem;
+                    const auto elem = (space_==kspace_id)? this->kelem(i, j, k) : this->relem(i, j, k);
+                    sum1 += std::real(elem);
+                    sum2 += std::norm(elem);// * elem;
                 }
             }
         }
