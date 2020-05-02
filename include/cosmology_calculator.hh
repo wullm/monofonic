@@ -37,7 +37,7 @@ public:
 private:
     static constexpr double REL_PRECISION = 1e-10;
     interpolated_function_1d<true,true,false> D_of_a_, f_of_a_, a_of_D_;
-    double Dnow_, Dplus_start_, astart_;
+    double Dnow_, Dplus_start_, Dplus_target_, astart_, atarget_;
 
     real_t integrate(double (*func)(double x, void *params), double a, double b, void *params) const
     {
@@ -132,7 +132,8 @@ public:
 	 */
 
     explicit calculator(config_file &cf)
-        : cosmo_param_(cf), astart_( 1.0/(1.0+cf.get_value<double>("setup","zstart")) )
+        : cosmo_param_(cf), astart_( 1.0/(1.0+cf.get_value<double>("setup","zstart")) ),
+            atarget_( 1.0/(1.0+cf.get_value_safe<double>("cosmology","ztarget",1./astart_-1.)))
     {
         // pre-compute growth factors and store for interpolation
         std::vector<double> tab_a, tab_D, tab_f;
@@ -143,6 +144,7 @@ public:
         Dnow_ = D_of_a_(1.0);
 
         Dplus_start_ = D_of_a_( astart_ ) / Dnow_;
+        Dplus_target_ = D_of_a_( atarget_ ) / Dnow_;
 
         // set up transfer functions and compute normalisation
         transfer_function_ = std::move(select_TransferFunction_plugin(cf));
@@ -150,7 +152,7 @@ public:
         if( !transfer_function_->tf_isnormalised_ )
             cosmo_param_.pnorm = this->compute_pnorm_from_sigma8();
         else{
-            cosmo_param_.pnorm = 1.0;
+            cosmo_param_.pnorm = 1.0/Dplus_target_/Dplus_target_;
             auto sigma8 = this->compute_sigma8();
             music::ilog << "Measured sigma_8 for given PS normalisation is " <<  sigma8 << std::endl;
         }
@@ -160,9 +162,6 @@ public:
                     << " : " << (transfer_function_->tf_is_distinct() ? "yes" : "no") << std::endl;
         music::ilog << std::setw(32) << std::left << "TF maximum wave number"
                     << " : " << transfer_function_->get_kmax() << " h/Mpc" << std::endl;
-
-        // music::ilog << "D+(MUSIC) = " << this->get_growth_factor( 1.0/(1.0+cf.get_value<double>("setup","zstart")) ) << std::endl;
-        // music::ilog << "pnrom     = " << cosmo_param_.pnorm << std::endl;
     }
 
     ~calculator()
@@ -306,9 +305,7 @@ public:
 	 */
     inline real_t get_amplitude(real_t k, tf_type type) const
     {
-        // if the transfer function doesn't need backscaling, then divide out growth factor
-        real_t f = transfer_function_->tf_isnormalised_? 1.0/Dplus_start_ : 1.0;
-        return f * std::pow(k, 0.5 * cosmo_param_.nspect) * transfer_function_->compute(k, type) * cosmo_param_.sqrtpnorm;
+        return std::pow(k, 0.5 * cosmo_param_.nspect) * transfer_function_->compute(k, type) * cosmo_param_.sqrtpnorm;
     }
 
     //! Computes the normalization for the power spectrum

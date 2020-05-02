@@ -30,7 +30,7 @@ private:
   // gsl_spline *gsl_sp_Cplus_, *gsl_sp_Cminus_;
   // std::vector<double> tab_Cplus_, tab_Cminus_;
 
-  double Omega_m_, Omega_b_, N_ur_, zstart_, ztarget_, kmax_, kmin_, h_, astart_, atarget_, A_s_, n_s_, Tcmb_, tnorm_;
+  double Omega_m_, Omega_b_, N_ur_, zstart_, ztarget_, kmax_, kmin_, h_, astart_, atarget_, A_s_, n_s_, sigma8_, Tcmb_, tnorm_;
 
   ClassParams pars_;
   std::unique_ptr<ClassEngine> the_ClassEngine_;
@@ -89,7 +89,11 @@ private:
     //--- cosmological parameters, primordial -------------------------
     add_class_parameter("P_k_ini type", "analytic_Pk");
 
-    add_class_parameter("A_s", A_s_);
+    if( A_s_ > 0.0 ){
+      add_class_parameter("A_s", A_s_);
+    }else{
+      add_class_parameter("sigma8", sigma8_);
+    }
     add_class_parameter("n_s", n_s_);
     add_class_parameter("alpha_s", 0.0);
     add_class_parameter("T_cmb", Tcmb_);
@@ -173,6 +177,8 @@ public:
   explicit transfer_CLASS_plugin(config_file &cf)
       : TransferFunction_plugin(cf)
   {
+    this->tf_isnormalised_ = true;
+
     ofs_class_input_.open("input_class_parameters.ini", std::ios::trunc);
 
     h_ = pcf_->get_value<double>("cosmology", "H0") / 100.0;
@@ -183,28 +189,35 @@ public:
     atarget_ = 1.0 / (1.0 + ztarget_);
     zstart_ = pcf_->get_value<double>("setup", "zstart");
     astart_ = 1.0 / (1.0 + zstart_);
-    double lbox = pcf_->get_value<double>("setup", "BoxLength");
-    int nres = pcf_->get_value<double>("setup", "GridRes");
     A_s_ = pcf_->get_value_safe<double>("cosmology", "A_s", -1.0);
-    double k_p = pcf_->get_value_safe<double>("cosmology", "k_p", 0.05);
     n_s_ = pcf_->get_value<double>("cosmology", "nspec");
     Tcmb_ = cf.get_value_safe<double>("cosmology", "Tcmb", 2.7255);
 
-    tnorm_ = 1.0;
-
-    if (A_s_ > 0)
-    {
-      this->tf_isnormalised_ = true;
-      tnorm_ = std::sqrt(2.0 * M_PI * M_PI * A_s_ * std::pow(1.0 / k_p * h_, n_s_ - 1) / std::pow(2.0 * M_PI, 3.0));
-      music::ilog << "Using A_s to normalise the transfer function!" << std::endl;
+    if (A_s_ > 0) {
+      music::ilog << "CLASS: Using A_s=" << A_s_<< " to normalise the transfer function." << std::endl;
+    }else{
+      sigma8_ = pcf_->get_value_safe<double>("cosmology", "sigma_8", -1.0);
+      if( sigma8_ < 0 ){
+        throw std::runtime_error("Need to specify either A_s or sigma_8 for CLASS plugin...");
+      }
+      music::ilog << "CLASS: Using sigma8_ =" << sigma8_<< " to normalise the transfer function." << std::endl;
     }
 
+    // determine highest k we will need for the resolution selected
+    double lbox = pcf_->get_value<double>("setup", "BoxLength");
+    int nres = pcf_->get_value<double>("setup", "GridRes");
     kmax_ = std::max(20.0, 2.0 * M_PI / lbox * nres / 2 * sqrt(3) * 2.0); // 120% of spatial diagonal, or k=10h Mpc-1
 
+    // initialise CLASS and get the normalisation
     this->init_ClassEngine();
+    A_s_ = the_ClassEngine_->get_A_s(); // this either the input one, or the one computed from sigma8
+    
+    // compute the normalisation to interface with MUSIC
+    double k_p = pcf_->get_value_safe<double>("cosmology", "k_p", 0.05);
+    tnorm_ = std::sqrt(2.0 * M_PI * M_PI * A_s_ * std::pow(1.0 / k_p * h_, n_s_ - 1) / std::pow(2.0 * M_PI, 3.0));
 
+    // compute the transfer function at z=0 using CLASS engine
     std::vector<double> k, dc, tc, db, tb, dn, tn, dm, tm;
-
     this->run_ClassEngine(0.0, k, dc, tc, db, tb, dn, tn, dm, tm);
 
     delta_c0_.set_data(k, dc);
@@ -216,8 +229,8 @@ public:
     delta_m0_.set_data(k, dm);
     theta_m0_.set_data(k, tm);
 
+     // compute the transfer function at z=z_target using CLASS engine
     this->run_ClassEngine(ztarget_, k, dc, tc, db, tb, dn, tn, dm, tm);
-
     delta_c_.set_data(k, dc);
     theta_c_.set_data(k, tc);
     delta_b_.set_data(k, db);
