@@ -47,7 +47,7 @@ private:
   void init_ClassEngine(void)
   {
     //--- general parameters ------------------------------------------
-    add_class_parameter("z_max_pk", std::max(zstart_, ztarget_) * 1.2); // use 1.2 as safety
+    add_class_parameter("z_max_pk", std::max(std::max(zstart_, ztarget_),199.0)); // use 1.2 as safety
     add_class_parameter("P_k_max_h/Mpc", kmax_);
     add_class_parameter("output", "dTk,vTk");
     add_class_parameter("extra metric transfer functions","yes");
@@ -126,7 +126,7 @@ private:
     // output parameters, only needed for the control CLASS .ini file that we output
     std::stringstream zlist;
     if (ztarget_ == zstart_)
-      zlist << ztarget_ << ", 0.0";
+      zlist << ztarget_ << ((ztarget_!=0.0)? ", 0.0" : "");
     else
       zlist << std::max(ztarget_, zstart_) << ", " << std::min(ztarget_, zstart_) << ", 0.0";
     add_class_parameter("z_pk", zlist.str());
