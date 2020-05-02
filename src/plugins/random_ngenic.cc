@@ -63,7 +63,7 @@ public:
 
     bool isMultiscale() const { return false; }
 
-    void Fill_Grid(Grid_FFT<real_t> &g) const
+    void Fill_Grid(Grid_FFT<real_t> &g) //const
     {
         g.zero();
         g.FourierTransformForward(false);
