@@ -242,7 +242,7 @@ public:
     }
 
     double t1 = get_wtime();
-    double tp = t1;
+    // double tp = t1;
 
 #pragma omp parallel
     {
@@ -267,7 +267,7 @@ public:
 
         int lextra = (log10((double)ngrid_ / (double)d.i_base) + 0.001) / log10(2.0);
         int level_p = d.wn_level_base + lextra;
-        int ratio = 1 << lextra;
+        // int ratio = 1 << lextra;
 
         lstate[mythread].layer_min = 0;
         lstate[mythread].layer_max = level_p;
@@ -282,9 +282,6 @@ public:
 
         set_phases_and_rel_origin_(&lstate[mythread], descriptor, &level_p, &ix_rel[0], &ix_rel[1], &ix_rel[2],
                                    &verbosity);
-
-        music::ilog.Print(" called set_phases_and_rel_origin level %d ix_rel iy_rel iz_rel %d %d %d\n", level_p, ix_rel[0],
-                          ix_rel[1], ix_rel[2]);
       }
 
       if (verbosity)
@@ -332,11 +329,11 @@ public:
         }
       }
 
-      if (verbosity)
-      {
-        music::ilog.Print("time for calculating PANPHASIA field : %f s, %f µs/cell", get_wtime() - t1,
-                          1e6 * (get_wtime() - t1) / g.global_size(0) / g.global_size(1) / g.global_size(2));
-      }
+      // if (verbosity)
+      // {
+      //   music::ilog.Print("time for calculating PANPHASIA field : %f s, %f µs/cell", get_wtime() - t1,
+      //                     1e6 * (get_wtime() - t1) / g.global_size(0) / g.global_size(1) / g.global_size(2));
+      // }
     } // end omp parallel region
 
     g0.FourierTransformForward();
@@ -383,8 +380,8 @@ public:
       }
     }
 
-    music::ilog.Print("\033[31mtiming [build panphasia field]: %f s\033[0m", get_wtime() - tp);
-    tp = get_wtime();
+    // music::ilog.Print("\033[31mtiming [build panphasia field]: %f s\033[0m", get_wtime() - tp);
+    // tp = get_wtime();
 
     g1.FourierTransformBackward(false);
     g2.FourierTransformBackward(false);
@@ -412,7 +409,7 @@ public:
 
         int lextra = (log10((double)ngrid_ / (double)d.i_base) + 0.001) / log10(2.0);
         int level_p = d.wn_level_base + lextra;
-        int ratio = 1 << lextra;
+        // int ratio = 1 << lextra;
 
         lstate[mythread].layer_min = 0;
         lstate[mythread].layer_max = level_p;
@@ -427,9 +424,6 @@ public:
 
         set_phases_and_rel_origin_(&lstate[mythread], descriptor, &level_p, &ix_rel[0], &ix_rel[1], &ix_rel[2],
                                    &verbosity);
-
-        music::ilog.Print(" called set_phases_and_rel_origin level %d ix_rel iy_rel iz_rel %d %d %d\n", level_p, ix_rel[0],
-                          ix_rel[1], ix_rel[2]);
       }
 
       if (verbosity)
@@ -478,8 +472,8 @@ public:
       }
     } // end omp parallel region
 
-    music::ilog.Print("\033[31mtiming [adv_panphasia_cell_properties2]: %f s \033[0m", get_wtime() - tp);
-    tp = get_wtime();
+    // music::ilog.Print("\033[31mtiming [adv_panphasia_cell_properties2]: %f s \033[0m", get_wtime() - tp);
+    // tp = get_wtime();
 
     /////////////////////////////////////////////////////////////////////////
     // transform and convolve with Legendres
@@ -518,9 +512,10 @@ public:
       }
     }
 
-    music::ilog.Print("\033[31mtiming [build panphasia field2]: %f s\033[0m", get_wtime() - tp);
+    // music::ilog.Print("\033[31mtiming [build panphasia field2]: %f s\033[0m", get_wtime() - tp);
     // tp = get_wtime();
-
+    music::ilog.Print("time for calculating PANPHASIA field : %f s, %f µs/cell", get_wtime() - t1,
+                          1e6 * (get_wtime() - t1) / g.global_size(0) / g.global_size(1) / g.global_size(2));
     music::ilog.Print("PANPHASIA k-space statistices: mean Re = %f, std = %f", g0.mean(), g0.std());
   }
 };
