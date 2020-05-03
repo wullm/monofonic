@@ -28,48 +28,52 @@ struct grid_interpolate
 
     if (is_distributed_trait)
     {
-#if defined(USE_MPI)
+      update_ghosts( g );
+    }
+  }
 
-      int local_0_start = int(gridref.local_0_start_);
-      local0starts_.assign(MPI::get_size(), 0);
+  void update_ghosts( const grid_t &g )
+  {
+  #if defined(USE_MPI)
 
-      MPI_Allgather(&local_0_start, 1, MPI_INT, &local0starts_[0], 1, MPI_INT, MPI_COMM_WORLD);
+    int local_0_start = int(gridref.local_0_start_);
+    local0starts_.assign(MPI::get_size(), 0);
 
-      //... exchange boundary
-      size_t nx = interpolation_order + 1;
-      size_t ny = g.n_[1];
-      size_t nz = g.n_[2];
+    MPI_Allgather(&local_0_start, 1, MPI_INT, &local0starts_[0], 1, MPI_INT, MPI_COMM_WORLD);
 
-      boundary_.assign(nx * ny * nz, data_t{0.0});
+    //... exchange boundary
+    size_t nx = interpolation_order + 1;
+    size_t ny = g.n_[1];
+    size_t nz = g.n_[2];
 
-      for (size_t i = 0; i < nx; ++i)
+    boundary_.assign(nx * ny * nz, data_t{0.0});
+
+    for (size_t i = 0; i < nx; ++i)
+    {
+      for (size_t j = 0; j < ny; ++j)
       {
-        for (size_t j = 0; j < ny; ++j)
+        for (size_t k = 0; k < nz; ++k)
         {
-          for (size_t k = 0; k < nz; ++k)
-          {
-            boundary_[(i * ny + j) * nz + k] = g.relem(i, j, k);
-          }
+          boundary_[(i * ny + j) * nz + k] = g.relem(i, j, k);
         }
       }
-
-      int sendto = (MPI::get_rank() + MPI::get_size() - 1) % MPI::get_size();
-      int recvfrom = (MPI::get_rank() + MPI::get_size() + 1) % MPI::get_size();
-
-      MPI_Status status;
-      status.MPI_ERROR = MPI_SUCCESS;
-
-      int err = MPI_Sendrecv_replace(&boundary_[0], nx * ny * nz, MPI::get_datatype<data_t>(), sendto,
-                           MPI::get_rank() + 1000, recvfrom, recvfrom + 1000, MPI_COMM_WORLD, &status);
-
-      if( err != MPI_SUCCESS ){
-        char errstr[256]; int errlen=256;
-        MPI_Error_string(err, errstr, &errlen ); 
-        music::elog << "MPI_ERROR #" << err << " : " << errstr << std::endl;
-      }
-
-#endif
     }
+
+    int sendto = (MPI::get_rank() + MPI::get_size() - 1) % MPI::get_size();
+    int recvfrom = (MPI::get_rank() + MPI::get_size() + 1) % MPI::get_size();
+
+    MPI_Status status;
+    status.MPI_ERROR = MPI_SUCCESS;
+
+    int err = MPI_Sendrecv_replace(&boundary_[0], nx * ny * nz, MPI::get_datatype<data_t>(), sendto,
+                          MPI::get_rank() + 1000, recvfrom, recvfrom + 1000, MPI_COMM_WORLD, &status);
+
+    if( err != MPI_SUCCESS ){
+      char errstr[256]; int errlen=256;
+      MPI_Error_string(err, errstr, &errlen ); 
+      music::elog << "MPI_ERROR #" << err << " : " << errstr << std::endl;
+    }
+#endif
   }
 
   data_t get_ngp_at(const std::array<real_t, 3> &pos, std::vector<data_t> &val) const noexcept

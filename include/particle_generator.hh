@@ -82,6 +82,8 @@ namespace particle
                 off_p = 0;
 #endif
 
+                music::ilog << "Glass file contains " << np_in_file << " particles." << std::endl;
+
                 glass_posr.assign(num_p, {0.0, 0.0, 0.0});
 
                 std::array<real_t, 3> ng({real_t(field.n_[0]), real_t(field.n_[1]), real_t(field.n_[2])});
@@ -110,6 +112,11 @@ namespace particle
                     off_p += all_num_p[itask];
                 }
 #endif
+            }
+
+            void update_ghosts( const field_t &field )
+            {
+                interp_.update_ghosts( field );
             }
 
             data_t get_at( const vec3& x ) const noexcept
@@ -229,10 +236,11 @@ namespace particle
             }
             else
             {
-                for (size_t i = 0; i < this->glass_ptr_->size(); ++i)
+                glass_ptr_->update_ghosts( field );
+                for (size_t i = 0; i < glass_ptr_->size(); ++i)
                 {
-                    auto pos = this->glass_ptr_->glass_posr[i];
-                    real_t disp = this->glass_ptr_->get_at(pos);
+                    auto pos = glass_ptr_->glass_posr[i];
+                    real_t disp = glass_ptr_->get_at(pos);
                     if (b64reals)
                     {
                         particles_.set_pos64(i, idim, pos[idim] / field.n_[idim] * lunit + disp);
@@ -286,6 +294,7 @@ namespace particle
             }
             else
             {
+                glass_ptr_->update_ghosts( field );
                 for (size_t i = 0; i < glass_ptr_->size(); ++i)
                 {
                     auto pos = glass_ptr_->glass_posr[i];
