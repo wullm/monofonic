@@ -16,19 +16,8 @@ struct grid_interpolate
   static constexpr bool is_distributed_trait = grid_t::is_distributed_trait;
   static constexpr int interpolation_order = interp_order;
 
-  
-#if defined(USE_MPI)
-  const MPI_Datatype MPI_data_t_type =
-      (typeid(data_t) == typeid(float)) ? MPI_FLOAT
-                                        : (typeid(data_t) == typeid(double)) ? MPI_DOUBLE
-                                                                             : (typeid(data_t) == typeid(long double)) ? MPI_LONG_DOUBLE
-                                                                                                                       : (typeid(data_t) == typeid(std::complex<float>)) ? MPI_C_FLOAT_COMPLEX
-                                                                                                                                                                         : (typeid(data_t) == typeid(std::complex<double>)) ? MPI_C_DOUBLE_COMPLEX
-                                                                                                                                                                                                                            : (typeid(data_t) == typeid(std::complex<long double>)) ? MPI_C_LONG_DOUBLE_COMPLEX
-                                                                                                                                                                                                                                                                                    : MPI_INT;
-#endif
-
   std::vector<data_t> boundary_;
+  std::vector<int> local0starts_;
   const grid_t &gridref;
   size_t nx_, ny_, nz_;
 
@@ -40,6 +29,13 @@ struct grid_interpolate
     if (is_distributed_trait)
     {
 #if defined(USE_MPI)
+
+      int local_0_start = int(gridref.local_0_start_);
+      local0starts_.assign(MPI::get_size(), 0);
+
+      MPI_Allgather(&local_0_start, 1, MPI_INT, &local0starts_[0], 1, MPI_INT, MPI_COMM_WORLD);
+
+      //... exchange boundary
       size_t nx = interpolation_order + 1;
       size_t ny = g.n_[1];
       size_t nz = g.n_[2];
@@ -96,6 +92,11 @@ struct grid_interpolate
     size_t iz1 = (iz + 1) % nz_;
 
     data_t val{0.0};
+
+    if( get_task(pos) != MPI::get_rank() ){
+      std::cout << "task : " << MPI::get_rank() << " p@(" << pos[0] << ", " << pos[1] << ", " << pos[2] << ") belongs to task " << get_task(pos) << std::endl;
+      abort();
+    }
     
     if( is_distributed_trait ){
       ptrdiff_t localix = ix-gridref.local_0_start_;
@@ -135,10 +136,10 @@ struct grid_interpolate
   // {
   // }
 
-  int get_task(const vec3 &x, const std::vector<int> &local0starts) const noexcept
+  int get_task(const vec3 &x) const noexcept
   {
-    const auto it = std::upper_bound(local0starts.begin(), local0starts.end(), int(x[0]));
-    return std::distance(local0starts.begin(), it)-1;
+    const auto it = std::upper_bound(local0starts_.begin(), local0starts_.end(), int(x[0]));
+    return std::distance(local0starts_.begin(), it)-1;
   }
 
   void domain_decompose_pos(std::vector<vec3> &pos) const noexcept
@@ -146,16 +147,12 @@ struct grid_interpolate
     if (is_distributed_trait)
     {
 #if defined(USE_MPI)
-      int local_0_start = int(gridref.local_0_start_);
-      std::vector<int> local0starts(MPI::get_size(), 0);
-      MPI_Alltoall(&local_0_start, 1, MPI_INT, &local0starts[0], 1, MPI_INT, MPI_COMM_WORLD);
-
-      std::sort(pos.begin(), pos.end(), [&](auto x1, auto x2) { return get_task(x1,local0starts) < get_task(x2,local0starts); });
+      std::sort(pos.begin(), pos.end(), [&](auto x1, auto x2) { return get_task(x1) < get_task(x2); });
       std::vector<int> sendcounts(MPI::get_size(), 0), sendoffsets(MPI::get_size(), 0);
       std::vector<int> recvcounts(MPI::get_size(), 0), recvoffsets(MPI::get_size(), 0);
       for (auto x : pos)
       {
-        sendcounts[get_task(x,local0starts)] += 3;
+        sendcounts[get_task(x)] += 3;
       }
 
       MPI_Alltoall(&sendcounts[0], 1, MPI_INT, &recvcounts[0], 1, MPI_INT, MPI_COMM_WORLD);
@@ -169,13 +166,12 @@ struct grid_interpolate
         tot_send += sendcounts[i];
       }
 
-      std::vector<vec3> recvbuf;
-      recvbuf.assign(tot_receive,{0.,0.,0.});
+      std::vector<vec3> recvbuf(tot_receive/3,{0.,0.,0.});
 
-      MPI_Alltoallv(&pos[0], &sendcounts[0], &sendoffsets[0], MPI_data_t_type,
-                    &recvbuf[0], &recvcounts[0], &recvoffsets[0], MPI_data_t_type, MPI_COMM_WORLD);
+      MPI_Alltoallv(&pos[0], &sendcounts[0], &sendoffsets[0], MPI::get_datatype<real_t>(),
+                    &recvbuf[0], &recvcounts[0], &recvoffsets[0], MPI::get_datatype<real_t>(), MPI_COMM_WORLD);
 
-      std::swap( pos, recvbuf );
+      pos.swap( recvbuf );
 #endif
     }
   }
@@ -193,26 +189,4 @@ struct grid_interpolate
     return std::exp(ccomplex_t(0.0, shift)) / del;
   }
 
-  void get_at(std::vector<vec3> &pos, std::vector<data_t> &val) const
-  {
-
-    val.assign( pos.size(), data_t{0.0} );
-
-    for( size_t i=0; i<pos.size(); ++i ){
-      const vec3& x = pos[i];
-
-      switch (interpolation_order)
-      {
-      case 0:
-        val[i] = get_ngp_at(x);
-        break;
-      case 1:
-        val[i] = get_cic_at(x);
-        break;
-      // case 2:
-      //   val[i] = get_tsc_at(x);
-      //   break;
-      };
-    }
-  }
 };

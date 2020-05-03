@@ -452,6 +452,19 @@ int Run( config_file& the_config )
             // temporary storage of data
             Grid_FFT<real_t> tmp({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
 
+            std::unique_ptr<particle::lattice_generator<Grid_FFT<real_t>>> particle_lattice_generator_ptr;
+
+            // if output plugin wants particles, then we need to store them, along with their IDs
+            if( the_output_plugin->write_species_as( this_species ) == output_type::particles )
+            {
+                // somewhat arbitrarily, start baryon particle IDs from 2**31 if we have 32bit and from 2**56 if we have 64 bits
+                size_t IDoffset = (this_species == cosmo_species::baryon)? ((the_output_plugin->has_64bit_ids())? 1ul<<56 : 1ul<<31): 0 ;
+
+                // allocate particle structure and generate particle IDs
+                particle_lattice_generator_ptr = 
+                std::make_unique<particle::lattice_generator<Grid_FFT<real_t>>>( lattice_type, the_output_plugin->has_64bit_reals(), the_output_plugin->has_64bit_ids(), IDoffset, tmp, the_config );
+            }
+
 
             //if( the_output_plugin->write_species_as( cosmo_species::dm ) == output_type::field_eulerian ){
             if( the_output_plugin->write_species_as(this_species) == output_type::field_eulerian )
@@ -542,22 +555,21 @@ int Run( config_file& the_config )
                 //===================================================================================
                 // we store displacements and velocities here if we compute them
                 //===================================================================================
-                particle::container particles;
+                
 
                 bool shifted_lattice = (this_species == cosmo_species::baryon &&
                                         the_output_plugin->write_species_as(this_species) == output_type::particles) ? true : false;
 
-                // somewhat arbitrarily, start baryon particle IDs from 2**31 if we have 32bit and from 2**56 if we have 64 bits
-                size_t IDoffset = (this_species == cosmo_species::baryon)? ((the_output_plugin->has_64bit_ids())? 1ul<<56 : 1ul<<31): 0 ;
+                
 
                 grid_interpolate<1,Grid_FFT<real_t>> interp( tmp );
 
                 // if output plugin wants particles, then we need to store them, along with their IDs
-                if( the_output_plugin->write_species_as( this_species ) == output_type::particles )
-                {
-                    // allocate particle structure and generate particle IDs
-                    particle::initialize_lattice( particles, lattice_type, the_output_plugin->has_64bit_reals(), the_output_plugin->has_64bit_ids(), IDoffset, tmp, the_config );
-                }
+                // if( the_output_plugin->write_species_as( this_species ) == output_type::particles )
+                // {
+                //     // allocate particle structure and generate particle IDs
+                //     particle::initialize_lattice( particles, lattice_type, the_output_plugin->has_64bit_reals(), the_output_plugin->has_64bit_ids(), IDoffset, tmp, the_config );
+                // }
             
                 // write out positions
                 for( int idim=0; idim<3; ++idim ){
@@ -604,7 +616,7 @@ int Run( config_file& the_config )
                     // if we write particle data, store particle data in particle structure
                     if( the_output_plugin->write_species_as( this_species ) == output_type::particles )
                     {
-                        particle::set_positions( particles, lattice_type, shifted_lattice, idim, lunit, the_output_plugin->has_64bit_reals(), tmp, the_config );
+                        particle_lattice_generator_ptr->set_positions( lattice_type, shifted_lattice, idim, lunit, the_output_plugin->has_64bit_reals(), tmp, the_config );
                     } 
                     // otherwise write out the grid data directly to the output plugin
                     // else if( the_output_plugin->write_species_as( cosmo_species::dm ) == output_type::field_lagrangian )
@@ -672,7 +684,7 @@ int Run( config_file& the_config )
                     // if we write particle data, store particle data in particle structure
                     if( the_output_plugin->write_species_as( this_species ) == output_type::particles )
                     {
-                        particle::set_velocities( particles, lattice_type, shifted_lattice, idim, the_output_plugin->has_64bit_reals(), tmp, the_config );
+                        particle_lattice_generator_ptr->set_velocities( lattice_type, shifted_lattice, idim, the_output_plugin->has_64bit_reals(), tmp, the_config );
                     }
                     // otherwise write out the grid data directly to the output plugin
                     else if( the_output_plugin->write_species_as( this_species ) == output_type::field_lagrangian )
@@ -684,7 +696,7 @@ int Run( config_file& the_config )
 
                 if( the_output_plugin->write_species_as( this_species ) == output_type::particles )
                 {
-                    the_output_plugin->write_particle_data( particles, this_species, Omega[this_species] );
+                    the_output_plugin->write_particle_data( particle_lattice_generator_ptr->get_particles(), this_species, Omega[this_species] );
                 }
                 
                 if( the_output_plugin->write_species_as( this_species ) == output_type::field_lagrangian )
