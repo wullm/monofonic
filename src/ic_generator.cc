@@ -62,7 +62,8 @@ int Run( config_file& the_config )
           ((lattice_str=="bcc")? particle::lattice_bcc 
         : ((lattice_str=="fcc")? particle::lattice_fcc 
         : ((lattice_str=="rsc")? particle::lattice_rsc 
-        : particle::lattice_sc)));
+        : ((lattice_str=="glass")? particle::lattice_glass
+        : particle::lattice_sc))));
 
     //--------------------------------------------------------------------------------------------------------
     //! apply fixing of the complex mode amplitude following Angulo & Pontzen (2016) [https://arxiv.org/abs/1603.05253]
@@ -555,7 +556,7 @@ int Run( config_file& the_config )
                 if( the_output_plugin->write_species_as( this_species ) == output_type::particles )
                 {
                     // allocate particle structure and generate particle IDs
-                    particle::initialize_lattice( particles, lattice_type, the_output_plugin->has_64bit_reals(), the_output_plugin->has_64bit_ids(), IDoffset, tmp );
+                    particle::initialize_lattice( particles, lattice_type, the_output_plugin->has_64bit_reals(), the_output_plugin->has_64bit_ids(), IDoffset, tmp, the_config );
                 }
             
                 // write out positions
@@ -575,6 +576,10 @@ int Run( config_file& the_config )
                                 // divide by Lbox, because displacement is in box units for output plugin
                                 tmp.kelem(idx) = lunit / boxlen * ( lg.gradient(idim,tmp.get_k3(i,j,k)) * phitot 
                                     + lg.gradient(idimp,tmp.get_k3(i,j,k)) * A3[idimpp]->kelem(idx) - lg.gradient(idimpp,tmp.get_k3(i,j,k)) * A3[idimp]->kelem(idx) );
+
+                                if( the_output_plugin->write_species_as( this_species ) == output_type::particles && lattice_type == particle::lattice_glass){
+                                    tmp.kelem(idx) *= interp.compensation_kernel( tmp.get_k<real_t>(i,j,k) );
+                                }
 
                                 if( bDoBaryons ){
                                     vec3_t<real_t> kvec = phi.get_k<real_t>(i,j,k);
@@ -599,7 +604,7 @@ int Run( config_file& the_config )
                     // if we write particle data, store particle data in particle structure
                     if( the_output_plugin->write_species_as( this_species ) == output_type::particles )
                     {
-                        particle::set_positions( particles, lattice_type, shifted_lattice, idim, lunit, the_output_plugin->has_64bit_reals(), tmp );
+                        particle::set_positions( particles, lattice_type, shifted_lattice, idim, lunit, the_output_plugin->has_64bit_reals(), tmp, the_config );
                     } 
                     // otherwise write out the grid data directly to the output plugin
                     // else if( the_output_plugin->write_species_as( cosmo_species::dm ) == output_type::field_lagrangian )
@@ -628,6 +633,10 @@ int Run( config_file& the_config )
 
                                 tmp.kelem(idx) = vunit / boxlen * ( lg.gradient(idim,tmp.get_k3(i,j,k)) * phitot_v 
                                         + vfac3 * (lg.gradient(idimp,tmp.get_k3(i,j,k)) * A3[idimpp]->kelem(idx) - lg.gradient(idimpp,tmp.get_k3(i,j,k)) * A3[idimp]->kelem(idx)) );
+
+                                if( the_output_plugin->write_species_as( this_species ) == output_type::particles && lattice_type == particle::lattice_glass){
+                                    tmp.kelem(idx) *= interp.compensation_kernel( tmp.get_k<real_t>(i,j,k) );
+                                }
 
                                 if( bDoBaryons ){
                                     vec3_t<real_t> kvec = phi.get_k<real_t>(i,j,k);
@@ -663,7 +672,7 @@ int Run( config_file& the_config )
                     // if we write particle data, store particle data in particle structure
                     if( the_output_plugin->write_species_as( this_species ) == output_type::particles )
                     {
-                        particle::set_velocities( particles, lattice_type, shifted_lattice, idim, the_output_plugin->has_64bit_reals(), tmp );
+                        particle::set_velocities( particles, lattice_type, shifted_lattice, idim, the_output_plugin->has_64bit_reals(), tmp, the_config );
                     }
                     // otherwise write out the grid data directly to the output plugin
                     else if( the_output_plugin->write_species_as( this_species ) == output_type::field_lagrangian )

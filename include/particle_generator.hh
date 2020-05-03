@@ -10,6 +10,10 @@
 #include <math/vec3.hh>
 #include <grid_interpolate.hh>
 
+#if defined(USE_HDF5)
+#include "HDF_IO.hh"
+#endif
+
 namespace particle {
 
 enum lattice{
@@ -39,32 +43,61 @@ const std::vector<vec3_t<real_t>> second_lattice_shift =
 };
 
 template<typename field_t>
-void initialize_lattice( container& particles, lattice lattice_type, const bool b64reals, const bool b64ids, const size_t IDoffset, const field_t& field, size_t num_p = 0 ){
-    // number of modes present in the field
-    const size_t num_p_in_load = (lattice_type>=0)? field.local_size() : num_p;
-    // unless SC lattice is used, particle number is a multiple of the number of modes (=num_p_in_load):
-    const size_t overload = 1ull<<std::max<int>(0,lattice_type); // 1 for sc, 2 for bcc, 4 for fcc, 8 for rsc
-    // allocate memory for all local particles
-    particles.allocate( overload * num_p_in_load, b64reals, b64ids );
-    // set particle IDs to the Lagrangian coordinate (1D encoded) with additionally the field shift encoded as well
-    for( size_t i=0,ipcount=0; i<field.size(0); ++i ){
-        for( size_t j=0; j<field.size(1); ++j){
-            for( size_t k=0; k<field.size(2); ++k,++ipcount){
-                for( size_t iload=0; iload<overload; ++iload ){
-                    if( b64ids ){
-                        particles.set_id64( ipcount+iload*num_p_in_load, IDoffset + overload*field.get_cell_idx_1d(i,j,k)+iload );
-                    }else{
-                        particles.set_id32( ipcount+iload*num_p_in_load, IDoffset + overload*field.get_cell_idx_1d(i,j,k)+iload );
+void initialize_lattice( container& particles, lattice lattice_type, const bool b64reals, const bool b64ids, const size_t IDoffset, const field_t& field, config_file& cf ){
+    if( lattice_type != lattice_glass )
+    {
+        // number of modes present in the field
+        const size_t num_p_in_load = field.local_size();
+        // unless SC lattice is used, particle number is a multiple of the number of modes (=num_p_in_load):
+        const size_t overload = 1ull<<std::max<int>(0,lattice_type); // 1 for sc, 2 for bcc, 4 for fcc, 8 for rsc
+        // allocate memory for all local particles
+        particles.allocate( overload * num_p_in_load, b64reals, b64ids );
+        // set particle IDs to the Lagrangian coordinate (1D encoded) with additionally the field shift encoded as well
+        for( size_t i=0,ipcount=0; i<field.size(0); ++i ){
+            for( size_t j=0; j<field.size(1); ++j){
+                for( size_t k=0; k<field.size(2); ++k,++ipcount){
+                    for( size_t iload=0; iload<overload; ++iload ){
+                        if( b64ids ){
+                            particles.set_id64( ipcount+iload*num_p_in_load, IDoffset + overload*field.get_cell_idx_1d(i,j,k)+iload );
+                        }else{
+                            particles.set_id32( ipcount+iload*num_p_in_load, IDoffset + overload*field.get_cell_idx_1d(i,j,k)+iload );
+                        }
                     }
                 }
             }
         }
     }
+    else
+    {
+#if defined(USE_HDF5)
+        std::string glass_fname = cf.get_value<std::string>("setup","GlassFileName");
+        
+        std::vector<int> glass_dims;
+        HDFGetDatasetExtent( glass_fname, "/PartType1/Coordinates", glass_dims );
+        music::ilog << "Glass file contains " << glass_dims[0] << " particles." << std::endl;
+        
+        size_t ntiles = cf.get_value<size_t>("setup","GlassTiles");
+        size_t num_p = glass_dims[0] * ntiles*ntiles*ntiles / MPI::get_size();
+        size_t off_p = MPI::get_rank() * num_p;
+
+        particles.allocate( num_p, b64reals, b64ids );
+
+        for( size_t i=0; i<num_p; ++i ){
+            if( b64ids ){
+                particles.set_id64( i, IDoffset + i + off_p );
+            }else{
+                particles.set_id32( i, IDoffset + i + off_p );
+            }
+        }
+#else
+        throw std::runtime_error("Class lattice requires HDF5 support. Enable and recompile.");
+#endif
+    }
 }
 
 // invalidates field, phase shifted to unspecified position after return
 template<typename field_t>
-void set_positions( container& particles, const lattice lattice_type, bool is_second_lattice, int idim, real_t lunit, const bool b64reals, field_t& field )
+void set_positions( container& particles, const lattice lattice_type, bool is_second_lattice, int idim, real_t lunit, const bool b64reals, field_t& field, config_file& cf )
 {
     // works only for Bravais types
     if( lattice_type >= 0 ){
@@ -96,36 +129,131 @@ void set_positions( container& particles, const lattice lattice_type, bool is_se
             }
         }
     }else{
+#if defined(USE_HDF5)
+        std::string glass_fname = cf.get_value<std::string>("setup","GlassFileName");
+        size_t ntiles = cf.get_value<size_t>("setup","GlassTiles");
+        
+        real_t lglassbox = 1.0;
+        HDFReadGroupAttribute( glass_fname, "Header", "BoxSize", lglassbox );
 
+        std::vector<real_t> glass_pos;
+        HDFReadDataset( glass_fname, "/PartType1/Coordinates", glass_pos );
+        size_t np_in_file = glass_pos.size()/3;
+        size_t num_p = np_in_file * ntiles*ntiles*ntiles / MPI::get_size();
+        size_t off_p = num_p * MPI::get_rank();
+        
+        std::vector< std::array<real_t,3> > glass_posr(num_p,{0.0,0.0,0.0});
+
+        std::array<real_t,3> ng({field.n_[0],field.n_[1],field.n_[2]});
+
+        for( size_t i=0; i<num_p; ++i ){
+            size_t idxpart = off_p+i;
+            size_t idx_in_glass = idxpart%np_in_file;
+            size_t idxtile = idxpart / np_in_file;
+            size_t tile_z = idxtile%(ntiles*ntiles);
+            size_t tile_y = ((idxtile-tile_z)/ntiles)%ntiles;
+            size_t tile_x = (((idxtile-tile_z)/ntiles)-tile_y)/ntiles;
+            glass_posr[i][0] = std::fmod((glass_pos[3*idx_in_glass+0]/lglassbox + real_t(tile_x)) / ntiles * ng[0] + ng[0], ng[0]);
+            glass_posr[i][1] = std::fmod((glass_pos[3*idx_in_glass+1]/lglassbox + real_t(tile_y)) / ntiles * ng[1] + ng[1], ng[1]);
+            glass_posr[i][2] = std::fmod((glass_pos[3*idx_in_glass+2]/lglassbox + real_t(tile_z)) / ntiles * ng[2] + ng[2], ng[2]);
+        }
+        
+        grid_interpolate<1,field_t> interp( field );
+
+        interp.domain_decompose_pos( glass_posr );
+
+        for( size_t i=0; i<num_p; ++i ){
+            auto pos = glass_posr[i];
+            real_t disp = interp.get_cic_at( pos );
+            if( b64reals ){
+                particles.set_pos64( i, idim, pos[idim]/ng[idim]*lunit + disp );
+            }else{
+                particles.set_pos32( i, idim, pos[idim]/ng[idim]*lunit + disp );
+            }
+        }
+        
+#else
+        throw std::runtime_error("Class lattice requires HDF5 support. Enable and recompile.");
+#endif
     }
 }
 
 template <typename field_t>
-void set_velocities(container &particles, lattice lattice_type, bool is_second_lattice, int idim, const bool b64reals, field_t &field)
+void set_velocities(container &particles, lattice lattice_type, bool is_second_lattice, int idim, const bool b64reals, field_t &field, config_file& cf)
 {
-    const size_t num_p_in_load = field.local_size();
-    for( int ishift=0; ishift<(1<<lattice_type); ++ishift ){
-        // if we are dealing with the secondary lattice, apply a global shift
-        if (ishift == 0 && is_second_lattice){
-            field.shift_field(second_lattice_shift[lattice_type]);
-        }
-        // can omit first shift since zero by convention, unless shifted already above, otherwise apply relative phase shift
-        if (ishift > 0){
-            field.shift_field( lattice_shifts[lattice_type][ishift]-lattice_shifts[lattice_type][ishift-1] );
-        }
-        // read out values from phase shifted field and set assoc. particle's value
-        const auto ipcount0 = ishift * num_p_in_load;
-        for( size_t i=0,ipcount=ipcount0; i<field.size(0); ++i ){
-            for( size_t j=0; j<field.size(1); ++j){
-                for( size_t k=0; k<field.size(2); ++k){
-                    if( b64reals ){
-                        particles.set_vel64( ipcount++, idim, field.relem(i,j,k) );
-                    }else{
-                        particles.set_vel32( ipcount++, idim, field.relem(i,j,k) );
+    // works only for Bravais types
+    if( lattice_type >= 0 ){
+        const size_t num_p_in_load = field.local_size();
+        for( int ishift=0; ishift<(1<<lattice_type); ++ishift ){
+            // if we are dealing with the secondary lattice, apply a global shift
+            if (ishift == 0 && is_second_lattice){
+                field.shift_field(second_lattice_shift[lattice_type]);
+            }
+            // can omit first shift since zero by convention, unless shifted already above, otherwise apply relative phase shift
+            if (ishift > 0){
+                field.shift_field( lattice_shifts[lattice_type][ishift]-lattice_shifts[lattice_type][ishift-1] );
+            }
+            // read out values from phase shifted field and set assoc. particle's value
+            const auto ipcount0 = ishift * num_p_in_load;
+            for( size_t i=0,ipcount=ipcount0; i<field.size(0); ++i ){
+                for( size_t j=0; j<field.size(1); ++j){
+                    for( size_t k=0; k<field.size(2); ++k){
+                        if( b64reals ){
+                            particles.set_vel64( ipcount++, idim, field.relem(i,j,k) );
+                        }else{
+                            particles.set_vel32( ipcount++, idim, field.relem(i,j,k) );
+                        }
                     }
                 }
             }
         }
+    }else{
+#if defined(USE_HDF5)
+        std::string glass_fname = cf.get_value<std::string>("setup","GlassFileName");
+        size_t ntiles = cf.get_value<size_t>("setup","GlassTiles");
+        
+        real_t lglassbox = 1.0;
+        HDFReadGroupAttribute( glass_fname, "Header", "BoxSize", lglassbox );
+
+        std::vector<real_t> glass_pos;
+        HDFReadDataset( glass_fname, "/PartType1/Coordinates", glass_pos );
+        size_t np_in_file = glass_pos.size()/3;
+        size_t num_p = np_in_file * ntiles*ntiles*ntiles / MPI::get_size();
+        size_t off_p = num_p * MPI::get_rank();
+        
+        std::vector< std::array<real_t,3> > glass_posr(num_p,{0.0,0.0,0.0});
+
+        std::array<real_t,3> ng({field.n_[0],field.n_[1],field.n_[2]});
+
+        for( size_t i=0; i<num_p; ++i ){
+            size_t idxpart = off_p+i;
+            size_t idx_in_glass = idxpart%np_in_file;
+            size_t idxtile = idxpart / np_in_file;
+            size_t tile_z = idxtile%(ntiles*ntiles);
+            size_t tile_y = ((idxtile-tile_z)/ntiles)%ntiles;
+            size_t tile_x = (((idxtile-tile_z)/ntiles)-tile_y)/ntiles;
+            glass_posr[i][0] = std::fmod((glass_pos[3*idx_in_glass+0]/lglassbox + real_t(tile_x)) / ntiles * ng[0] + ng[0], ng[0]);
+            glass_posr[i][1] = std::fmod((glass_pos[3*idx_in_glass+1]/lglassbox + real_t(tile_y)) / ntiles * ng[1] + ng[1], ng[1]);
+            glass_posr[i][2] = std::fmod((glass_pos[3*idx_in_glass+2]/lglassbox + real_t(tile_z)) / ntiles * ng[2] + ng[2], ng[2]);
+        }
+        
+        grid_interpolate<1,field_t> interp( field );
+
+        interp.domain_decompose_pos( glass_posr );
+
+        for( size_t i=0; i<num_p; ++i ){
+            auto pos = glass_posr[i];
+            real_t vel = interp.get_cic_at( pos );
+            if( b64reals ){
+                particles.set_vel64( i, idim, vel );
+            }else{
+                particles.set_vel32( i, idim, vel );
+            }
+        }
+        
+#else
+        throw std::runtime_error("Class lattice requires HDF5 support. Enable and recompile.");
+#endif
     }
 }
 

@@ -5,6 +5,8 @@
 
 #include <general.hh>
 
+#include <math/vec3.hh>
+
 template <int interp_order, typename grid_t>
 struct grid_interpolate
 {
@@ -61,10 +63,15 @@ struct grid_interpolate
       MPI_Status status;
       status.MPI_ERROR = MPI_SUCCESS;
 
-      MPI_Sendrecv_replace(&boundary_[0], nx * ny * nz, MPI::get_datatype<data_t>(), sendto,
+      int err = MPI_Sendrecv_replace(&boundary_[0], nx * ny * nz, MPI::get_datatype<data_t>(), sendto,
                            MPI::get_rank() + 1000, recvfrom, recvfrom + 1000, MPI_COMM_WORLD, &status);
 
-      assert(status.MPI_ERROR == MPI_SUCCESS);
+      if( err != MPI_SUCCESS ){
+        char errstr[256]; int errlen=256;
+        MPI_Error_string(err, errstr, &errlen ); 
+        music::elog << "MPI_ERROR #" << err << " : " << errstr << std::endl;
+      }
+
 #endif
     }
   }
@@ -92,10 +99,10 @@ struct grid_interpolate
     
     if( is_distributed_trait ){
       size_t localix = ix-gridref.local_0_start_;
-      val += this->relem(localix, iy, iz) * tx * ty * tz;
-      val += this->relem(localix, iy, iz1) * tx * ty * dz;
-      val += this->relem(localix, iy1, iz) * tx * dy * tz;
-      val += this->relem(localix, iy1, iz1) * tx * dy * dz;
+      val += gridref.relem(localix, iy, iz) * tx * ty * tz;
+      val += gridref.relem(localix, iy, iz1) * tx * ty * dz;
+      val += gridref.relem(localix, iy1, iz) * tx * dy * tz;
+      val += gridref.relem(localix, iy1, iz1) * tx * dy * dz;
 
       if( localix+1 >= gridref.local_0_size_ ){
         size_t localix1 = localix+1 - gridref.local_0_size_;
@@ -105,23 +112,22 @@ struct grid_interpolate
         val += boundary_[(localix1*ny_+iy1)*nz_+iz1] * dx * dy * dz;
       }else{
         size_t localix1 = localix+1;
-        val += this->relem(localix1, iy, iz) * dx * ty * tz;
-        val += this->relem(localix1, iy, iz1) * dx * ty * dz;
-        val += this->relem(localix1, iy1, iz) * dx * dy * tz;
-        val += this->relem(localix1, iy1, iz1) * dx * dy * dz;
+        val += gridref.relem(localix1, iy, iz) * dx * ty * tz;
+        val += gridref.relem(localix1, iy, iz1) * dx * ty * dz;
+        val += gridref.relem(localix1, iy1, iz) * dx * dy * tz;
+        val += gridref.relem(localix1, iy1, iz1) * dx * dy * dz;
       }
     }else{
       size_t ix1 = (ix + 1) % nx_;
-      val += this->relem(ix, iy, iz) * tx * ty * tz;
-      val += this->relem(ix, iy, iz1) * tx * ty * dz;
-      val += this->relem(ix, iy1, iz) * tx * dy * tz;
-      val += this->relem(ix, iy1, iz1) * tx * dy * dz;
-      val += this->relem(ix1, iy, iz) * dx * ty * tz;
-      val += this->relem(ix1, iy, iz1) * dx * ty * dz;
-      val += this->relem(ix1, iy1, iz) * dx * dy * tz;
-      val += this->relem(ix1, iy1, iz1) * dx * dy * dz;
+      val += gridref.relem(ix, iy, iz) * tx * ty * tz;
+      val += gridref.relem(ix, iy, iz1) * tx * ty * dz;
+      val += gridref.relem(ix, iy1, iz) * tx * dy * tz;
+      val += gridref.relem(ix, iy1, iz1) * tx * dy * dz;
+      val += gridref.relem(ix1, iy, iz) * dx * ty * tz;
+      val += gridref.relem(ix1, iy, iz1) * dx * ty * dz;
+      val += gridref.relem(ix1, iy1, iz) * dx * dy * tz;
+      val += gridref.relem(ix1, iy1, iz1) * dx * dy * dz;
     }
-
     return val;
   }
 
@@ -131,8 +137,8 @@ struct grid_interpolate
 
   int get_task(const vec3 &x, const std::vector<int> &local0starts) const noexcept
   {
-    auto it = std::lower_bound(local0starts.begin(), local0starts.end(), int(x[0]));
-    return std::distance(local0starts.begin(), it) - 1;
+    const auto it = std::upper_bound(local0starts.begin(), local0starts.end(), int(x[0]));
+    return std::distance(local0starts.begin(), it)-1;
   }
 
   void domain_decompose_pos(std::vector<vec3> &pos) const noexcept
@@ -144,12 +150,12 @@ struct grid_interpolate
       std::vector<int> local0starts(MPI::get_size(), 0);
       MPI_Alltoall(&local_0_start, 1, MPI_INT, &local0starts[0], 1, MPI_INT, MPI_COMM_WORLD);
 
-      std::sort(pos.begin(), pos.end(), [&](auto x1, auto x2) { return get_task(x1) < get_task(x2); });
+      std::sort(pos.begin(), pos.end(), [&](auto x1, auto x2) { return get_task(x1,local0starts) < get_task(x2,local0starts); });
       std::vector<int> sendcounts(MPI::get_size(), 0), sendoffsets(MPI::get_size(), 0);
       std::vector<int> recvcounts(MPI::get_size(), 0), recvoffsets(MPI::get_size(), 0);
       for (auto x : pos)
       {
-        sendcounts[get_task(x)] += 3;
+        sendcounts[get_task(x,local0starts)] += 3;
       }
 
       // int MPI_Alltoall(const void *sendbuf, int sendcount, MPI_Datatype sendtype, void *recvbuf, int recvcount, MPI_Datatype recvtype, MPI_Comm comm)
@@ -170,14 +176,17 @@ struct grid_interpolate
     }
   }
 
-  ccomplex_t compensation_kernel( vec3 k ) const noexcept
+  ccomplex_t compensation_kernel( const vec3_t<real_t>& k ) const noexcept
   {
-    auto sinc = []( real_t x ){ (std::abs(x)>1e-10)? std::sin(x)/x : 1.0; };
+    auto sinc = []( real_t x ){ return (std::abs(x)>1e-10)? std::sin(x)/x : 1.0; };
     real_t dfx = sinc(0.5*M_PI*k[0]/gridref.kny_[0]);
     real_t dfy = sinc(0.5*M_PI*k[1]/gridref.kny_[1]);
     real_t dfz = sinc(0.5*M_PI*k[2]/gridref.kny_[2]);
     real_t del = std::pow(dfx*dfy*dfz,1+interpolation_order);
-    return ccomplex_t(1.0) / del;
+
+    real_t shift = 0.5 * k[0] * gridref.get_dx()[0] + 0.5 * k[1] * gridref.get_dx()[1] + 0.5 * k[2] * gridref.get_dx()[2];
+
+    return std::exp(ccomplex_t(0.0, shift)) / del;
   }
 
   void get_at(std::vector<vec3> &pos, std::vector<data_t> &val) const
