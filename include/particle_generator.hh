@@ -77,8 +77,13 @@ void initialize_lattice( container& particles, lattice lattice_type, const bool 
         music::ilog << "Glass file contains " << glass_dims[0] << " particles." << std::endl;
         
         size_t ntiles = cf.get_value<size_t>("setup","GlassTiles");
+#if defined(USE_MPI)
         size_t num_p = glass_dims[0] * ntiles*ntiles*ntiles / MPI::get_size();
         size_t off_p = MPI::get_rank() * num_p;
+#else
+        size_t num_p = glass_dims[0] * ntiles*ntiles*ntiles;
+        size_t off_p = 0;
+#endif
 
         particles.allocate( num_p, b64reals, b64ids );
 
@@ -139,8 +144,13 @@ void set_positions( container& particles, const lattice lattice_type, bool is_se
         std::vector<real_t> glass_pos;
         HDFReadDataset( glass_fname, "/PartType1/Coordinates", glass_pos );
         size_t np_in_file = glass_pos.size()/3;
+#if defined(USE_MPI)
         size_t num_p = np_in_file * ntiles*ntiles*ntiles / MPI::get_size();
-        size_t off_p = num_p * MPI::get_rank();
+        size_t off_p = MPI::get_rank() * num_p;
+#else
+        size_t num_p = np_in_file * ntiles*ntiles*ntiles;
+        size_t off_p = 0;
+#endif
         
         std::vector< std::array<real_t,3> > glass_posr(num_p,{0.0,0.0,0.0});
 
@@ -218,8 +228,14 @@ void set_velocities(container &particles, lattice lattice_type, bool is_second_l
         std::vector<real_t> glass_pos;
         HDFReadDataset( glass_fname, "/PartType1/Coordinates", glass_pos );
         size_t np_in_file = glass_pos.size()/3;
+#if defined(USE_MPI)
         size_t num_p = np_in_file * ntiles*ntiles*ntiles / MPI::get_size();
-        size_t off_p = num_p * MPI::get_rank();
+        size_t off_p = MPI::get_rank() * num_p;
+#else
+        size_t num_p = np_in_file * ntiles*ntiles*ntiles;
+        size_t off_p = 0;
+#endif
+
         
         std::vector< std::array<real_t,3> > glass_posr(num_p,{0.0,0.0,0.0});
 
