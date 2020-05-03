@@ -154,7 +154,7 @@ void set_positions( container& particles, const lattice lattice_type, bool is_se
         
         std::vector< std::array<real_t,3> > glass_posr(num_p,{0.0,0.0,0.0});
 
-        std::array<real_t,3> ng({field.n_[0],field.n_[1],field.n_[2]});
+        std::array<real_t,3> ng({real_t(field.n_[0]),real_t(field.n_[1]),real_t(field.n_[2])});
 
         for( size_t i=0; i<num_p; ++i ){
             size_t idxpart = off_p+i;
@@ -239,7 +239,7 @@ void set_velocities(container &particles, lattice lattice_type, bool is_second_l
         
         std::vector< std::array<real_t,3> > glass_posr(num_p,{0.0,0.0,0.0});
 
-        std::array<real_t,3> ng({field.n_[0],field.n_[1],field.n_[2]});
+        std::array<real_t,3> ng({real_t(field.n_[0]),real_t(field.n_[1]),real_t(field.n_[2])});
 
         for( size_t i=0; i<num_p; ++i ){
             size_t idxpart = off_p+i;

@@ -16,8 +16,7 @@ struct grid_interpolate
   static constexpr bool is_distributed_trait = grid_t::is_distributed_trait;
   static constexpr int interpolation_order = interp_order;
 
-  size_t nx_, ny_, nz_;
-
+  
 #if defined(USE_MPI)
   const MPI_Datatype MPI_data_t_type =
       (typeid(data_t) == typeid(float)) ? MPI_FLOAT
@@ -31,6 +30,7 @@ struct grid_interpolate
 
   std::vector<data_t> boundary_;
   const grid_t &gridref;
+  size_t nx_, ny_, nz_;
 
   explicit grid_interpolate(const grid_t &g)
       : gridref(g), nx_(g.n_[0]), ny_(g.n_[1]), nz_(g.n_[2])
@@ -50,7 +50,7 @@ struct grid_interpolate
       {
         for (size_t j = 0; j < ny; ++j)
         {
-          for (size_t k = 0; k < nx; ++k)
+          for (size_t k = 0; k < nz; ++k)
           {
             boundary_[(i * ny + j) * nz + k] = g.relem(i, j, k);
           }
@@ -98,7 +98,7 @@ struct grid_interpolate
     data_t val{0.0};
     
     if( is_distributed_trait ){
-      size_t localix = ix-gridref.local_0_start_;
+      ptrdiff_t localix = ix-gridref.local_0_start_;
       val += gridref.relem(localix, iy, iz) * tx * ty * tz;
       val += gridref.relem(localix, iy, iz1) * tx * ty * dz;
       val += gridref.relem(localix, iy1, iz) * tx * dy * tz;
@@ -158,20 +158,24 @@ struct grid_interpolate
         sendcounts[get_task(x,local0starts)] += 3;
       }
 
-      // int MPI_Alltoall(const void *sendbuf, int sendcount, MPI_Datatype sendtype, void *recvbuf, int recvcount, MPI_Datatype recvtype, MPI_Comm comm)
       MPI_Alltoall(&sendcounts[0], 1, MPI_INT, &recvcounts[0], 1, MPI_INT, MPI_COMM_WORLD);
 
+      size_t tot_receive = recvcounts[0], tot_send = sendcounts[0];
       for (int i = 1; i < MPI::get_size(); ++i)
       {
         sendoffsets[i] = sendcounts[i - 1] + sendoffsets[i - 1];
         recvoffsets[i] = recvcounts[i - 1] + recvoffsets[i - 1];
+        tot_receive += recvcounts[i];
+        tot_send += sendcounts[i];
       }
 
-      // int MPI_Alltoallv(const void *sendbuf, const int *sendcounts, const int *sdispls, MPI_Datatype sendtype, void *recvbuf,
-      // const int *recvcounts, const int *rdispls, MPI_Datatype recvtype, MPI_Comm comm)
+      std::vector<vec3> recvbuf;
+      recvbuf.assign(tot_receive,{0.,0.,0.});
 
       MPI_Alltoallv(&pos[0], &sendcounts[0], &sendoffsets[0], MPI_data_t_type,
-                    &pos[0], &recvcounts[0], &recvoffsets[0], MPI_data_t_type, MPI_COMM_WORLD);
+                    &recvbuf[0], &recvcounts[0], &recvoffsets[0], MPI_data_t_type, MPI_COMM_WORLD);
+
+      std::swap( pos, recvbuf );
 #endif
     }
   }
