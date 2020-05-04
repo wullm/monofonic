@@ -28,17 +28,8 @@ public:
     static constexpr bool is_distributed_trait{bdistributed};
 
 protected:
-#if defined(USE_MPI)
-    const MPI_Datatype MPI_data_t_type = 
-        (typeid(data_t) == typeid(float)) ? MPI_FLOAT
-        : (typeid(data_t) == typeid(double)) ? MPI_DOUBLE
-        : (typeid(data_t) == typeid(long double)) ? MPI_LONG_DOUBLE
-        : (typeid(data_t) == typeid(std::complex<float>)) ? MPI_C_FLOAT_COMPLEX
-        : (typeid(data_t) == typeid(std::complex<double>)) ? MPI_C_DOUBLE_COMPLEX 
-        : (typeid(data_t) == typeid(std::complex<long double>)) ? MPI_C_LONG_DOUBLE_COMPLEX 
-        : MPI_INT;
-#endif
     using grid_fft_t = Grid_FFT<data_t,bdistributed>;
+    
 public:
     std::array<size_t, 3> n_, nhalf_;
     std::array<size_t, 4> sizes_;
