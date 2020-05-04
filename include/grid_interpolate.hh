@@ -96,11 +96,6 @@ struct grid_interpolate
     size_t iz1 = (iz + 1) % nz_;
 
     data_t val{0.0};
-
-    if( get_task(pos) != MPI::get_rank() ){
-      std::cout << "task : " << MPI::get_rank() << " p@(" << pos[0] << ", " << pos[1] << ", " << pos[2] << ") belongs to task " << get_task(pos) << std::endl;
-      abort();
-    }
     
     if( is_distributed_trait ){
       ptrdiff_t localix = ix-gridref.local_0_start_;

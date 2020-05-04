@@ -88,6 +88,7 @@ namespace particle
 
                 std::array<real_t, 3> ng({real_t(field.n_[0]), real_t(field.n_[1]), real_t(field.n_[2])});
 
+                #pragma omp parallel for
                 for (size_t i = 0; i < num_p; ++i)
                 {
                     size_t idxpart = off_p + i;
@@ -152,6 +153,7 @@ namespace particle
                 // allocate memory for all local particles
                 particles_.allocate(overload * num_p_in_load, b64reals, b64ids);
                 // set particle IDs to the Lagrangian coordinate (1D encoded) with additionally the field shift encoded as well
+
                 for (size_t i = 0, ipcount = 0; i < field.size(0); ++i)
                 {
                     for (size_t j = 0; j < field.size(1); ++j)
@@ -178,6 +180,7 @@ namespace particle
                 glass_ptr_ = std::make_unique<glass>( cf, field );
                 particles_.allocate(glass_ptr_->size(), b64reals, b64ids);
 
+                #pragma omp parallel for
                 for (size_t i = 0; i < glass_ptr_->size(); ++i)
                 {
                     if (b64ids)
@@ -237,6 +240,7 @@ namespace particle
             else
             {
                 glass_ptr_->update_ghosts( field );
+                #pragma omp parallel for
                 for (size_t i = 0; i < glass_ptr_->size(); ++i)
                 {
                     auto pos = glass_ptr_->glass_posr[i];
@@ -295,6 +299,7 @@ namespace particle
             else
             {
                 glass_ptr_->update_ghosts( field );
+                #pragma omp parallel for
                 for (size_t i = 0; i < glass_ptr_->size(); ++i)
                 {
                     auto pos = glass_ptr_->glass_posr[i];
