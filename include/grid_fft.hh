@@ -17,12 +17,16 @@ enum space_t
 
 
 #ifdef USE_MPI
-template <typename data_t, bool bdistributed=true>
+template <typename data_t_, bool bdistributed=true>
 #else
-template <typename data_t, bool bdistributed=false>
+template <typename data_t_, bool bdistributed=false>
 #endif
 class Grid_FFT
 {
+public:
+    using data_t = data_t_;
+    static constexpr bool is_distributed_trait{bdistributed};
+
 protected:
 #if defined(USE_MPI)
     const MPI_Datatype MPI_data_t_type = 
@@ -770,12 +774,7 @@ public:
     {
         FourierTransformForward();
         apply_function_k_dep([&](auto x, auto k) -> ccomplex_t {
-        real_t shift;
-        if( bdistributed ){
-            shift = s.y * k[0] * get_dx()[0] + s.x * k[1] * get_dx()[1] + s.z * k[2] * get_dx()[2];
-        }else{
-            shift = s.x * k[0] * get_dx()[0] + s.y * k[1] * get_dx()[1] + s.z * k[2] * get_dx()[2];
-        }
+            real_t shift = s.x * k[0] * get_dx()[0] + s.y * k[1] * get_dx()[1] + s.z * k[2] * get_dx()[2];
             return x * std::exp(ccomplex_t(0.0, shift));
         });
         if( transform_back ){

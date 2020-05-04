@@ -267,7 +267,7 @@ public:
 
         int lextra = (log10((double)ngrid_ / (double)d.i_base) + 0.001) / log10(2.0);
         int level_p = d.wn_level_base + lextra;
-        // int ratio = 1 << lextra;
+        int ratio = 1 << lextra;
 
         lstate[mythread].layer_min = 0;
         lstate[mythread].layer_max = level_p;
@@ -328,12 +328,6 @@ public:
           }
         }
       }
-
-      // if (verbosity)
-      // {
-      //   music::ilog.Print("time for calculating PANPHASIA field : %f s, %f µs/cell", get_wtime() - t1,
-      //                     1e6 * (get_wtime() - t1) / g.global_size(0) / g.global_size(1) / g.global_size(2));
-      // }
     } // end omp parallel region
 
     g0.FourierTransformForward();
@@ -369,8 +363,9 @@ public:
 
             auto y0(g0.kelem(i, j, k)), y1(g1.kelem(i, j, k)), y2(g2.kelem(i, j, k)), y3(g3.kelem(i, j, k)), y4(g4.kelem(i, j, k));
 
-            g0.kelem(i, j, k) = y0 * fx * fy * fz + sqrt3 * (y1 * gx * fy * fz + y2 * fx * gy * fz + y3 * fx * fy * gz) +
-                                y4 * magnitude;
+            g0.kelem(i, j, k) = y0 * fx * fy * fz 
+                              + sqrt3 * (y1 * gx * fy * fz + y2 * fx * gy * fz + y3 * fx * fy * gz) 
+                              + y4 * magnitude;
           }
           else
           {
@@ -409,7 +404,7 @@ public:
 
         int lextra = (log10((double)ngrid_ / (double)d.i_base) + 0.001) / log10(2.0);
         int level_p = d.wn_level_base + lextra;
-        // int ratio = 1 << lextra;
+        int ratio = 1 << lextra;
 
         lstate[mythread].layer_min = 0;
         lstate[mythread].layer_max = level_p;
