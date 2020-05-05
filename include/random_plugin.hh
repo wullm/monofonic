@@ -18,7 +18,7 @@ class RNG_plugin
     }
     virtual ~RNG_plugin() {}
     virtual bool isMultiscale() const = 0;
-    virtual void Fill_Grid( Grid_FFT<real_t>& g ) const = 0;
+    virtual void Fill_Grid( Grid_FFT<real_t>& g ) = 0;//const = 0;
     //virtual void FillGrid(int level, DensityGrid<real_t> &R) = 0;
 };
 

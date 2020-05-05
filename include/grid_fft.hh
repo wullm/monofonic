@@ -17,30 +17,25 @@ enum space_t
 
 
 #ifdef USE_MPI
-template <typename data_t, bool bdistributed=true>
+template <typename data_t_, bool bdistributed=true>
 #else
-template <typename data_t, bool bdistributed=false>
+template <typename data_t_, bool bdistributed=false>
 #endif
 class Grid_FFT
 {
+public:
+    using data_t = data_t_;
+    static constexpr bool is_distributed_trait{bdistributed};
+
 protected:
-#if defined(USE_MPI)
-    const MPI_Datatype MPI_data_t_type = 
-        (typeid(data_t) == typeid(float)) ? MPI_FLOAT
-        : (typeid(data_t) == typeid(double)) ? MPI_DOUBLE
-        : (typeid(data_t) == typeid(long double)) ? MPI_LONG_DOUBLE
-        : (typeid(data_t) == typeid(std::complex<float>)) ? MPI_C_FLOAT_COMPLEX
-        : (typeid(data_t) == typeid(std::complex<double>)) ? MPI_C_DOUBLE_COMPLEX 
-        : (typeid(data_t) == typeid(std::complex<long double>)) ? MPI_C_LONG_DOUBLE_COMPLEX 
-        : MPI_INT;
-#endif
     using grid_fft_t = Grid_FFT<data_t,bdistributed>;
+    
 public:
     std::array<size_t, 3> n_, nhalf_;
     std::array<size_t, 4> sizes_;
     size_t npr_, npc_;
     size_t ntot_;
-    std::array<real_t, 3> length_, kfac_, dx_;
+    std::array<real_t, 3> length_, kfac_, kny_, dx_;
 
     space_t space_;
     data_t *data_;
@@ -95,6 +90,15 @@ public:
     const bounding_box<size_t> &get_global_range(void) const noexcept
     {
         return global_range_;
+    }
+
+    bool is_nyquist_mode( size_t i, size_t j, size_t k ) const
+    {
+        assert( this->space_ == kspace_id );
+        bool bres = (i+local_1_start_ == n_[1]/2);
+        bres |= (j == n_[0]/2);
+        bres |= (k == n_[2]/2);
+        return bres;
     }
 
     //! set all field elements to zero
@@ -466,9 +470,9 @@ public:
             {
                 for (size_t k = 0; k < sizes_[2]; ++k)
                 {
-                    const auto elem = std::real(this->relem(i, j, k));
-                    sum1 += elem;
-                    sum2 += elem * elem;
+                    const auto elem = (space_==kspace_id)? this->kelem(i, j, k) : this->relem(i, j, k);
+                    sum1 += std::real(elem);
+                    sum2 += std::norm(elem);// * elem;
                 }
             }
         }
@@ -761,12 +765,7 @@ public:
     {
         FourierTransformForward();
         apply_function_k_dep([&](auto x, auto k) -> ccomplex_t {
-        real_t shift;
-        if( bdistributed ){
-            shift = s.y * k[0] * get_dx()[0] + s.x * k[1] * get_dx()[1] + s.z * k[2] * get_dx()[2];
-        }else{
-            shift = s.x * k[0] * get_dx()[0] + s.y * k[1] * get_dx()[1] + s.z * k[2] * get_dx()[2];
-        }
+            real_t shift = s.x * k[0] * get_dx()[0] + s.y * k[1] * get_dx()[1] + s.z * k[2] * get_dx()[2];
             return x * std::exp(ccomplex_t(0.0, shift));
         });
         if( transform_back ){

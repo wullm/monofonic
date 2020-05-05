@@ -1,5 +1,5 @@
-#ifndef __HDF_IO_HH
-#define __HDF_IO_HH
+#pragma once
+#if defined(USE_HDF5)
 
 #define H5_USE_16_API
 
@@ -193,9 +193,9 @@ inline void HDFReadDataset( const std::string Filename, const std::string ObjNam
 
   int ndims = H5Sget_simple_extent_ndims( HDF_DataspaceID );
   
-  hsize_t dimsize[ndims];
+  std::vector<hsize_t> dimsize(ndims,0);
 
-  H5Sget_simple_extent_dims( HDF_DataspaceID, dimsize, NULL );
+  H5Sget_simple_extent_dims( HDF_DataspaceID, &dimsize[0], NULL );
 
   HDF_StorageSize = 1;
   for(int i=0; i<ndims; ++i )
@@ -1082,4 +1082,5 @@ inline void HDFWriteGroupAttribute<std::string>( const std::string Filename, con
   H5Gclose( HDF_GroupID );
   H5Fclose( HDF_FileID );
 }
-#endif
+
+#endif // USE_HDF5

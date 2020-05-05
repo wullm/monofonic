@@ -128,6 +128,17 @@ find_package(HDF5 REQUIRED)
 mark_as_advanced(HDF5_C_LIBRARY_dl HDF5_C_LIBRARY_hdf5 HDF5_C_LIBRARY_m HDF5_C_LIBRARY_pthread HDF5_C_LIBRARY_z HDF5_C_LIBRARY_sz)
 
 ########################################################################################################################
+# PANPHASIA
+option(ENABLE_PANPHASIA "Enable PANPHASIA random number generator" ON)
+if(ENABLE_PANPHASIA)
+enable_language(Fortran)
+if ("${CMAKE_Fortran_COMPILER_ID}" MATCHES "Intel")
+  set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -132 -implicit-none")
+elseif("${CMAKE_Fortran_COMPILER_ID}" MATCHES "GNU")
+  set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -ffixed-line-length-132 -fimplicit-none")
+endif()
+endif(ENABLE_PANPHASIA)
+########################################################################################################################
 # INCLUDES
 include_directories(${PROJECT_SOURCE_DIR}/include)
 
@@ -144,6 +155,13 @@ list (APPEND SOURCES "${CMAKE_CURRENT_BINARY_DIR}/version.cc")
 file( GLOB PLUGINS
   ${PROJECT_SOURCE_DIR}/src/plugins/*.cc
 )
+
+if(ENABLE_PANPHASIA)
+list (APPEND SOURCES 
+  ${PROJECT_SOURCE_DIR}/external/panphasia/panphasia_routines.f
+  ${PROJECT_SOURCE_DIR}/external/panphasia/generic_lecuyer.f90
+)
+endif()
 
 # project configuration header
 configure_file(
@@ -207,6 +225,10 @@ if(HDF5_FOUND)
   target_include_directories(${PRGNAME} PRIVATE ${HDF5_INCLUDE_DIRS})
   target_compile_options(${PRGNAME} PRIVATE "-DUSE_HDF5")
 endif(HDF5_FOUND)
+
+if(ENABLE_PANPHASIA)
+target_compile_options(${PRGNAME} PRIVATE "-DUSE_PANPHASIA")
+endif(ENABLE_PANPHASIA)
 
 target_link_libraries(${PRGNAME} ${FFTW3_LIBRARIES})
 target_include_directories(${PRGNAME} PRIVATE ${FFTW3_INCLUDE_DIRS})
