@@ -323,10 +323,9 @@ int Run( config_file& the_config )
             // anisotropic contribution to Phi^{(2)} for external tides, note that phi2 = nabla^2 phi^(2) at this point.
             // cf. eq. (19) of Stuecker et al. 2020 (https://arxiv.org/abs/2003.06427)
             phi2.assign_function_of_grids_kdep([&](vec3_t<real_t> kvec, ccomplex_t pphi, ccomplex_t pphi2) {
-                // sign in front of correction is reversed since phi1 = -phi
                 real_t k2 = kvec.norm_squared();
                 real_t fac_aniso = (kvec[0] * kvec[0] * lss_aniso_lambda[0] + kvec[1] * kvec[1] * lss_aniso_lambda[1] + kvec[2] * kvec[2] * lss_aniso_lambda[2]);
-                return pphi2 + (lss_aniso_sum_lambda * k2 + 4.0/3.0 * fac_aniso ) * pphi;
+                return pphi2 - (lss_aniso_sum_lambda * k2 + 4.0/3.0 * fac_aniso ) * pphi;
             }, phi, phi2);
         }
 
