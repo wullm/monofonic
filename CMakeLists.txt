@@ -230,6 +230,10 @@ if(ENABLE_PANPHASIA)
 target_compile_options(${PRGNAME} PRIVATE "-DUSE_PANPHASIA")
 endif(ENABLE_PANPHASIA)
 
+if(ENABLE_PLT)
+target_compile_options(${PRGNAME} PRIVATE "-DENABLE_PLT")
+endif(ENABLE_PLT)
+
 target_link_libraries(${PRGNAME} ${FFTW3_LIBRARIES})
 target_include_directories(${PRGNAME} PRIVATE ${FFTW3_INCLUDE_DIRS})
 
