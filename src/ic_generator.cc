@@ -295,7 +295,7 @@ int Run( config_file& the_config )
     // phi = - delta / k^2
 
     music::ilog << "-------------------------------------------------------------------------------" << std::endl;
-    music::ilog << "Generating white noise field...." << std::endl;
+    music::ilog << "Generating LPT fields...." << std::endl;
 
     double wtime = get_wtime();
     music::ilog << std::setw(40) << std::setfill('.') << std::left << "Computing phi(1) term" << std::flush;
