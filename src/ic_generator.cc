@@ -101,20 +101,24 @@ int Run( config_file& the_config )
         music::elog << "Not all dimensions of LSS_aniso_l{x,y,z} specified! Will ignore external tidal field!" << std::endl;
         bAddExternalTides = false;
     }
+
+    if( bAddExternalTides && LPTorder == 1 ){
+        music::elog << "External tidal field requires 2LPT! Will ignore external tidal field!" << std::endl;
+        bAddExternalTides = false;
+    }
+
+    if( bAddExternalTides && LPTorder > 2 ){
+        music::elog << "External tidal field requires 2LPT! Use >2LPT at your own risk (not proven to be correct)." << std::endl;
+    }
+
     // Anisotropy parameters for beyond box tidal field 
-    std::array<real_t,3> lss_aniso_lambda = {
+    const std::array<real_t,3> lss_aniso_lambda = {
         the_config.get_value_safe<double>("cosmology", "LSS_aniso_lx", 0.0),
         the_config.get_value_safe<double>("cosmology", "LSS_aniso_ly", 0.0),
         the_config.get_value_safe<double>("cosmology", "LSS_aniso_lz", 0.0),
     };  
     
-    if( std::abs(lss_aniso_lambda[0]+lss_aniso_lambda[1]+lss_aniso_lambda[2]) > 1e-10 ){
-        music::elog << "External tidal field is not trace-free! Will subtract trace!" << std::endl;
-        auto tr_l_3 = (lss_aniso_lambda[0]+lss_aniso_lambda[1]+lss_aniso_lambda[2])/3.0;
-        lss_aniso_lambda[0] -= tr_l_3;
-        lss_aniso_lambda[1] -= tr_l_3;
-        lss_aniso_lambda[2] -= tr_l_3;
-    }
+    const real_t lss_aniso_sum_lambda = lss_aniso_lambda[0]+lss_aniso_lambda[1]+lss_aniso_lambda[2];
 
     //--------------------------------------------------------------------------------------------------------
 
@@ -122,13 +126,6 @@ int Run( config_file& the_config )
     const real_t volfac(std::pow(boxlen / ngrid / 2.0 / M_PI, 1.5));
 
     the_cosmo_calc->write_powerspectrum(astart, "input_powerspec.txt" );
-
-    //music::ilog << "-----------------------------------------------------------------------------" << std::endl;
-
-    // if( bSymplecticPT && LPTorder!=2 ){
-    //     music::wlog << "SymplecticPT has been selected and will overwrite chosen order of LPT to 2" << std::endl;
-    //     LPTorder = 2;
-    // }
 
     //--------------------------------------------------------------------
     // Compute LPT time coefficients
@@ -149,12 +146,8 @@ int Run( config_file& the_config )
     const double vfac2 =  2*vfac;
     const double vfac3 =  3*vfac;
 
-    // coefficients needed for anisotropic external tides
-    const double ai3 = std::pow(astart,-3);
-    const double Omega_m_of_a = the_cosmo_calc->cosmo_param_.Omega_m * ai3 / (the_cosmo_calc->cosmo_param_.Omega_m * ai3 + the_cosmo_calc->cosmo_param_.Omega_DE);
-    const double f1 = the_cosmo_calc->get_f(astart);
-    const double f_aniso = -4.0/3.0 * f1 * f1 / Omega_m_of_a;
-
+    // anisotropic velocity growth factor for external tides
+    // cf. eq. (5) of Stuecker et al. 2020 (https://arxiv.org/abs/2003.06427)
     const std::array<real_t,3> lss_aniso_alpha = {
         1.0 - Dplus0 * lss_aniso_lambda[0],
         1.0 - Dplus0 * lss_aniso_lambda[1],
@@ -327,11 +320,14 @@ int Run( config_file& the_config )
 
         if (bAddExternalTides)
         {
+            // anisotropic contribution to Phi^{(2)} for external tides
+            // cf. eq. (19) of Stuecker et al. 2020 (https://arxiv.org/abs/2003.06427)
             phi2.assign_function_of_grids_kdep([&](vec3_t<real_t> kvec, ccomplex_t pphi, ccomplex_t pphi2) {
-                // sign in front of f_aniso is reversed since phi1 = -phi
-                return pphi2 + f_aniso * (kvec[0] * kvec[0] * lss_aniso_lambda[0] + kvec[1] * kvec[1] * lss_aniso_lambda[1] + kvec[2] * kvec[2] * lss_aniso_lambda[2]) * pphi;
-            },
-                                               phi, phi2);
+                // sign in front of correction is reversed since phi1 = -phi
+                real_t k2 = kvec.norm_squared();
+                real_t alpha_aniso = (kvec[0] * kvec[0] * lss_aniso_lambda[0] + kvec[1] * kvec[1] * lss_aniso_lambda[1] + kvec[2] * kvec[2] * lss_aniso_lambda[2])/k2;
+                return pphi2 + (lss_aniso_sum_lambda + 4.0/3.0 * alpha_aniso ) * pphi;
+            }, phi, phi2);
         }
 
         phi2.apply_InverseLaplacian();
@@ -391,21 +387,6 @@ int Run( config_file& the_config )
         }
         music::ilog << std::setw(20) << std::setfill(' ') << std::right << "took " << get_wtime() - wtime << "s" << std::endl;
     }
-
-    // if( bSymplecticPT ){
-    //     //... transversal term ...
-    //     wtime = get_wtime();
-    //     music::ilog << std::setw(40) << std::setfill('.') << std::left << "Computing vNLO(3) term" << std::flush;
-    //     for( int idim=0; idim<3; ++idim ){
-    //         // cyclic rotations of indices
-    //         A3[idim]->FourierTransformForward(false);
-    //         Conv.convolve_Gradient_and_Hessian( phi, {0},  phi2, {idim,0}, assign_to(*A3[idim]) );
-    //         Conv.convolve_Gradient_and_Hessian( phi, {1},  phi2, {idim,1}, add_to(*A3[idim]) );
-    //         Conv.convolve_Gradient_and_Hessian( phi, {2},  phi2, {idim,2}, add_to(*A3[idim]) );
-    //     }
-    //     music::ilog << std::setw(20) << std::setfill(' ') << std::right << "took " << get_wtime()-wtime << "s" << std::endl;
-
-    // }
 
     ///... scale all potentials with respective growth factors
     phi *= g1;
@@ -671,10 +652,6 @@ int Run( config_file& the_config )
                                     // modify velocities with anisotropic expansion factor**2
                                     tmp.kelem(idx) *= std::pow(lss_aniso_alpha[idim],2.0);
                                 }
-                                // if( bSymplecticPT){
-                                //     auto phitot_v = vfac1 * phi.kelem(idx) + vfac2 * phi2.kelem(idx);
-                                //     tmp.kelem(idx) = vunit*ccomplex_t(0.0,1.0) * (kk[idim] * phitot_v) + vfac1 * A3[idim]->kelem(idx);
-                                // }
                             }
                         }
                     }
