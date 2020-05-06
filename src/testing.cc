@@ -9,7 +9,7 @@ namespace testing
 {
 
 void output_potentials_and_densities(
-    ConfigFile &the_config,
+    config_file &the_config,
     size_t ngrid, real_t boxlen,
     Grid_FFT<real_t> &phi,
     Grid_FFT<real_t> &phi2,
@@ -17,8 +17,8 @@ void output_potentials_and_densities(
     Grid_FFT<real_t> &phi3b,
     std::array<Grid_FFT<real_t> *, 3> &A3)
 {
-    const std::string fname_hdf5 = the_config.GetValueSafe<std::string>("output", "fname_hdf5", "output.hdf5");
-    const std::string fname_analysis = the_config.GetValueSafe<std::string>("output", "fbase_analysis", "output");
+    const std::string fname_hdf5 = the_config.get_value_safe<std::string>("output", "fname_hdf5", "output.hdf5");
+    const std::string fname_analysis = the_config.get_value_safe<std::string>("output", "fbase_analysis", "output");
 
     Grid_FFT<real_t> delta({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
     Grid_FFT<real_t> delta2({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
@@ -98,7 +98,7 @@ void output_potentials_and_densities(
 }
 
 void output_velocity_displacement_symmetries(
-    ConfigFile &the_config,
+    config_file &the_config,
     size_t ngrid, real_t boxlen, real_t vfac, real_t dplus,
     Grid_FFT<real_t> &phi,
     Grid_FFT<real_t> &phi2,
@@ -107,8 +107,8 @@ void output_velocity_displacement_symmetries(
     std::array<Grid_FFT<real_t> *, 3> &A3,
     bool bwrite_out_fields)
 {
-    const std::string fname_hdf5 = the_config.GetValueSafe<std::string>("output", "fname_hdf5", "output.hdf5");
-    const std::string fname_analysis = the_config.GetValueSafe<std::string>("output", "fbase_analysis", "output");
+    const std::string fname_hdf5 = the_config.get_value_safe<std::string>("output", "fname_hdf5", "output.hdf5");
+    const std::string fname_analysis = the_config.get_value_safe<std::string>("output", "fbase_analysis", "output");
 
     real_t vfac1 = vfac;
     real_t vfac2 = 2 * vfac;
@@ -232,7 +232,7 @@ void output_velocity_displacement_symmetries(
     }
 
 
-    csoca::ilog << "std. deviation of invariant : ( D+ | I_xy | I_yz | I_zx ) \n"
+    music::ilog << "std. deviation of invariant : ( D+ | I_xy | I_yz | I_zx ) \n"
                     << std::setw(16) << dplus << " "
                     << std::setw(16) << Icomp[0] << " "
                     << std::setw(16) << Icomp[1] << " "
@@ -241,7 +241,8 @@ void output_velocity_displacement_symmetries(
 }
 
 void output_convergence(
-    ConfigFile &the_config,
+    config_file &the_config,
+    cosmology::calculator* the_cosmo_calc,
     std::size_t ngrid, real_t boxlen, real_t vfac, real_t dplus,
     Grid_FFT<real_t> &phi,
     Grid_FFT<real_t> &phi2,
@@ -249,7 +250,6 @@ void output_convergence(
     Grid_FFT<real_t> &phi3b,
     std::array<Grid_FFT<real_t> *, 3> &A3)
 {
-
     // scale all potentials to remove dplus0
     phi /= dplus;
     phi2 /= dplus * dplus;
@@ -259,11 +259,95 @@ void output_convergence(
     (*A3[1]) /= dplus * dplus * dplus;
     (*A3[2]) /= dplus * dplus * dplus;
 
+    ////////////////////// theoretical convergence radius //////////////////////
+
+    // compute phi_code
+    Grid_FFT<real_t> phi_code({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
+    phi_code.FourierTransformForward(false);
+    #pragma omp parallel for //collapse(3)
+    for (std::size_t i = 0; i < phi_code.size(0); ++i) {
+        for (std::size_t j = 0; j < phi_code.size(1); ++j) {
+            for (std::size_t k = 0; k < phi_code.size(2); ++k) {
+                std::size_t idx = phi_code.get_idx(i, j, k);
+                phi_code.kelem(idx) = -phi.kelem(idx);
+            }
+        }
+    }
+
+    // initialize norm to 0
+    Grid_FFT<real_t> nabla_vini_norm({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
+    #pragma omp parallel for //collapse(3)
+    for (std::size_t i = 0; i < nabla_vini_norm.size(0); ++i) {
+        for (std::size_t j = 0; j < nabla_vini_norm.size(1); ++j) {
+            for (std::size_t k = 0; k < nabla_vini_norm.size(2); ++k) {
+                std::size_t idx = nabla_vini_norm.get_idx(i, j, k);
+                nabla_vini_norm.relem(idx) = 0.0;
+            }
+        }
+    }
+
+    Grid_FFT<real_t> nabla_vini_mn({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
+    for(std::size_t m = 0; m < 3; m++) {
+        for(std::size_t n = m; n < 3; n++) {
+            nabla_vini_mn.FourierTransformForward(false);
+            #pragma omp parallel for //collapse(3)
+            for (std::size_t i = 0; i < phi_code.size(0); ++i) {
+                for (std::size_t j = 0; j < phi_code.size(1); ++j) {
+                    for (std::size_t k = 0; k < phi_code.size(2); ++k) {
+                        std::size_t idx = phi_code.get_idx(i, j, k);
+                        auto kk = phi_code.get_k<real_t>(i, j, k);
+                        nabla_vini_mn.kelem(idx) = phi_code.kelem(idx) * (kk[m] * kk[n]);
+                    }
+                }
+            }
+            nabla_vini_mn.FourierTransformBackward();
+            nabla_vini_mn *= (3.2144004915 / the_cosmo_calc->get_growth_factor(1.0));
+            // sum of squares
+            #pragma omp parallel for //collapse(3)
+            for (std::size_t i = 0; i < nabla_vini_norm.size(0); ++i) {
+                for (std::size_t j = 0; j < nabla_vini_norm.size(1); ++j) {
+                    for (std::size_t k = 0; k < nabla_vini_norm.size(2); ++k) {
+                        std::size_t idx = nabla_vini_norm.get_idx(i, j, k);
+                        if(m != n) {
+                            nabla_vini_norm.relem(idx) += (2.0 * nabla_vini_mn.relem(idx) * nabla_vini_mn.relem(idx));
+                        } else {
+                            nabla_vini_norm.relem(idx) += (nabla_vini_mn.relem(idx) * nabla_vini_mn.relem(idx));
+                        }
+                    }
+                }
+            }
+        }
+    }
+    // square root
+    #pragma omp parallel for //collapse(3)
+    for (std::size_t i = 0; i < nabla_vini_norm.size(0); ++i) {
+        for (std::size_t j = 0; j < nabla_vini_norm.size(1); ++j) {
+            for (std::size_t k = 0; k < nabla_vini_norm.size(2); ++k) {
+                std::size_t idx = nabla_vini_norm.get_idx(i, j, k);
+                nabla_vini_norm.relem(idx) = std::sqrt(nabla_vini_norm.relem(idx));
+            }
+        }
+    }
+
+    // get t_eds
+    Grid_FFT<real_t> t_eds({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
+    #pragma omp parallel for //collapse(3)
+    for (std::size_t i = 0; i < t_eds.size(0); ++i) {
+        for (std::size_t j = 0; j < t_eds.size(1); ++j) {
+            for (std::size_t k = 0; k < t_eds.size(2); ++k) {
+                std::size_t idx = t_eds.get_idx(i, j, k);
+                t_eds.relem(idx) = 0.0204 / nabla_vini_norm.relem(idx);
+            }
+        }
+    }
+
+    ////////////////////////// 3lpt convergence test ///////////////////////////
+
     // initialize grids to 0
     Grid_FFT<real_t> psi_1({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
     Grid_FFT<real_t> psi_2({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
     Grid_FFT<real_t> psi_3({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
-#pragma omp parallel for collapse(3)
+    #pragma omp parallel for //collapse(3)
     for (std::size_t i = 0; i < psi_1.size(0); ++i) {
         for (std::size_t j = 0; j < psi_1.size(1); ++j) {
             for (std::size_t k = 0; k < psi_1.size(2); ++k) {
@@ -290,7 +374,7 @@ void output_convergence(
         psi_2_tmp.FourierTransformForward(false);
         psi_3_tmp.FourierTransformForward(false);
 
-#pragma omp parallel for collapse(3)
+        #pragma omp parallel for //collapse(3)
         for (std::size_t i = 0; i < phi.size(0); ++i) {
             for (std::size_t j = 0; j < phi.size(1); ++j) {
                 for (std::size_t k = 0; k < phi.size(2); ++k) {
@@ -311,7 +395,7 @@ void output_convergence(
         psi_3_tmp.FourierTransformBackward();
 
         // sum of squares
-#pragma omp parallel for collapse(3)
+        #pragma omp parallel for //collapse(3)
         for (std::size_t i = 0; i < psi_1.size(0); ++i) {
             for (std::size_t j = 0; j < psi_1.size(1); ++j) {
                 for (std::size_t k = 0; k < psi_1.size(2); ++k) {
@@ -325,7 +409,7 @@ void output_convergence(
     } // loop on dimensions
 
     // apply square root for the L2 norm
-#pragma omp parallel for collapse(3)
+#pragma omp parallel for //collapse(3)
     for (std::size_t i = 0; i < psi_1.size(0); ++i) {
         for (std::size_t j = 0; j < psi_1.size(1); ++j) {
             for (std::size_t k = 0; k < psi_1.size(2); ++k) {
@@ -339,7 +423,7 @@ void output_convergence(
 
     // convergence radius
     Grid_FFT<real_t> inv_convergence_radius({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
-#pragma omp parallel for collapse(3)
+    #pragma omp parallel for //collapse(3)
     for (std::size_t i = 0; i < psi_1.size(0); ++i) {
         for (std::size_t j = 0; j < psi_1.size(1); ++j) {
             for (std::size_t k = 0; k < psi_1.size(2); ++k) {
@@ -351,13 +435,17 @@ void output_convergence(
         }
     }
 
-    // write results
-    unlink("convergence_test.hdf5");
-    inv_convergence_radius.Write_to_HDF5("convergence_test.hdf5", "inv_convergence_radius");
-    psi_1.Write_to_HDF5("convergence_test.hdf5", "psi_1_norm");
-    psi_2.Write_to_HDF5("convergence_test.hdf5", "psi_2_norm");
-    psi_3.Write_to_HDF5("convergence_test.hdf5", "psi_3_norm");
-
+    ////////////////////////////// write results ///////////////////////////////
+    std::string convergence_test_filename("convergence_test.hdf5");
+    unlink(convergence_test_filename.c_str());
+#if defined(USE_MPI)
+    MPI_Barrier(MPI_COMM_WORLD);
+#endif
+    t_eds.Write_to_HDF5(convergence_test_filename, "t_eds");
+    inv_convergence_radius.Write_to_HDF5(convergence_test_filename, "inv_convergence_radius");
+    // psi_1.Write_to_HDF5(convergence_test_filename, "psi_1_norm");
+    // psi_2.Write_to_HDF5(convergence_test_filename, "psi_2_norm");
+    // psi_3.Write_to_HDF5(convergence_test_filename, "psi_3_norm");
 }
 
 } // namespace testing

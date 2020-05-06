@@ -10,21 +10,21 @@
 class RNG_plugin
 {
   protected:
-    ConfigFile *pcf_; //!< pointer to config_file from which to read parameters
+    config_file *pcf_; //!< pointer to config_file from which to read parameters
   public:
-    explicit RNG_plugin(ConfigFile &cf)
+    explicit RNG_plugin(config_file &cf)
         : pcf_(&cf)
     {
     }
     virtual ~RNG_plugin() {}
     virtual bool isMultiscale() const = 0;
-    virtual void Fill_Grid( Grid_FFT<real_t>& g ) const = 0;
+    virtual void Fill_Grid( Grid_FFT<real_t>& g ) = 0;//const = 0;
     //virtual void FillGrid(int level, DensityGrid<real_t> &R) = 0;
 };
 
 struct RNG_plugin_creator
 {
-    virtual std::unique_ptr<RNG_plugin> Create(ConfigFile &cf) const = 0;
+    virtual std::unique_ptr<RNG_plugin> Create(config_file &cf) const = 0;
     virtual ~RNG_plugin_creator() {}
 };
 
@@ -42,14 +42,14 @@ struct RNG_plugin_creator_concrete : public RNG_plugin_creator
     }
 
     //! create an instance of the plugin
-    std::unique_ptr<RNG_plugin> Create(ConfigFile &cf) const
+    std::unique_ptr<RNG_plugin> Create(config_file &cf) const
     {
         return std::make_unique<Derived>(cf);
     }
 };
 
 typedef RNG_plugin RNG_instance;
-std::unique_ptr<RNG_plugin> select_RNG_plugin( ConfigFile &cf);
+std::unique_ptr<RNG_plugin> select_RNG_plugin( config_file &cf);
 
 // /*!
 //  * @brief encapsulates all things for multi-scale white noise generation
@@ -58,18 +58,18 @@ std::unique_ptr<RNG_plugin> select_RNG_plugin( ConfigFile &cf);
 // class random_number_generator
 // {
 //   protected:
-//     ConfigFile *pcf_;
+//     config_file *pcf_;
 //     //const refinement_hierarchy * prefh_;
 //     RNG_plugin *generator_;
 //     int levelmin_, levelmax_;
 
 //   public:
 //     //! constructor
-//     random_number_generator( ConfigFile &cf )
+//     random_number_generator( config_file &cf )
 //         : pcf_(&cf) //, prefh_( &refh )
 //     {
-//         levelmin_ = pcf_->GetValue<int>("setup", "levelmin");
-//         levelmax_ = pcf_->GetValue<int>("setup", "levelmax");
+//         levelmin_ = pcf_->get_value<int>("setup", "levelmin");
+//         levelmax_ = pcf_->get_value<int>("setup", "levelmax");
 //         generator_ = select_RNG_plugin(cf);
 //     }
 

@@ -333,7 +333,7 @@ public:
         crecvbuf_ = new ccomplex_t[maxslicesz_ / 2];
         recvbuf_ = reinterpret_cast<real_t *>(&crecvbuf_[0]);
 
-        int ntasks(MPI_Get_size());
+        int ntasks(MPI::get_size());
 
         offsets_.assign(ntasks, 0);
         offsetsp_.assign(ntasks, 0);
@@ -415,12 +415,12 @@ private:
     {
         assert(fp.space_ == kspace_id);
 
-        const double rfac = std::pow(1.5, 1.5);
+        const real_t rfac = std::pow(1.5, 1.5);
 
         fp.zero();
 
 #if !defined(USE_MPI) ////////////////////////////////////////////////////////////////////////////////////
-        size_t nhalf[3] = {fp.n_[0] / 3, fp.n_[1] / 3, fp.n_[2] / 3};
+        const size_t nhalf[3] = {fp.n_[0] / 3, fp.n_[1] / 3, fp.n_[2] / 3};
 
 #pragma omp parallel for
         for (size_t i = 0; i < 2 * fp.size(0) / 3; ++i)
@@ -429,10 +429,9 @@ private:
             for (size_t j = 0; j < 2 * fp.size(1) / 3; ++j)
             {
                 size_t jp = (j > nhalf[1]) ? j + nhalf[1] : j;
-                for (size_t k = 0; k < 2 * fp.size(2) / 3; ++k)
+                for (size_t k = 0; k < nhalf[2]+1; ++k)
                 {
                     size_t kp = (k > nhalf[2]) ? k + nhalf[2] : k;
-                    // if( i==nhalf[0]||j==nhalf[1]||k==nhalf[2]) continue;
                     fp.kelem(ip, jp, kp) = kfunc(i, j, k) * rfac;
                 }
             }
@@ -445,7 +444,7 @@ private:
         /////////////////////////////////////////////////////////////////////
 
         double tstart = get_wtime();
-        csoca::dlog << "[MPI] Started scatter for convolution" << std::endl;
+        music::dlog << "[MPI] Started scatter for convolution" << std::endl;
 
         //... collect offsets
 
@@ -460,7 +459,10 @@ private:
         size_t slicesz = fbuf_->size(1) * fbuf_->size(3);
 
         MPI_Datatype datatype =
-            (typeid(data_t) == typeid(float)) ? MPI_COMPLEX : (typeid(data_t) == typeid(double)) ? MPI_DOUBLE_COMPLEX : MPI_BYTE;
+            (typeid(data_t) == typeid(float)) ? MPI_C_FLOAT_COMPLEX 
+            : (typeid(data_t) == typeid(double)) ? MPI_C_DOUBLE_COMPLEX 
+            : (typeid(data_t) == typeid(long double)) ? MPI_C_LONG_DOUBLE_COMPLEX
+            : MPI_BYTE;
 
         // fill MPI send buffer with results of kfunc
 
@@ -587,7 +589,7 @@ private:
         // std::cerr << ">>>>> task " << CONFIG::MPI_task_rank << " all transfers completed! <<<<<"
         // << std::endl;  ofs << ">>>>> task " << CONFIG::MPI_task_rank << " all transfers completed!
         // <<<<<" << std::endl;
-        csoca::dlog.Print("[MPI] Completed scatter for convolution, took %fs\n",
+        music::dlog.Print("[MPI] Completed scatter for convolution, took %fs\n",
                           get_wtime() - tstart);
 
 #endif /// end of ifdef/ifndef USE_MPI ///////////////////////////////////////////////////////////////
@@ -596,7 +598,7 @@ private:
     template <typename operator_t>
     void unpad(const Grid_FFT<data_t> &fp, operator_t output_op)
     {
-        const double rfac = std::sqrt(fp.n_[0] * fp.n_[1] * fp.n_[2]) / std::sqrt(fbuf_->n_[0] * fbuf_->n_[1] * fbuf_->n_[2]);
+        const real_t rfac = std::sqrt(fp.n_[0] * fp.n_[1] * fp.n_[2]) / std::sqrt(fbuf_->n_[0] * fbuf_->n_[1] * fbuf_->n_[2]);
 
         // make sure we're in Fourier space...
         assert(fp.space_ == kspace_id);
@@ -615,8 +617,11 @@ private:
                 for (size_t k = 0; k < fbuf_->size(2); ++k)
                 {
                     size_t kp = (k > nhalf[2]) ? k + nhalf[2] : k;
-                    // if( i==nhalf[0]||j==nhalf[1]||k==nhalf[2]) continue;
                     fbuf_->kelem(i, j, k) = fp.kelem(ip, jp, kp) / rfac;
+                    // zero Nyquist modes since they are not unique after convolution
+                    if( i==nhalf[0]||j==nhalf[1]||k==nhalf[2]){
+                        fbuf_->kelem(i, j, k) = 0.0; 
+                    }
                 }
             }
         }
@@ -634,7 +639,7 @@ private:
 
         double tstart = get_wtime();
 
-        csoca::dlog << "[MPI] Started gather for convolution";
+        music::dlog << "[MPI] Started gather for convolution";
 
         MPI_Barrier(MPI_COMM_WORLD);
 
@@ -645,7 +650,10 @@ private:
         size_t slicesz = fp.size(1) * fp.size(3);
 
         MPI_Datatype datatype =
-            (typeid(data_t) == typeid(float)) ? MPI_COMPLEX : (typeid(data_t) == typeid(double)) ? MPI_DOUBLE_COMPLEX : MPI_BYTE;
+            (typeid(data_t) == typeid(float)) ? MPI_C_FLOAT_COMPLEX 
+            : (typeid(data_t) == typeid(double)) ? MPI_C_DOUBLE_COMPLEX 
+            : (typeid(data_t) == typeid(long double)) ? MPI_C_LONG_DOUBLE_COMPLEX 
+            : MPI_BYTE;
 
         MPI_Status status;
 
@@ -685,7 +693,7 @@ private:
             int recvfrom = 0;
             if (iglobal <= fny[0])
             {
-                real_t wi = (iglobal == fny[0]) ? 0.5 : 1.0;
+                real_t wi = (iglobal == fny[0]) ? 0.0 : 1.0;
 
                 recvfrom = get_task(iglobal, offsetsp_, sizesp_, CONFIG::MPI_task_size);
                 MPI_Recv(&recvbuf_[0], (int)slicesz, datatype, recvfrom, (int)iglobal,
@@ -693,7 +701,7 @@ private:
 
                 for (size_t j = 0; j < nf[1]; ++j)
                 {
-                    real_t wj = (j == fny[1]) ? 0.5 : 1.0;
+                    real_t wj = (j == fny[1]) ? 0.0 : 1.0;
                     if (j <= fny[1])
                     {
                         size_t jp = j;
@@ -701,21 +709,22 @@ private:
                         {
                             if (typeid(data_t) == typeid(real_t))
                             {
-                                real_t w = wi * wj;
+                                real_t wk = (k == fny[2]) ? 0.0 : 1.0;
+                                real_t w = wi * wj * wk;
                                 fbuf_->kelem(i, j, k) += w * crecvbuf_[jp * nfp[3] + k] / rfac;
                             }
                             else
                             {
-                                real_t wk = (k == fny[2]) ? 0.5 : 1.0;
+                                real_t wk = (k == fny[2]) ? 0.0 : 1.0;
                                 real_t w = wi * wj * wk;
-                                if (k <= fny[2])
+                                if (k < fny[2])
                                     fbuf_->kelem(i, j, k) += w * crecvbuf_[jp * nfp[3] + k] / rfac;
-                                if (k >= fny[2])
+                                if (k > fny[2])
                                     fbuf_->kelem(i, j, k) += w * crecvbuf_[jp * nfp[3] + k + fny[2]] / rfac;
-                                if (w < 1.0)
-                                {
-                                    fbuf_->kelem(i, j, k) = std::real(fbuf_->kelem(i, j, k));
-                                }
+                                // if (w < 1.0)
+                                // {
+                                //     fbuf_->kelem(i, j, k) = std::real(fbuf_->kelem(i, j, k));
+                                // }
                             }
                         }
                     }
@@ -726,21 +735,22 @@ private:
                         {
                             if (typeid(data_t) == typeid(real_t))
                             {
-                                real_t w = wi * wj;
+                                real_t wk = (k == fny[2]) ? 0.0 : 1.0;
+                                real_t w = wi * wj * wk;
                                 fbuf_->kelem(i, j, k) += w * crecvbuf_[jp * nfp[3] + k] / rfac;
                             }
                             else
                             {
-                                real_t wk = (k == fny[2]) ? 0.5 : 1.0;
+                                real_t wk = (k == fny[2]) ? 0.0 : 1.0;
                                 real_t w = wi * wj * wk;
-                                if (k <= fny[2])
+                                if (k < fny[2])
                                     fbuf_->kelem(i, j, k) += w * crecvbuf_[jp * nfp[3] + k] / rfac;
-                                if (k >= fny[2])
+                                if (k > fny[2])
                                     fbuf_->kelem(i, j, k) += w * crecvbuf_[jp * nfp[3] + k + fny[2]] / rfac;
-                                if (w < 1.0)
-                                {
-                                    fbuf_->kelem(i, j, k) = std::real(fbuf_->kelem(i, j, k));
-                                }
+                                // if (w < 1.0)
+                                // {
+                                //     fbuf_->kelem(i, j, k) = std::real(fbuf_->kelem(i, j, k));
+                                // }
                             }
                         }
                     }
@@ -748,7 +758,7 @@ private:
             }
             if (iglobal >= fny[0])
             {
-                real_t wi = (iglobal == fny[0]) ? 0.5 : 1.0;
+                real_t wi = (iglobal == fny[0]) ? 0.0 : 1.0;
 
                 recvfrom = get_task(iglobal + fny[0], offsetsp_, sizesp_, CONFIG::MPI_task_size);
                 MPI_Recv(&recvbuf_[0], (int)slicesz, datatype, recvfrom,
@@ -756,29 +766,26 @@ private:
 
                 for (size_t j = 0; j < nf[1]; ++j)
                 {
-                    real_t wj = (j == fny[1]) ? 0.5 : 1.0;
+                    real_t wj = (j == fny[1]) ? 0.0 : 1.0;
                     if (j <= fny[1])
                     {
                         size_t jp = j;
                         for (size_t k = 0; k < nf[2]; ++k)
                         {
+                            const real_t wk = (k == fny[2]) ? 0.0 : 1.0;
+                            const real_t w = wi * wj * wk;
                             if (typeid(data_t) == typeid(real_t))
                             {
-                                real_t w = wi * wj;
+                                real_t wk = (k == fny[2]) ? 0.0 : 1.0;
+                                real_t w = wi * wj * wk;
                                 fbuf_->kelem(i, j, k) += w * crecvbuf_[jp * nfp[3] + k] / rfac;
                             }
                             else
                             {
-                                real_t wk = (k == fny[2]) ? 0.5 : 1.0;
-                                real_t w = wi * wj * wk;
-                                if (k <= fny[2])
+                                if (k < fny[2])
                                     fbuf_->kelem(i, j, k) += w * crecvbuf_[jp * nfp[3] + k] / rfac;
-                                if (k >= fny[2])
+                                if (k > fny[2])
                                     fbuf_->kelem(i, j, k) += w * crecvbuf_[jp * nfp[3] + k + fny[2]] / rfac;
-                                if (w < 1.0)
-                                {
-                                    fbuf_->kelem(i, j, k) = std::real(fbuf_->kelem(i, j, k));
-                                }
                             }
                         }
                     }
@@ -787,23 +794,18 @@ private:
                         size_t jp = j + fny[1];
                         for (size_t k = 0; k < nf[2]; ++k)
                         {
+                            const real_t wk = (k == fny[2]) ? 0.0 : 1.0;
+                            const real_t w = wi * wj * wk;
                             if (typeid(data_t) == typeid(real_t))
                             {
-                                real_t w = wi * wj;
                                 fbuf_->kelem(i, j, k) += w * crecvbuf_[jp * nfp[3] + k] / rfac;
                             }
                             else
                             {
-                                real_t wk = (k == fny[2]) ? 0.5 : 1.0;
-                                real_t w = wi * wj * wk;
-                                if (k <= fny[2])
+                                if (k < fny[2])
                                     fbuf_->kelem(i, j, k) += w * crecvbuf_[jp * nfp[3] + k] / rfac;
-                                if (k >= fny[2])
+                                if (k > fny[2])
                                     fbuf_->kelem(i, j, k) += w * crecvbuf_[jp * nfp[3] + k + fny[2]] / rfac;
-                                if (w < 1.0)
-                                {
-                                    fbuf_->kelem(i, j, k) = std::real(fbuf_->kelem(i, j, k));
-                                }
                             }
                         }
                     }
@@ -811,8 +813,8 @@ private:
             }
         }
 
-//... copy data back
-#pragma omp parallel for
+        //... copy data back
+        #pragma omp parallel for
         for (size_t i = 0; i < fbuf_->ntot_; ++i)
         {
             output_op(i, (*fbuf_)[i]);
@@ -831,7 +833,7 @@ private:
 
         MPI_Barrier(MPI_COMM_WORLD);
 
-        csoca::dlog.Print("[MPI] Completed gather for convolution, took %fs", get_wtime() - tstart);
+        music::dlog.Print("[MPI] Completed gather for convolution, took %fs", get_wtime() - tstart);
 
 #endif /// end of ifdef/ifndef USE_MPI //////////////////////////////////////////////////////////////
     }

@@ -32,6 +32,7 @@ if(ENABLE_CLASS)
       ${CMAKE_CURRENT_LIST_DIR}/class/build/history.o
       ${CMAKE_CURRENT_LIST_DIR}/class/build/hydrogen.o
       ${CMAKE_CURRENT_LIST_DIR}/class/build/hyperspherical.o
+      ${CMAKE_CURRENT_LIST_DIR}/class/tools/trigonometric_integrals.o
       ${CMAKE_CURRENT_LIST_DIR}/class/build/hyrectools.o
       ${CMAKE_CURRENT_LIST_DIR}/class/build/input.o
       ${CMAKE_CURRENT_LIST_DIR}/class/build/lensing.o
@@ -78,6 +79,7 @@ if(ENABLE_CLASS)
       ${CMAKE_CURRENT_LIST_DIR}/class/tools/parser.c
       ${CMAKE_CURRENT_LIST_DIR}/class/tools/quadrature.c
       ${CMAKE_CURRENT_LIST_DIR}/class/tools/hyperspherical.c
+      ${CMAKE_CURRENT_LIST_DIR}/class/tools/trigonometric_integrals.c
       ${CMAKE_CURRENT_LIST_DIR}/class/tools/common.c
       ${CMAKE_CURRENT_LIST_DIR}/class/source/input.c
       ${CMAKE_CURRENT_LIST_DIR}/class/source/background.c
@@ -131,9 +133,9 @@ macro(target_setup_class target_name)
   endif(ENABLE_CLASS)
 endmacro(target_setup_class)
 
-if(ENABLE_CLASS)
-  # test executable
-  add_executable(testTk
-    ${CMAKE_CURRENT_LIST_DIR}/class/cpp/testTk.cc)
-  target_setup_class(testTk)
-endif(ENABLE_CLASS)
+# if(ENABLE_CLASS)
+#   # test executable
+#   add_executable(testTk
+#     ${CMAKE_CURRENT_LIST_DIR}/class/cpp/testTk.cc)
+#   target_setup_class(testTk)
+# endif(ENABLE_CLASS)

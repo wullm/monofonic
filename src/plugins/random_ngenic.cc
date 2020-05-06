@@ -18,11 +18,11 @@ private:
     std::vector<unsigned int> SeedTable_;
 
 public:
-    explicit RNG_ngenic(ConfigFile &cf) : RNG_plugin(cf)
+    explicit RNG_ngenic(config_file &cf) : RNG_plugin(cf)
     {
 
-        RandomSeed_ = cf.GetValue<long>("random", "seed");
-        nres_ = cf.GetValue<size_t>("setup", "GridRes");
+        RandomSeed_ = cf.get_value<long>("random", "seed");
+        nres_ = cf.get_value<size_t>("setup", "GridRes");
         pRandomGenerator_ = gsl_rng_alloc(gsl_rng_ranlxd1);
         gsl_rng_set(pRandomGenerator_, RandomSeed_);
 
@@ -63,7 +63,7 @@ public:
 
     bool isMultiscale() const { return false; }
 
-    void Fill_Grid(Grid_FFT<real_t> &g) const
+    void Fill_Grid(Grid_FFT<real_t> &g) //const
     {
         g.zero();
         g.FourierTransformForward(false);
@@ -82,7 +82,11 @@ public:
                 for (size_t j = 0; j < nres_; ++j) 
                 {                   
                     ptrdiff_t jj = (j>0)? nres_ - j : 0;
-                    gsl_rng_set( pRandomGenerator_, SeedTable_[i * nres_ + j]);
+                    if( g.is_distributed() )
+                        gsl_rng_set( pRandomGenerator_, SeedTable_[j * nres_ + i]);
+                    else
+                        gsl_rng_set( pRandomGenerator_, SeedTable_[i * nres_ + j]);
+                    
                     for (size_t k = 0; k < g.size(2); ++k) 
                     {
                         double phase = gsl_rng_uniform(pRandomGenerator_) * 2 * M_PI;
@@ -101,15 +105,28 @@ public:
                         if (k > 0) {
                             if (i_in_range) g.kelem(ip,j,k) = zrand;
                         } else{ /* k=0 plane needs special treatment */
-                            if (i == 0) {
-                                if (j < nres_ / 2 && i_in_range)
-                                {
-                                    g.kelem(ip,j,k) = zrand;
-                                    g.kelem(ip,jj,k) = std::conj(zrand);
+                            if( g.is_distributed() ){
+                                if (j == 0) {
+                                    if (i < nres_ / 2 && i_in_range)
+                                    {
+                                        if(i_in_range) g.kelem(ip,jj,k) = zrand;
+                                        if(ii_in_range) g.kelem(iip,j,k) = std::conj(zrand);
+                                    }
+                                } else if (j < nres_ / 2) {
+                                    if(i_in_range) g.kelem(ip,j,k) = zrand;
+                                    if(ii_in_range) g.kelem(iip,jj,k) = std::conj(zrand);
                                 }
-                            } else if (i < nres_ / 2) {
-                                if(i_in_range) g.kelem(ip,j,k) = zrand;
-                                if (ii_in_range) g.kelem(iip,jj,k) = std::conj(zrand);
+                            }else{
+                                if (i == 0) {
+                                    if (j < nres_ / 2 && i_in_range)
+                                    {
+                                        g.kelem(ip,j,k) = zrand;
+                                        g.kelem(ip,jj,k) = std::conj(zrand);
+                                    }
+                                } else if (i < nres_ / 2) {
+                                    if(i_in_range) g.kelem(ip,j,k) = zrand;
+                                    if (ii_in_range) g.kelem(iip,jj,k) = std::conj(zrand);
+                                }
                             }
                         }
                     }

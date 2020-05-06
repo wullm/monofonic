@@ -1,16 +1,16 @@
 #pragma once
 
-#include <vec3.hh>
+#include <math/vec3.hh>
 
 template <typename T>
 struct bounding_box
 {
-    vec3<T> x1_, x2_;
+    vec3_t<T> x1_, x2_;
 
     bounding_box(void)
     { }
 
-    bounding_box( const vec3<T>& x1, const vec3<T>& x2)
+    bounding_box( const vec3_t<T>& x1, const vec3_t<T>& x2)
     : x1_(x1), x2_(x2)
     { }
 

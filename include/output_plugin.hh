@@ -21,11 +21,12 @@
 
 enum class output_type {particles,field_lagrangian,field_eulerian};
 
+
 class output_plugin
 {
 protected:
-	//! reference to the ConfigFile object that holds all configuration options
-	ConfigFile &cf_;
+	//! reference to the config_file object that holds all configuration options
+	config_file &cf_;
 
 	//! output file or directory name
 	std::string fname_;
@@ -34,17 +35,17 @@ protected:
 	std::string interface_name_;
 public:
 	//! constructor
-	output_plugin(ConfigFile &cf, std::string interface_name )
+	output_plugin(config_file &cf, std::string interface_name )
 		: cf_(cf), interface_name_(interface_name)
 	{
-		fname_ = cf_.GetValue<std::string>("output", "filename");
+		fname_ = cf_.get_value<std::string>("output", "filename");
 	}
 
 	//! virtual destructor
 	virtual ~output_plugin(){}
 
 	//! routine to write particle data for a species
-	virtual void write_particle_data(const particle::container &pc, const cosmo_species &s ) {};
+	virtual void write_particle_data(const particle::container &pc, const cosmo_species &s, double Omega_species ) {};
 
 	//! routine to write gridded fluid component data for a species
 	virtual void write_grid_data(const Grid_FFT<real_t> &g, const cosmo_species &s, const fluid_component &c ) {};
@@ -57,6 +58,12 @@ public:
 
 	//! routine to query whether species is written as particle data
 	// virtual bool write_species_as_particles( const cosmo_species &s ){ return !write_species_as_grid(s); }
+
+	//! query if output wants 64bit precision for real values
+	virtual bool has_64bit_reals() const = 0;
+
+	//! query if output wants 64bit precision for integer values
+	virtual bool has_64bit_ids() const = 0;
 	
 	//! routine to return a multiplicative factor that contains the desired position units for the output
 	virtual real_t position_unit() const = 0;
@@ -71,7 +78,7 @@ public:
 struct output_plugin_creator
 {
 	//! create an instance of a plug-in
-	virtual std::unique_ptr<output_plugin> create(ConfigFile &cf) const = 0;
+	virtual std::unique_ptr<output_plugin> create(config_file &cf) const = 0;
 
 	//! destroy an instance of a plug-in
 	virtual ~output_plugin_creator() {}
@@ -96,12 +103,12 @@ struct output_plugin_creator_concrete : public output_plugin_creator
 	}
 
 	//! create an instance of the plug-in
-	std::unique_ptr<output_plugin> create(ConfigFile &cf) const
+	std::unique_ptr<output_plugin> create(config_file &cf) const
 	{
 		return std::make_unique<Derived>(cf); // Derived( cf );
 	}
 };
 
 //! failsafe version to select the output plug-in
-std::unique_ptr<output_plugin> select_output_plugin(ConfigFile &cf);
+std::unique_ptr<output_plugin> select_output_plugin(config_file &cf);
 

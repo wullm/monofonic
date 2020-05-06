@@ -6,35 +6,35 @@
 #include <fstream>
 #include <iostream>
 
-namespace csoca {
+namespace music {
 
-enum LogLevel : int {
-  Off     = 0,
-  Fatal   = 1,
-  Error   = 2,
-  Warning = 3,
-  Info    = 4,
-  Debug   = 5
+enum log_level : int {
+  off     = 0,
+  fatal   = 1,
+  error   = 2,
+  warning = 3,
+  info    = 4,
+  debug   = 5
 };
 
-class Logger {
+class logger {
 private:
-  static LogLevel log_level_;
+  static log_level log_level_;
   static std::ofstream output_file_;
 
 public:
-  Logger()  = default;
-  ~Logger() = default;
+  logger()  = default;
+  ~logger() = default;
 
-  static void SetLevel(const LogLevel &level);
-  static LogLevel GetLevel();
+  static void set_level(const log_level &level);
+  static log_level get_level();
 
-  static void SetOutput(const std::string filename);
-  static void UnsetOutput();
+  static void set_output(const std::string filename);
+  static void unset_output();
 
-  static std::ofstream &GetOutput();
+  static std::ofstream &get_output();
 
-  template <typename T> Logger &operator<<(const T &item) {
+  template <typename T> logger &operator<<(const T &item) {
     std::cout << item;
     if (output_file_.is_open()) {
       output_file_ << item;
@@ -42,7 +42,7 @@ public:
     return *this;
   }
 
-  Logger &operator<<(std::ostream &(*fp)(std::ostream &)) {
+  logger &operator<<(std::ostream &(*fp)(std::ostream &)) {
     std::cout << fp;
     if (output_file_.is_open()) {
       output_file_ << fp;
@@ -51,32 +51,32 @@ public:
   }
 };
 
-class LogStream {
+class log_stream {
 private:
-  Logger &logger_;
-  LogLevel stream_level_;
+  logger &logger_;
+  log_level stream_level_;
   std::string line_prefix_, line_postfix_;
 
   bool newline;
 
 public:
-  LogStream(Logger &logger, const LogLevel &level)
+  log_stream(logger &logger, const log_level &level)
     : logger_(logger), stream_level_(level), newline(true) {
     switch (stream_level_) {
-      case LogLevel::Fatal:
+      case log_level::fatal:
         line_prefix_ = "\033[31mFatal : ";
         break;
-      case LogLevel::Error:
+      case log_level::error:
         line_prefix_ = "\033[31mError : ";
         break;
-      case LogLevel::Warning:
+      case log_level::warning:
         line_prefix_ = "\033[33mWarning : ";
         break;
-      case LogLevel::Info:
+      case log_level::info:
         //line_prefix_ = " | Info    | ";
         line_prefix_ = " \033[0m";
         break;
-      case LogLevel::Debug:
+      case log_level::debug:
         line_prefix_ = "Debug : \033[0m";
         break;
       default:
@@ -85,14 +85,14 @@ public:
     }
     line_postfix_ = "\033[0m";
   }
-  ~LogStream() = default;
+  ~log_stream() = default;
 
   inline std::string GetPrefix() const {
     return line_prefix_;
   }
 
-  template <typename T> LogStream &operator<<(const T &item) {
-    if (Logger::GetLevel() >= stream_level_) {
+  template <typename T> log_stream &operator<<(const T &item) {
+    if (logger::get_level() >= stream_level_) {
       if (newline) {
         logger_ << line_prefix_;
         newline = false;
@@ -102,8 +102,8 @@ public:
     return *this;
   }
 
-  LogStream &operator<<(std::ostream &(*fp)(std::ostream &)) {
-    if (Logger::GetLevel() >= stream_level_) {
+  log_stream &operator<<(std::ostream &(*fp)(std::ostream &)) {
+    if (logger::get_level() >= stream_level_) {
       logger_ << fp;
       logger_ << line_postfix_;
       newline = true;
@@ -125,11 +125,11 @@ public:
 };
 
 // global instantiations for different levels
-extern Logger glogger;
-extern LogStream flog;
-extern LogStream elog;
-extern LogStream wlog;
-extern LogStream ilog;
-extern LogStream dlog;
+extern logger glogger;
+extern log_stream flog;
+extern log_stream elog;
+extern log_stream wlog;
+extern log_stream ilog;
+extern log_stream dlog;
 
-} // namespace csoca
+} // namespace music
