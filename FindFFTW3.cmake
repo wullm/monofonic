@@ -40,8 +40,11 @@ macro(find_specific_libraries KIND PARALLEL)
     message(FATAL_ERROR "Please, find ${PARALLEL} libraries before FFTW")
   endif()
 
-  find_library(FFTW3_${KIND}_${PARALLEL}_LIBRARY NAMES
-    fftw3${SUFFIX_${KIND}}${SUFFIX_${PARALLEL}}${SUFFIX_FINAL} HINTS ${HINT_DIRS})
+  find_library(
+	  FFTW3_${KIND}_${PARALLEL}_LIBRARY 
+	  NAMES fftw3${SUFFIX_${KIND}}${SUFFIX_${PARALLEL}}${SUFFIX_FINAL} 
+	  HINTS ${HINT_DIRS}
+	  )
   if(FFTW3_${KIND}_${PARALLEL}_LIBRARY MATCHES fftw3)
     list(APPEND FFTW3_LIBRARIES ${FFTW3_${KIND}_${PARALLEL}_LIBRARY})
     set(FFTW3_${KIND}_${PARALLEL}_FOUND TRUE)
@@ -137,15 +140,24 @@ else()
   find_package(PkgConfig)
   if(PKG_CONFIG_FOUND)
     pkg_check_modules(PC_FFTW QUIET fftw3)
-    set(FFTW3_DEFINITIONS ${PC_FFTW3_CFLAGS_OTHER})
+    set(FFTW3_DEFINITIONS ${PC_FFTW_CFLAGS_OTHER})
   endif()
-  set(HINT_DIRS ${PC_FFTW3_INCLUDEDIR} ${PC_FFTW3_INCLUDE_DIRS}
-    ${FFTW3_INCLUDE_DIR} $ENV{FFTW3_INCLUDE_DIR} )
+  set(HINT_DIRS 
+	  ${PC_FFTW_INCLUDEDIR} 
+	  ${PC_FFTW_INCLUDE_DIRS}
+    	  ${FFTW3_INCLUDE_DIR} 
+	  $ENV{FFTW3_INCLUDE_DIR}
+	  )
 endif()
 
-find_path(FFTW3_INCLUDE_DIR NAMES fftw3.h HINTS ${HINT_DIRS})
+find_path(FFTW3_INCLUDE_DIR 
+	NAMES fftw3.h 
+	HINTS ${HINT_DIRS})
+
 if (LOOK_FOR_MPI)  # Probably is going to be the same as fftw3.h
-  find_path(FFTW3_MPI_INCLUDE_DIR NAMES fftw3-mpi.h HINTS ${HINT_DIRS})
+  find_path(FFTW3_MPI_INCLUDE_DIR 
+	  NAMES fftw3-mpi.h 
+	  HINTS ${HINT_DIRS})
 endif()
 
 function(find_version OUTVAR LIBRARY SUFFIX)
@@ -190,8 +202,11 @@ set(SUFFIX_FINAL "")
 if(WIN32)
   set(SUFFIX_FINAL "-3")
 else()
-  set(HINT_DIRS ${PC_FFTW3_LIBDIR} ${PC_FFTW3_LIBRARY_DIRS}
-    $ENV{FFTW3_LIBRARY_DIR} ${FFTW3_LIBRARY_DIR} )
+  set(HINT_DIRS 
+	  ${PC_FFTW_LIBDIR} 
+	  ${PC_FFTW_LIBRARY_DIRS}
+	  $ENV{FFTW3_LIBRARY_DIR} 
+	  ${FFTW3_LIBRARY_DIR} )
 endif(WIN32)
 
 unset(FFTW3_LIBRARIES)
