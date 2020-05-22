@@ -305,6 +305,8 @@ public:
       val = theta_c_(k); break;
     case vbaryon:
       val = theta_b_(k); break;
+    case deltabc:
+      val = delta_b_(k)-delta_c_(k); break;
 
       // values at zstart:
     case total0:

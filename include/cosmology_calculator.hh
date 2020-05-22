@@ -12,7 +12,6 @@
 #include <math/interpolate.hh>
 
 #include <gsl/gsl_integration.h>
-// #include <gsl/gsl_spline.h>
 #include <gsl/gsl_errno.h>
 
 namespace cosmology
@@ -145,6 +144,8 @@ public:
 
         Dplus_start_ = D_of_a_( astart_ ) / Dnow_;
         Dplus_target_ = D_of_a_( atarget_ ) / Dnow_;
+
+        music::ilog << "D+ = " << Dplus_target_ << ", " << Dplus_start_ << std::endl;
 
         // set up transfer functions and compute normalisation
         transfer_function_ = std::move(select_TransferFunction_plugin(cf));
@@ -290,12 +291,12 @@ public:
         cosmology::calculator *pcc = reinterpret_cast<cosmology::calculator *>(pParams);
 
         double x = k * 8.0;
-        double w = 3.0 * (sin(x) - x * cos(x)) / (x * x * x);
-        static double nspect = (double)pcc->cosmo_param_.nspect;
+        double w = 3.0 * (std::sin(x) - x * std::cos(x)) / (x * x * x);
+        static double nspect = static_cast<double>(pcc->cosmo_param_.nspect);
         double tf = pcc->transfer_function_->compute(k, total0);
 
         //... no growth factor since we compute at z=0 and normalize so that D+(z=0)=1
-        return k * k * w * w * pow((double)k, (double)nspect) * tf * tf;
+        return k * k * w * w * std::pow(k, nspect) * tf * tf;
     }
 
     //! Computes the amplitude of a mode from the power spectrum
@@ -303,9 +304,14 @@ public:
 	 * and returns the amplitude of fluctuations at wave number k at z=0
 	 * @param k wave number at which to evaluate
 	 */
-    inline real_t get_amplitude(real_t k, tf_type type) const
+    inline real_t get_amplitude( const real_t k, const tf_type type) const
     {
-        return std::pow(k, 0.5 * cosmo_param_.nspect) * transfer_function_->compute(k, type) * cosmo_param_.sqrtpnorm;
+        return std::pow(k, 0.5 * cosmo_param_.nspect) * transfer_function_->compute(k, type) * cosmo_param_.sqrtpnorm;// * ((type!=deltabc)?  1.0 : 1.0/Dplus_target_);
+    }
+
+    inline real_t get_amplitude_deltabc( const real_t k ) const
+    {
+        return std::pow(k, 0.5 * cosmo_param_.nspect) * transfer_function_->compute(k, deltabc) * cosmo_param_.sqrtpnorm * Dplus_target_ / Dplus_start_;// * ((type!=deltabc)?  1.0 : 1.0/Dplus_target_);
     }
 
     //! Computes the normalization for the power spectrum
@@ -320,9 +326,9 @@ public:
         kmin = transfer_function_->get_kmin();
 
         if (!transfer_function_->tf_has_total0())
-            sigma0 = 4.0 * M_PI * integrate(&dSigma8, (double)kmin, (double)kmax, this);
+            sigma0 = 4.0 * M_PI * integrate(&dSigma8, static_cast<double>(kmin), static_cast<double>(kmax), this);
         else{
-            sigma0 = 4.0 * M_PI * integrate(&dSigma8_0, (double)kmin, (double)kmax, this);
+            sigma0 = 4.0 * M_PI * integrate(&dSigma8_0, static_cast<double>(kmin), static_cast<double>(kmax), this);
         }
 
         return std::sqrt(sigma0);
@@ -350,7 +356,7 @@ public:
 inline double jeans_sound_speed(double rho, double mass)
 {
     const double G = 6.67e-8;
-    return pow(6.0 * mass / M_PI * sqrt(rho) * pow(G, 1.5), 1.0 / 3.0);
+    return pow(6.0 * mass / M_PI * std::sqrt(rho) * std::pow(G, 1.5), 1.0 / 3.0);
 }
 
 } // namespace cosmology

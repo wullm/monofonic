@@ -453,27 +453,50 @@ int Run( config_file& the_config )
                 // use QPT to get density and velocity fields
                 //======================================================================
                 Grid_FFT<ccomplex_t> psi({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
-                Grid_FFT<real_t> rho({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
+                Grid_FFT<real_t> &rho = tmp;
+
+                //======================================================================
+                // initialise rho
+                //======================================================================
+                wnoise.FourierTransformForward();
+                rho.zero();
+                rho.FourierTransformForward(false);
+                rho.assign_function_of_grids_kdep( [&]( auto k, auto wn ){
+                    real_t kmod = k.norm();
+                    // restore white noise
+                    // auto wn = - kmod * kmod * pphi / the_cosmo_calc->get_amplitude(kmod, total);
+                    // compute amplitude 
+                    real_t delta_bc = the_cosmo_calc->get_amplitude_deltabc(kmod);
+                    return wn * delta_bc;
+                }, wnoise );
+                rho.zero_DC_mode();
+                rho.FourierTransformBackward();
+                
+                rho.apply_function_r( [&]( auto prho ){
+                    real_t ddb = std::sqrt( 1.0 - (1.0-the_cosmo_calc->cosmo_param_.f_b) * prho);
+                    real_t ddc = std::sqrt( 1.0 + the_cosmo_calc->cosmo_param_.f_b * prho);
+                    real_t amp = !bDoBaryons? 1.0 : ((this_species==cosmo_species::baryon)?  ddb : (this_species==cosmo_species::dm)? ddc : 1.0);
+                    return amp;
+                });
 
                 //======================================================================
                 // initialise psi = exp(i Phi(1)/hbar)
                 //======================================================================
                 phi.FourierTransformBackward();
                 real_t std_phi1 = phi.std();
-
-                const real_t hbar = 2.0 * M_PI/ngrid * (2*std_phi1/Dplus0); //3sigma, but this might rather depend on gradients of phi...
+                const real_t hbar = 2.0 * M_PI/ngrid * (2*std_phi1/Dplus0) / 1.5; //3sigma, but this might rather depend on gradients of phi...
                 music::ilog << "Semiclassical PT : hbar = " << hbar << " from sigma(phi1) = " << std_phi1 << std::endl;
                 
                 if( LPTorder == 1 ){
-                    psi.assign_function_of_grids_r([hbar,Dplus0]( real_t pphi ){
-                        return std::exp(ccomplex_t(0.0,1.0/hbar) * (pphi / Dplus0));
-                    }, phi );
+                    psi.assign_function_of_grids_r([hbar,Dplus0]( real_t pphi, real_t prho ){
+                        return prho * std::exp(ccomplex_t(0.0,1.0/hbar) * (pphi / Dplus0)); // divide by Dplus since phi already contains it
+                    }, phi, rho );
                 }else if( LPTorder >= 2 ){
                     phi2.FourierTransformBackward();
                     // we don't have a 1/2 in the Veff term because pre-factor is already 3/7
-                    psi.assign_function_of_grids_r([hbar,Dplus0]( real_t pphi, real_t pphi2 ){
-                        return std::exp(ccomplex_t(0.0,1.0/hbar) * (pphi + pphi2) / Dplus0);
-                    }, phi, phi2 );
+                    psi.assign_function_of_grids_r([hbar,Dplus0]( real_t pphi, real_t pphi2, real_t prho ){
+                        return prho * std::exp(ccomplex_t(0.0,1.0/hbar) * (pphi + pphi2) / Dplus0);
+                    }, phi, phi2, rho );
                     // phi2.FourierTransformBackward();
                 }
                 // phi.FourierTransformForward();
@@ -550,6 +573,8 @@ int Run( config_file& the_config )
                 //     // allocate particle structure and generate particle IDs
                 //     particle::initialize_lattice( particles, lattice_type, the_output_plugin->has_64bit_reals(), the_output_plugin->has_64bit_ids(), IDoffset, tmp, the_config );
                 // }
+
+                wnoise.FourierTransformForward();
             
                 // write out positions
                 for( int idim=0; idim<3; ++idim ){
@@ -569,10 +594,6 @@ int Run( config_file& the_config )
                                 tmp.kelem(idx) = lunit / boxlen * ( lg.gradient(idim,tmp.get_k3(i,j,k)) * phitot 
                                     + lg.gradient(idimp,tmp.get_k3(i,j,k)) * A3[idimpp]->kelem(idx) - lg.gradient(idimpp,tmp.get_k3(i,j,k)) * A3[idimp]->kelem(idx) );
 
-                                if( the_output_plugin->write_species_as( this_species ) == output_type::particles && lattice_type == particle::lattice_glass){
-                                    tmp.kelem(idx) *= interp.compensation_kernel( tmp.get_k<real_t>(i,j,k) );
-                                }
-
                                 if( bDoBaryons ){
                                     vec3_t<real_t> kvec = phi.get_k<real_t>(i,j,k);
                                     real_t k2 = kvec.norm_squared(), kmod = std::sqrt(k2);
@@ -581,11 +602,18 @@ int Run( config_file& the_config )
                                     // //   the_cosmo_calc->get_amplitude(kmod, total)) - the_cosmo_calc->get_amplitude(kmod, total);
                                     //  the_cosmo_calc->get_amplitude(kmod, total)*(-g1)) - the_cosmo_calc->get_amplitude(kmod, total)*(-g1);
 
-                                    real_t ampldiff = (((this_species == cosmo_species::dm)? the_cosmo_calc->get_amplitude(kmod, cdm) 
-                                        : (this_species == cosmo_species::baryon)? the_cosmo_calc->get_amplitude(kmod, baryon) : 
-                                           the_cosmo_calc->get_amplitude(kmod, total)) - the_cosmo_calc->get_amplitude(kmod, total)) * (-g1);
+                                    // real_t ampldiff = (((this_species == cosmo_species::dm)? the_cosmo_calc->get_amplitude(kmod, cdm) 
+                                    //     : (this_species == cosmo_species::baryon)? the_cosmo_calc->get_amplitude(kmod, baryon) : 
+                                    //        the_cosmo_calc->get_amplitude(kmod, total)) - the_cosmo_calc->get_amplitude(kmod, total)) * (-g1);
 
-                                    tmp.kelem(idx) += lg.gradient(idim, tmp.get_k3(i,j,k)) * wnoise.kelem(idx) * lunit * ampldiff / k2 / boxlen;
+                                    // tmp.kelem(idx) += lg.gradient(idim, tmp.get_k3(i,j,k)) * wnoise.kelem(idx) * lunit * ampldiff / k2 / boxlen;
+                                    real_t delta_bc = g1 * the_cosmo_calc->get_amplitude_deltabc(kmod);
+                                    real_t ampldiff = ((this_species == cosmo_species::baryon)? (1.0-the_cosmo_calc->cosmo_param_.f_b) : -the_cosmo_calc->cosmo_param_.f_b) * delta_bc;
+                                    tmp.kelem(idx) += lg.gradient(idim, tmp.get_k3(i,j,k)) / (-k2) * wnoise.kelem(idx) * ampldiff * lunit / boxlen;
+                                }
+
+                                if( the_output_plugin->write_species_as( this_species ) == output_type::particles && lattice_type == particle::lattice_glass){
+                                    tmp.kelem(idx) *= interp.compensation_kernel( tmp.get_k<real_t>(i,j,k) );
                                 }
                             }
                         }
@@ -630,18 +658,18 @@ int Run( config_file& the_config )
                                     tmp.kelem(idx) *= interp.compensation_kernel( tmp.get_k<real_t>(i,j,k) );
                                 }
 
-                                if( bDoBaryons ){
-                                    vec3_t<real_t> kvec = phi.get_k<real_t>(i,j,k);
-                                    real_t k2 = kvec.norm_squared(), kmod = std::sqrt(k2);
-                                    // double ampldiff = ((this_species == cosmo_species::dm)? the_cosmo_calc->get_amplitude(kmod, vcdm0) :
-                                    //  (this_species == cosmo_species::baryon)? the_cosmo_calc->get_amplitude(kmod, vbaryon0) : 
-                                    //      the_cosmo_calc->get_amplitude(kmod, vtotal0)) - the_cosmo_calc->get_amplitude(kmod, vtotal0);
-                                    // // the_cosmo_calc->get_amplitude(kmod, total)*(-g1)) - the_cosmo_calc->get_amplitude(kmod, total)*(-g1);
-                                    real_t ampldiff = (((this_species == cosmo_species::dm)? the_cosmo_calc->get_amplitude(kmod, vcdm) 
-                                        : (this_species == cosmo_species::baryon)? the_cosmo_calc->get_amplitude(kmod, vbaryon) : 
-                                           the_cosmo_calc->get_amplitude(kmod, vtotal)) - the_cosmo_calc->get_amplitude(kmod, vtotal)) * (-g1);
-                                    tmp.kelem(idx) += lg.gradient(idim, tmp.get_k3(i,j,k)) * wnoise.kelem(idx) * vfac1 * vunit / boxlen * ampldiff / k2 ;
-                                }
+                                // if( bDoBaryons ){
+                                //     vec3_t<real_t> kvec = phi.get_k<real_t>(i,j,k);
+                                //     real_t k2 = kvec.norm_squared(), kmod = std::sqrt(k2);
+                                //     // double ampldiff = ((this_species == cosmo_species::dm)? the_cosmo_calc->get_amplitude(kmod, vcdm0) :
+                                //     //  (this_species == cosmo_species::baryon)? the_cosmo_calc->get_amplitude(kmod, vbaryon0) : 
+                                //     //      the_cosmo_calc->get_amplitude(kmod, vtotal0)) - the_cosmo_calc->get_amplitude(kmod, vtotal0);
+                                //     // // the_cosmo_calc->get_amplitude(kmod, total)*(-g1)) - the_cosmo_calc->get_amplitude(kmod, total)*(-g1);
+                                //     real_t ampldiff = (((this_species == cosmo_species::dm)? the_cosmo_calc->get_amplitude(kmod, vcdm) 
+                                //         : (this_species == cosmo_species::baryon)? the_cosmo_calc->get_amplitude(kmod, vbaryon) : 
+                                //            the_cosmo_calc->get_amplitude(kmod, vtotal)) - the_cosmo_calc->get_amplitude(kmod, vtotal)) * (-g1);
+                                //     tmp.kelem(idx) += lg.gradient(idim, tmp.get_k3(i,j,k)) * wnoise.kelem(idx) * vfac1 * vunit / boxlen * ampldiff / k2 ;
+                                // }
 
                                 // correct velocity with PLT mode growth rate
                                 tmp.kelem(idx) *= lg.vfac_corr(tmp.get_k3(i,j,k));

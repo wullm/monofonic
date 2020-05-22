@@ -224,7 +224,7 @@ public:
   //! Computes the transfer function for k in Mpc/h by calling TFfit_onek
   inline double compute(double k, tf_type type) const
   {
-    return etf_.at_k(k);
+    return (type!=deltabc)? etf_.at_k(k) : 0.0;
   }
 
   inline double get_kmin(void) const

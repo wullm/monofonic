@@ -154,10 +154,11 @@ public:
     case cosmo_species::dm:
       return 1;
     case cosmo_species::baryon:
-      return 0;
+      return 2;
     case cosmo_species::neutrino:
       return 3;
     }
+    #warning Baryons hardwired to species 2 in G2
     return -1;
   }
 
