@@ -486,7 +486,7 @@ int Run( config_file& the_config )
                 // use QPT to get density and velocity fields
                 //======================================================================
                 Grid_FFT<ccomplex_t> psi({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
-                Grid_FFT<real_t> &rho = tmp;
+                Grid_FFT<real_t> rho({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
 
                 //======================================================================
                 // initialise rho
@@ -718,10 +718,13 @@ int Run( config_file& the_config )
                 {
                     // use density simply from 1st order SPT
                     phi.FourierTransformForward();
-                    phi.apply_negative_Laplacian();
-                    phi.Write_PowerSpectrum("input_powerspec_sampled_SPT.txt");
-                    phi.FourierTransformBackward();
-                    the_output_plugin->write_grid_data( phi, this_species, fluid_component::density );
+                    tmp.FourierTransformForward(false);
+                    tmp.assign_function_of_grids_kdep( []( auto kvec, auto pphi ){
+                        return - kvec.norm_squared() *  pphi;
+                    }, phi);
+                    tmp.Write_PowerSpectrum("input_powerspec_sampled_SPT.txt");
+                    tmp.FourierTransformBackward();
+                    the_output_plugin->write_grid_data( tmp, this_species, fluid_component::density );
                 }
             }
 
