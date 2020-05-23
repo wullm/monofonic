@@ -417,7 +417,7 @@ int Run( config_file& the_config )
             Conv.convolve_Gradient_and_Hessian(tmp,{1},phi,{1,idim},op::add_to(*dbc3[idim]));
             Conv.convolve_Gradient_and_Hessian(tmp,{2},phi,{2,idim},op::add_to(*dbc3[idim]));
             dbc3[idim]->zero_DC_mode();
-            (*dbc3[idim]) *= g1;
+            (*dbc3[idim]) *= -g1;
         }
     }
 
