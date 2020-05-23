@@ -492,24 +492,15 @@ int Run( config_file& the_config )
                 // initialise rho
                 //======================================================================
                 wnoise.FourierTransformForward();
-                rho.zero();
                 rho.FourierTransformForward(false);
                 rho.assign_function_of_grids_kdep( [&]( auto k, auto wn ){
-                    real_t kmod = k.norm();
-                    // restore white noise
-                    // auto wn = - kmod * kmod * pphi / the_cosmo_calc->get_amplitude(kmod, total);
-                    // compute amplitude 
-                    real_t delta_bc = -kmod*kmod*the_cosmo_calc->get_amplitude_phibc(kmod);
-                    return wn * delta_bc;
+                    return wn * the_cosmo_calc->get_amplitude_rhobc(k.norm());;
                 }, wnoise );
                 rho.zero_DC_mode();
                 rho.FourierTransformBackward();
                 
                 rho.apply_function_r( [&]( auto prho ){
-                    real_t ddb = std::sqrt( 1.0 - (1.0-the_cosmo_calc->cosmo_param_.f_b) * prho);
-                    real_t ddc = std::sqrt( 1.0 + the_cosmo_calc->cosmo_param_.f_b * prho);
-                    real_t amp = !bDoBaryons? 1.0 : ((this_species==cosmo_species::baryon)?  ddb : (this_species==cosmo_species::dm)? ddc : 1.0);
-                    return amp;
+                    return std::sqrt( 1.0 + C_species * prho );
                 });
 
                 //======================================================================
@@ -530,9 +521,7 @@ int Run( config_file& the_config )
                     psi.assign_function_of_grids_r([hbar,Dplus0]( real_t pphi, real_t pphi2, real_t prho ){
                         return prho * std::exp(ccomplex_t(0.0,1.0/hbar) * (pphi + pphi2) / Dplus0);
                     }, phi, phi2, rho );
-                    // phi2.FourierTransformBackward();
                 }
-                // phi.FourierTransformForward();
 
                 //======================================================================
                 // evolve wave-function (one drift step) psi = psi *exp(-i hbar *k^2 dt / 2)

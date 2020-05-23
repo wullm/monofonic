@@ -312,7 +312,12 @@ public:
     inline real_t get_amplitude_phibc( const real_t k ) const
     {
         // need to multiply with Dplus_target since sqrtpnorm rescales like that
-        return -std::pow(k, 0.5 * cosmo_param_.nspect-2.0) * transfer_function_->compute(k, deltabc) * cosmo_param_.sqrtpnorm * Dplus_target_;// / Dplus_start_;// * ((type!=deltabc)?  1.0 : 1.0/Dplus_target_);
+        return -std::pow(k, 0.5 * cosmo_param_.nspect-2.0) * transfer_function_->compute(k, deltabc) * cosmo_param_.sqrtpnorm * Dplus_target_;
+    }
+    inline real_t get_amplitude_rhobc( const real_t k ) const
+    {
+        // need to multiply with Dplus_target since sqrtpnorm rescales like that
+        return std::pow(k, 0.5 * cosmo_param_.nspect) * transfer_function_->compute(k, deltabc) * cosmo_param_.sqrtpnorm * Dplus_target_;
     }
 
     //! Computes the normalization for the power spectrum
