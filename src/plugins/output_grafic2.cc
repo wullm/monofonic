@@ -140,22 +140,22 @@ std::string grafic2_output_plugin::get_file_name(const cosmo_species &s, const f
         file_name += "delta" + species_str;
         break;
     case fluid_component::vx:
-        file_name += "vel" + species_str + "z";
+        file_name += "vel" + species_str + "x";
         break;
     case fluid_component::vy:
         file_name += "vel" + species_str + "y";
         break;
     case fluid_component::vz:
-        file_name += "vel" + species_str + "x";
+        file_name += "vel" + species_str + "z";
         break;
     case fluid_component::dx:
-        file_name += "pos" + species_str + "z";
+        file_name += "pos" + species_str + "x";
         break;
     case fluid_component::dy:
         file_name += "pos" + species_str + "y";
         break;
     case fluid_component::dz:
-        file_name += "pos" + species_str + "x";
+        file_name += "pos" + species_str + "z";
         break;
     default:
         break;
@@ -200,13 +200,13 @@ void grafic2_output_plugin::write_grid_data(const Grid_FFT<real_t> &g, const cos
             assert( g.global_size(0) == ngrid && g.global_size(1) == ngrid && g.global_size(2) == ngrid);
             assert( g.size(1) == ngrid && g.size(2) == ngrid);
             // write actual field slice by slice
-            for (size_t i = 0; i < g.size(0); ++i)
+            for (size_t i = 0; i < g.size(2); ++i)
             {
                 for (unsigned j = 0; j < g.size(1); ++j)
                 {
-                    for (unsigned k = 0; k < g.size(2); ++k)
+                    for (unsigned k = 0; k < g.size(0); ++k)
                     {
-                        data_buf_[j * ngrid + k] = g.relem(i, j, k);
+                        data_buf_[j * ngrid + k] = g.relem(k, j, i);
                     }
                 }
 
