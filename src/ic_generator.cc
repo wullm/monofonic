@@ -168,9 +168,20 @@ int Run( config_file& the_config )
     //... array [.] access to components of A3:
     std::array<Grid_FFT<real_t> *, 3> A3({&A3x, &A3y, &A3z});
 
+    // additional baryon-CDM offset
+    Grid_FFT<real_t> dbcx({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
+    Grid_FFT<real_t> dbcy({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
+    Grid_FFT<real_t> dbcz({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
+    
+    //... array [.] access to components of dbc:
+    std::array<Grid_FFT<real_t> *, 3> dbc3({&dbcx, &dbcy, &dbcz});
+
     // white noise field 
     Grid_FFT<real_t> wnoise({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
-    
+
+    // temporary storage of additional data
+    Grid_FFT<real_t> tmp({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
+
     //--------------------------------------------------------------------
     // Fill the grid with a Gaussian white noise field
     //--------------------------------------------------------------------
@@ -387,6 +398,29 @@ int Run( config_file& the_config )
         music::ilog << std::setw(20) << std::setfill(' ') << std::right << "took " << get_wtime() - wtime << "s" << std::endl;
     }
 
+    //======================================================================
+    //... for two-fluid ICs we need to evolve the offset field
+    //======================================================================
+    if( bDoBaryons && LPTorder > 1 )
+    {
+        // compute phi_bc
+        tmp.FourierTransformForward(false);
+        tmp.assign_function_of_grids_kdep([&](auto kvec, auto wn){
+            return wn * the_cosmo_calc->get_amplitude_phibc(kvec.norm());
+        },wnoise);
+        tmp.zero_DC_mode();
+
+        for (int idim = 0; idim < 3; ++idim)
+        {
+            dbc3[idim]->FourierTransformForward(false);
+            Conv.convolve_Gradient_and_Hessian(tmp,{0},phi,{0,idim},op::assign_to(*dbc3[idim]));
+            Conv.convolve_Gradient_and_Hessian(tmp,{1},phi,{1,idim},op::add_to(*dbc3[idim]));
+            Conv.convolve_Gradient_and_Hessian(tmp,{2},phi,{2,idim},op::add_to(*dbc3[idim]));
+            dbc3[idim]->zero_DC_mode();
+            (*dbc3[idim]) *= g1;
+        }
+    }
+
     ///... scale all potentials with respective growth factors
     phi *= g1;
     phi2 *= g2;
@@ -423,15 +457,14 @@ int Run( config_file& the_config )
         }
     }
 
-    for( auto& this_species : species_list )
+    for( const auto& this_species : species_list )
     {
         music::ilog << std::endl
                     << ">>> Computing ICs for species \'" << cosmo_species_name[this_species] << "\' <<<\n" << std::endl;
 
-        {
-            // temporary storage of data
-            Grid_FFT<real_t> tmp({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
+        const real_t C_species = (this_species == cosmo_species::baryon)? (1.0-the_cosmo_calc->cosmo_param_.f_b) : -the_cosmo_calc->cosmo_param_.f_b;
 
+        {
             std::unique_ptr<particle::lattice_generator<Grid_FFT<real_t>>> particle_lattice_generator_ptr;
 
             // if output plugin wants particles, then we need to store them, along with their IDs
@@ -466,7 +499,7 @@ int Run( config_file& the_config )
                     // restore white noise
                     // auto wn = - kmod * kmod * pphi / the_cosmo_calc->get_amplitude(kmod, total);
                     // compute amplitude 
-                    real_t delta_bc = the_cosmo_calc->get_amplitude_deltabc(kmod);
+                    real_t delta_bc = -kmod*kmod*the_cosmo_calc->get_amplitude_phibc(kmod);
                     return wn * delta_bc;
                 }, wnoise );
                 rho.zero_DC_mode();
@@ -581,6 +614,7 @@ int Run( config_file& the_config )
                     // cyclic rotations of indices
                     const int idimp = (idim+1)%3, idimpp = (idim+2)%3;
                     const real_t lunit = the_output_plugin->position_unit();
+                    
                     tmp.FourierTransformForward(false);
 
                     // combine the various LPT potentials into one and take gradient
@@ -590,31 +624,25 @@ int Run( config_file& the_config )
                             for (size_t k = 0; k < phi.size(2); ++k) {
                                 size_t idx = phi.get_idx(i,j,k);
                                 auto phitot = phi.kelem(idx) + phi2.kelem(idx) + phi3a.kelem(idx) + phi3b.kelem(idx);
-                                // divide by Lbox, because displacement is in box units for output plugin
-                                tmp.kelem(idx) = lunit / boxlen * ( lg.gradient(idim,tmp.get_k3(i,j,k)) * phitot 
-                                    + lg.gradient(idimp,tmp.get_k3(i,j,k)) * A3[idimpp]->kelem(idx) - lg.gradient(idimpp,tmp.get_k3(i,j,k)) * A3[idimp]->kelem(idx) );
+                                
+                                tmp.kelem(idx) = lg.gradient(idim,tmp.get_k3(i,j,k)) * phitot 
+                                    + lg.gradient(idimp,tmp.get_k3(i,j,k)) * A3[idimpp]->kelem(idx) - lg.gradient(idimpp,tmp.get_k3(i,j,k)) * A3[idimp]->kelem(idx);
 
                                 if( bDoBaryons ){
                                     vec3_t<real_t> kvec = phi.get_k<real_t>(i,j,k);
-                                    real_t k2 = kvec.norm_squared(), kmod = std::sqrt(k2);
-                                    // double ampldiff = ((this_species == cosmo_species::dm)? the_cosmo_calc->get_amplitude(kmod, cdm) :
-                                    //  (this_species == cosmo_species::baryon)? the_cosmo_calc->get_amplitude(kmod, baryon) : 
-                                    // //   the_cosmo_calc->get_amplitude(kmod, total)) - the_cosmo_calc->get_amplitude(kmod, total);
-                                    //  the_cosmo_calc->get_amplitude(kmod, total)*(-g1)) - the_cosmo_calc->get_amplitude(kmod, total)*(-g1);
-
-                                    // real_t ampldiff = (((this_species == cosmo_species::dm)? the_cosmo_calc->get_amplitude(kmod, cdm) 
-                                    //     : (this_species == cosmo_species::baryon)? the_cosmo_calc->get_amplitude(kmod, baryon) : 
-                                    //        the_cosmo_calc->get_amplitude(kmod, total)) - the_cosmo_calc->get_amplitude(kmod, total)) * (-g1);
-
-                                    // tmp.kelem(idx) += lg.gradient(idim, tmp.get_k3(i,j,k)) * wnoise.kelem(idx) * lunit * ampldiff / k2 / boxlen;
-                                    real_t delta_bc = g1 * the_cosmo_calc->get_amplitude_deltabc(kmod);
-                                    real_t ampldiff = ((this_species == cosmo_species::baryon)? (1.0-the_cosmo_calc->cosmo_param_.f_b) : -the_cosmo_calc->cosmo_param_.f_b) * delta_bc;
-                                    tmp.kelem(idx) += lg.gradient(idim, tmp.get_k3(i,j,k)) / (-k2) * wnoise.kelem(idx) * ampldiff * lunit / boxlen;
+                                    real_t phi_bc = the_cosmo_calc->get_amplitude_phibc(kvec.norm());
+                                    tmp.kelem(idx) -= lg.gradient(idim, tmp.get_k3(i,j,k)) * wnoise.kelem(idx) * C_species * phi_bc;
+                                    if( LPTorder > 1 ){
+                                        tmp.kelem(idx) += C_species * dbc3[idim]->kelem(idx);
+                                    }
                                 }
 
                                 if( the_output_plugin->write_species_as( this_species ) == output_type::particles && lattice_type == particle::lattice_glass){
-                                    tmp.kelem(idx) *= interp.compensation_kernel( tmp.get_k<real_t>(i,j,k) );
+                                    tmp.kelem(idx) *= interp.compensation_kernel( tmp.get_k<real_t>(i,j,k) ) ;
                                 }
+
+                                // divide by Lbox, because displacement is in box units for output plugin
+                                tmp.kelem(idx) *=  lunit / boxlen;
                             }
                         }
                     }
@@ -648,37 +676,31 @@ int Run( config_file& the_config )
                         for (size_t j = 0; j < phi.size(1); ++j) {
                             for (size_t k = 0; k < phi.size(2); ++k) {
                                 size_t idx = phi.get_idx(i,j,k);
-                                // divide by Lbox, because displacement is in box units for output plugin
+                                
                                 auto phitot_v = vfac1 * phi.kelem(idx) + vfac2 * phi2.kelem(idx) + vfac3 * (phi3a.kelem(idx) + phi3b.kelem(idx));
 
-                                tmp.kelem(idx) = vunit / boxlen * ( lg.gradient(idim,tmp.get_k3(i,j,k)) * phitot_v 
-                                        + vfac3 * (lg.gradient(idimp,tmp.get_k3(i,j,k)) * A3[idimpp]->kelem(idx) - lg.gradient(idimpp,tmp.get_k3(i,j,k)) * A3[idimp]->kelem(idx)) );
+                                tmp.kelem(idx) = lg.gradient(idim,tmp.get_k3(i,j,k)) * phitot_v 
+                                        + vfac3 * (lg.gradient(idimp,tmp.get_k3(i,j,k)) * A3[idimpp]->kelem(idx) - lg.gradient(idimpp,tmp.get_k3(i,j,k)) * A3[idimp]->kelem(idx));
 
+                                if( bDoBaryons && LPTorder > 1 ){
+                                    tmp.kelem(idx) += C_species * vfac * dbc3[idim]->kelem(idx);
+                                }
+
+                                // correct with interpolation kernel if we used interpolation to read out the positions (for glasses)
                                 if( the_output_plugin->write_species_as( this_species ) == output_type::particles && lattice_type == particle::lattice_glass){
                                     tmp.kelem(idx) *= interp.compensation_kernel( tmp.get_k<real_t>(i,j,k) );
                                 }
 
-                                // if( bDoBaryons ){
-                                //     vec3_t<real_t> kvec = phi.get_k<real_t>(i,j,k);
-                                //     real_t k2 = kvec.norm_squared(), kmod = std::sqrt(k2);
-                                //     // double ampldiff = ((this_species == cosmo_species::dm)? the_cosmo_calc->get_amplitude(kmod, vcdm0) :
-                                //     //  (this_species == cosmo_species::baryon)? the_cosmo_calc->get_amplitude(kmod, vbaryon0) : 
-                                //     //      the_cosmo_calc->get_amplitude(kmod, vtotal0)) - the_cosmo_calc->get_amplitude(kmod, vtotal0);
-                                //     // // the_cosmo_calc->get_amplitude(kmod, total)*(-g1)) - the_cosmo_calc->get_amplitude(kmod, total)*(-g1);
-                                //     real_t ampldiff = (((this_species == cosmo_species::dm)? the_cosmo_calc->get_amplitude(kmod, vcdm) 
-                                //         : (this_species == cosmo_species::baryon)? the_cosmo_calc->get_amplitude(kmod, vbaryon) : 
-                                //            the_cosmo_calc->get_amplitude(kmod, vtotal)) - the_cosmo_calc->get_amplitude(kmod, vtotal)) * (-g1);
-                                //     tmp.kelem(idx) += lg.gradient(idim, tmp.get_k3(i,j,k)) * wnoise.kelem(idx) * vfac1 * vunit / boxlen * ampldiff / k2 ;
-                                // }
-
                                 // correct velocity with PLT mode growth rate
                                 tmp.kelem(idx) *= lg.vfac_corr(tmp.get_k3(i,j,k));
-
 
                                 if( bAddExternalTides ){
                                     // modify velocities with anisotropic expansion factor**2
                                     tmp.kelem(idx) *= std::pow(lss_aniso_alpha[idim],2.0);
                                 }
+
+                                // divide by Lbox, because displacement is in box units for output plugin
+                                tmp.kelem(idx) = vunit / boxlen;
                             }
                         }
                     }
