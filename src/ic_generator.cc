@@ -689,7 +689,7 @@ int Run( config_file& the_config )
                                 }
 
                                 // divide by Lbox, because displacement is in box units for output plugin
-                                tmp.kelem(idx) = vunit / boxlen;
+                                tmp.kelem(idx) *= vunit / boxlen;
                             }
                         }
                     }
