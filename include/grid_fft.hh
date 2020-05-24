@@ -80,11 +80,14 @@ public:
     //! return the (local) size of dimension i
     size_t size(size_t i) const noexcept { assert(i<4); return sizes_[i]; }
 
-    //! return the (global) size of dimension i
-    size_t global_size(size_t i) const noexcept { assert(i<3); return n_[i]; }
-
     //! return locally stored number of elements of field
     size_t local_size(void) const noexcept { return local_0_size_ * n_[1] * n_[2]; }
+
+    //! return globally stored number of elements of field
+    size_t global_size(void) const noexcept { return n_[0] * n_[1] * n_[2]; }
+
+    //! return the (global) size of dimension i
+    size_t global_size(size_t i) const noexcept { assert(i<3); return n_[i]; }
 
     //! return a bounding box of the global extent of the field
     const bounding_box<size_t> &get_global_range(void) const noexcept

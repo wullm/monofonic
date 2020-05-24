@@ -142,7 +142,7 @@ namespace particle
         particle::container particles_;
 
         public:
-        lattice_generator(lattice lattice_type, const bool b64reals, const bool b64ids, const size_t IDoffset, const field_t &field, config_file &cf)
+        lattice_generator(lattice lattice_type, const bool b64reals, const bool b64ids, size_t IDoffset, const field_t &field, config_file &cf)
         {
             if (lattice_type != lattice_glass)
             {
@@ -153,6 +153,8 @@ namespace particle
                 // allocate memory for all local particles
                 particles_.allocate(overload * num_p_in_load, b64reals, b64ids);
                 // set particle IDs to the Lagrangian coordinate (1D encoded) with additionally the field shift encoded as well
+
+                IDoffset = IDoffset * overload * field.global_size();
 
                 for (size_t i = 0, ipcount = 0; i < field.size(0); ++i)
                 {

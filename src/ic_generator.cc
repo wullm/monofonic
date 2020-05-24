@@ -471,7 +471,7 @@ int Run( config_file& the_config )
             if( the_output_plugin->write_species_as( this_species ) == output_type::particles )
             {
                 // somewhat arbitrarily, start baryon particle IDs from 2**31 if we have 32bit and from 2**56 if we have 64 bits
-                size_t IDoffset = (this_species == cosmo_species::baryon)? ((the_output_plugin->has_64bit_ids())? 1ul<<56 : 1ul<<31): 0 ;
+                size_t IDoffset = (this_species == cosmo_species::baryon)? ((the_output_plugin->has_64bit_ids())? 1 : 1): 0 ;
 
                 // allocate particle structure and generate particle IDs
                 particle_lattice_generator_ptr = 
