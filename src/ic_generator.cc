@@ -508,7 +508,7 @@ int Run( config_file& the_config )
                 //======================================================================
                 phi.FourierTransformBackward();
                 real_t std_phi1 = phi.std();
-                const real_t hbar = 2.0 * M_PI/ngrid * (2*std_phi1/Dplus0) / 1.5; //3sigma, but this might rather depend on gradients of phi...
+                const real_t hbar = 2.0 * M_PI/ngrid * (2*std_phi1/Dplus0); //3sigma, but this might rather depend on gradients of phi...
                 music::ilog << "Semiclassical PT : hbar = " << hbar << " from sigma(phi1) = " << std_phi1 << std::endl;
                 
                 if( LPTorder == 1 ){
@@ -554,19 +554,21 @@ int Run( config_file& the_config )
                 //======================================================================
                 // compute  v
                 //======================================================================
+                Grid_FFT<ccomplex_t> grad_psi({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
+                const real_t vunit = Dplus0 * vfac / boxlen * the_output_plugin->velocity_unit();
                 for( int idim=0; idim<3; ++idim )
                 {
-                    Grid_FFT<ccomplex_t> grad_psi({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
+                    grad_psi.FourierTransformBackward(false);
                     grad_psi.copy_from(psi);
                     grad_psi.FourierTransformForward();
                     grad_psi.apply_function_k_dep([&](auto x, auto k) {
                         return x * ccomplex_t(0.0,k[idim]);
                     });
                     grad_psi.FourierTransformBackward();
-                    psi.FourierTransformBackward();
-
+                    
+                    tmp.FourierTransformBackward(false);
                     tmp.assign_function_of_grids_r([&](auto ppsi, auto pgrad_psi, auto prho) {
-                            return std::real((std::conj(ppsi) * pgrad_psi - ppsi * std::conj(pgrad_psi)) / ccomplex_t(0.0, 2.0 / hbar)/(1.0+prho));
+                            return vunit * std::real((std::conj(ppsi) * pgrad_psi - ppsi * std::conj(pgrad_psi)) / ccomplex_t(0.0, 2.0 / hbar)/(1.0+prho));
                         }, psi, grad_psi, rho);
 
                     fluid_component fc = (idim==0)? fluid_component::vx : ((idim==1)? fluid_component::vy : fluid_component::vz );
