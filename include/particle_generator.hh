@@ -156,11 +156,11 @@ namespace particle
 
                 IDoffset = IDoffset * overload * field.global_size();
 
-                for (size_t i = 0, ipcount = 0; i < field.size(0); ++i)
+                for (size_t i = 0, ipcount = 0; i < field.rsize(0); ++i)
                 {
-                    for (size_t j = 0; j < field.size(1); ++j)
+                    for (size_t j = 0; j < field.rsize(1); ++j)
                     {
-                        for (size_t k = 0; k < field.size(2); ++k, ++ipcount)
+                        for (size_t k = 0; k < field.rsize(2); ++k, ++ipcount)
                         {
                             for (size_t iload = 0; iload < overload; ++iload)
                             {

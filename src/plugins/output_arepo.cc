@@ -100,6 +100,8 @@ public:
     double adec = 1.0 / (160.0 * pow(Omegab * h2 / 0.022, 2.0 / 5.0));
     Tini_ = astart < adec ? Tcmb0 / astart : Tcmb0 / astart / astart * adec;
 
+    music::ilog << "Setting initial gas temperature to T = " << Tini_ << "K/µ" << std::endl;
+
     // suggested PM res
     pmgrid_ = 2*cf_.get_value<double>("setup", "GridRes");
     gridboost_ = 1;
