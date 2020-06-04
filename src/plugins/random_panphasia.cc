@@ -502,6 +502,9 @@ public:
             auto y1(g1.kelem(i, j, k)), y2(g2.kelem(i, j, k)), y3(g3.kelem(i, j, k)), y4(g4.kelem(i, j, k));
 
             g0.kelem(i, j, k) += 3.0 * (y1 * gx * gy * fz + y2 * fx * gy * gz + y3 * gx * fy * gz) + sqrt27 * y4 * gx * gy * gz;
+
+            // fix the overall minus w.r.t. the monofonic noise definition
+            g0.kelem(i, j, k ) *= -1.0;
           }
         }
       }
