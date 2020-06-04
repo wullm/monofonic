@@ -177,7 +177,7 @@ struct grid_interpolate
 
   ccomplex_t compensation_kernel( const vec3_t<real_t>& k ) const noexcept
   {
-    auto sinc = []( real_t x ){ return (std::abs(x)>1e-10)? std::sin(x)/x : 1.0; };
+    auto sinc = []( real_t x ){ return (std::fabs(x)>1e-10)? std::sin(x)/x : 1.0; };
     real_t dfx = sinc(0.5*M_PI*k[0]/gridref.kny_[0]);
     real_t dfy = sinc(0.5*M_PI*k[1]/gridref.kny_[1]);
     real_t dfz = sinc(0.5*M_PI*k[2]/gridref.kny_[2]);

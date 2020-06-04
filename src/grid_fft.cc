@@ -781,12 +781,12 @@ void Grid_FFT<data_t, bdistributed>::Write_PDF(std::string ofname, int nbins, do
             for (size_t iz = 0; iz < size(2); iz++)
             {
                 auto v = this->relem(ix, iy, iz);
-                int ibin = int((std::log10(std::abs(v)) - logvmin) * idv);
+                int ibin = int((std::log10(std::fabs(v)) - logvmin) * idv);
                 if (ibin >= 0 && ibin < nbins)
                 {
                     count[ibin] += 1.0;
                 }
-                ibin = int(((std::log10((std::abs(v) - 1.0) * scale + 1.0)) - logvmin) * idv);
+                ibin = int(((std::log10((std::fabs(v) - 1.0) * scale + 1.0)) - logvmin) * idv);
                 if (ibin >= 0 && ibin < nbins)
                 {
                     scount[ibin] += 1.0;

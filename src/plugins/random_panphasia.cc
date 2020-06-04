@@ -214,8 +214,8 @@ public:
 
   void Fill_Grid(Grid_FFT<real_t> &g)
   {
-    auto sinc = [](real_t x) { return (std::abs(x) > 1e-16) ? std::sin(x) / x : 1.0; };
-    auto dsinc = [](real_t x) { return (std::abs(x) > 1e-16) ? (x * std::cos(x) - std::sin(x)) / (x * x) : 0.0; };
+    auto sinc = [](real_t x) { return (std::fabs(x) > 1e-16) ? std::sin(x) / x : 1.0; };
+    auto dsinc = [](real_t x) { return (std::fabs(x) > 1e-16) ? (x * std::cos(x) - std::sin(x)) / (x * x) : 0.0; };
     const real_t sqrt3{std::sqrt(3.0)}, sqrt27{std::sqrt(27.0)};
 
     // make sure we're in the right space
@@ -359,7 +359,7 @@ public:
             auto gz = ccomplex_t(0.0, dsinc(argz));
 
             auto temp = (fx + sqrt3 * gx) * (fy + sqrt3 * gy) * (fz + sqrt3 * gz);
-            auto magnitude = std::sqrt(1.0 - std::abs(temp * temp));
+            auto magnitude = std::sqrt(1.0 - std::fabs(temp * temp));
 
             auto y0(g0.kelem(i, j, k)), y1(g1.kelem(i, j, k)), y2(g2.kelem(i, j, k)), y3(g3.kelem(i, j, k)), y4(g4.kelem(i, j, k));
 

@@ -429,8 +429,8 @@ void output_convergence(
             for (std::size_t k = 0; k < psi_1.size(2); ++k) {
                 std::size_t idx = psi_1.get_idx(i, j, k);
                 inv_convergence_radius.relem(idx) =
-                    3.0 * (std::abs(psi_3.relem(idx)) / std::abs(psi_2.relem(idx))) -
-                    2.0 * (std::abs(psi_2.relem(idx)) / std::abs(psi_1.relem(idx)));
+                    3.0 * (std::fabs(psi_3.relem(idx)) / std::fabs(psi_2.relem(idx))) -
+                    2.0 * (std::fabs(psi_2.relem(idx)) / std::fabs(psi_1.relem(idx)));
             }
         }
     }

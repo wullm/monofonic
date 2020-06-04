@@ -259,7 +259,7 @@ int Run( config_file& the_config )
 
     wnoise.apply_function_k( [&](auto wn){
         if (bDoFixing)
-            wn = (std::abs(wn) != 0.0) ? wn / std::abs(wn) : wn;
+            wn = (std::fabs(wn) != 0.0) ? wn / std::fabs(wn) : wn;
         return wn / volfac;
     });
 

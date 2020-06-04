@@ -58,9 +58,9 @@ public:
         bUseSPT_ = cf_.get_value_safe<bool>("output", "grafic_use_SPT", false);
         levelmin_ = uint32_t(std::log2(double(ngrid)) + 1e-6);
 
-        if (std::abs(std::pow(2.0, levelmin_) - double(ngrid)) > 1e-4)
+        if ( 1<<levelmin_ != ngrid )
         {
-            music::elog << interface_name_ << " plugin requires setup/GridRes to be power of 2!" << std::endl;
+            music::elog << interface_name_ << " RAMSES requires setup/GridRes to be power of 2!" << std::endl;
             abort();
         }
 
