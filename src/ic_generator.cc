@@ -507,9 +507,29 @@ int Run( config_file& the_config )
                 // initialise psi = exp(i Phi(1)/hbar)
                 //======================================================================
                 phi.FourierTransformBackward();
-                real_t std_phi1 = phi.std();
-                const real_t hbar = 2.0 * M_PI/ngrid * (2*std_phi1/Dplus0); //3sigma, but this might rather depend on gradients of phi...
-                music::ilog << "Semiclassical PT : hbar = " << hbar << " from sigma(phi1) = " << std_phi1 << std::endl;
+
+                real_t maxdphi = -1.0;
+
+                #pragma omp parallel for reduction(max:maxdphi)
+                for( size_t i=0; i<phi.size(0)-1; ++i ){
+                    size_t ir = (i+1)%phi.size(0);
+                    for( size_t j=0; j<phi.size(1); ++j ){
+                        size_t jr = (j+1)%phi.size(1);    
+                        for( size_t k=0; k<phi.size(2); ++k ){
+                            size_t kr = (k+1)%phi.size(2);
+                            auto phic = phi.relem(i,j,k);
+
+                            auto dphixr = std::fabs(phi.relem(ir,j,k) - phic);
+                            auto dphiyr = std::fabs(phi.relem(i,jr,k) - phic);
+                            auto dphizr = std::fabs(phi.relem(i,j,kr) - phic);
+                            
+                            maxdphi = std::max(maxdphi,std::max(dphixr,std::max(dphiyr,dphizr)));
+                        }
+                    }
+                }
+                const real_t hbar_safefac = 1.01;
+                const real_t hbar = maxdphi / M_PI / Dplus0 * hbar_safefac;
+                music::ilog << "Semiclassical PT : hbar = " << hbar << " (limited by initial potential, safety=" << hbar_safefac << ")." << std::endl;
                 
                 if( LPTorder == 1 ){
                     psi.assign_function_of_grids_r([hbar,Dplus0]( real_t pphi, real_t prho ){
