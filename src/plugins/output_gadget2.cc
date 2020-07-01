@@ -33,7 +33,7 @@ public:
 protected:
 	int num_files_;
 	header this_header_;
-	real_t lunit_, vunit_;
+	real_t lunit_, vunit_, munit_;
 	bool blongids_;
 
 public:
@@ -46,9 +46,11 @@ public:
 		// use as many output files as we have MPI tasks
 		MPI_Comm_size(MPI_COMM_WORLD, &num_files_);
 #endif
+		const double rhoc = 27.7519737; // in h^2 1e10 M_sol / Mpc^3
 		real_t astart = 1.0 / (1.0 + cf_.get_value<double>("setup", "zstart"));
 		lunit_ = cf_.get_value<double>("setup", "BoxLength");
 		vunit_ = lunit_ / std::sqrt(astart);
+		munit_ = rhoc * std::pow(cf_.get_value<double>("setup", "BoxLength"), 3);;
 		blongids_ = cf_.get_value_safe<bool>("output", "UseLongids", false);
 	}
 
@@ -57,6 +59,8 @@ public:
 	real_t position_unit() const { return lunit_; }
 
 	real_t velocity_unit() const { return vunit_; }
+
+	real_t mass_unit() const { return munit_; }
 
 	bool has_64bit_reals() const
 	{

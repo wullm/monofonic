@@ -53,7 +53,12 @@ int Run( config_file& the_config )
 
     //--------------------------------------------------------------------------------------------------------
     //! order of the LPT approximation 
-    int LPTorder = the_config.get_value_safe<double>("setup","LPTorder",100);
+    const int LPTorder = the_config.get_value_safe<double>("setup","LPTorder",100);
+
+    //--------------------------------------------------------------------------------------------------------
+    //! use mass perturbations instead of displacements in multi-fluid ICs
+    const bool bPerturbedMasses = the_config.get_value_safe<bool>("setup","PerturbedMasses",true);
+
 
     //--------------------------------------------------------------------------------------------------------
     //! initialice particles on a bcc or fcc lattice instead of a standard sc lattice (doubles and quadruples the number of particles) 
@@ -401,7 +406,8 @@ int Run( config_file& the_config )
     //======================================================================
     //... for two-fluid ICs we need to evolve the offset field
     //======================================================================
-    if( bDoBaryons && LPTorder > 1 )
+    
+    if( bDoBaryons && !bPerturbedMasses && LPTorder > 1 )
     {
         // compute phi_bc
         tmp.FourierTransformForward(false);
@@ -457,6 +463,20 @@ int Run( config_file& the_config )
         }
     }
 
+    // count how many species should be written out as Lagrangian particles
+    int num_particle_species = 0;
+    for( const auto& this_species : species_list )
+    {
+        if( the_output_plugin->write_species_as( this_species ) == output_type::particles )
+            ++num_particle_species;
+    }
+
+    // use pertubed masses if switched on and using more than one species as particles
+    const bool bUsePerturbedMasses = bPerturbedMasses && (num_particle_species > 1);
+
+    //==============================================================//
+    // main output loop, loop over all species that are enabled
+    //==============================================================//
     for( const auto& this_species : species_list )
     {
         music::ilog << std::endl
@@ -464,6 +484,7 @@ int Run( config_file& the_config )
 
         const real_t C_species = (this_species == cosmo_species::baryon)? (1.0-the_cosmo_calc->cosmo_param_.f_b) : -the_cosmo_calc->cosmo_param_.f_b;
 
+        // main loop block
         {
             std::unique_ptr<particle::lattice_generator<Grid_FFT<real_t>>> particle_lattice_generator_ptr;
 
@@ -475,9 +496,37 @@ int Run( config_file& the_config )
 
                 // allocate particle structure and generate particle IDs
                 particle_lattice_generator_ptr = 
-                std::make_unique<particle::lattice_generator<Grid_FFT<real_t>>>( lattice_type, the_output_plugin->has_64bit_reals(), the_output_plugin->has_64bit_ids(), IDoffset, tmp, the_config );
+                std::make_unique<particle::lattice_generator<Grid_FFT<real_t>>>( lattice_type, the_output_plugin->has_64bit_reals(), the_output_plugin->has_64bit_ids(), 
+                    bUsePerturbedMasses, IDoffset, tmp, the_config );
             }
 
+            // if we use perturbed particle masses, set them
+            if( bUsePerturbedMasses && the_output_plugin->write_species_as( this_species ) == output_type::particles )
+            {
+                bool shifted_lattice = (this_species == cosmo_species::baryon &&
+                                        the_output_plugin->write_species_as(this_species) == output_type::particles) ? true : false;
+
+                const real_t munit = the_output_plugin->mass_unit();
+
+                //======================================================================
+                // initialise rho
+                //======================================================================
+                Grid_FFT<real_t> rho({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
+
+                wnoise.FourierTransformForward();
+                rho.FourierTransformForward(false);
+                rho.assign_function_of_grids_kdep( [&]( auto k, auto wn ){
+                    return wn * the_cosmo_calc->get_amplitude_rhobc(k.norm());;
+                }, wnoise );
+                rho.zero_DC_mode();
+                rho.FourierTransformBackward();
+                
+                rho.apply_function_r( [&]( auto prho ){
+                    return 1.0 + C_species * prho;
+                });
+
+                particle_lattice_generator_ptr->set_masses( lattice_type, shifted_lattice, Omega[this_species] * munit, the_output_plugin->has_64bit_reals(), rho, the_config );
+            }
 
             //if( the_output_plugin->write_species_as( cosmo_species::dm ) == output_type::field_eulerian ){
             if( the_output_plugin->write_species_as(this_species) == output_type::field_eulerian )
@@ -639,7 +688,7 @@ int Run( config_file& the_config )
                                 tmp.kelem(idx) = lg.gradient(idim,tmp.get_k3(i,j,k)) * phitot 
                                     + lg.gradient(idimp,tmp.get_k3(i,j,k)) * A3[idimpp]->kelem(idx) - lg.gradient(idimpp,tmp.get_k3(i,j,k)) * A3[idimp]->kelem(idx);
 
-                                if( bDoBaryons ){
+                                if( bDoBaryons && !bUsePerturbedMasses ){
                                     vec3_t<real_t> kvec = phi.get_k<real_t>(i,j,k);
                                     real_t phi_bc = the_cosmo_calc->get_amplitude_phibc(kvec.norm());
                                     tmp.kelem(idx) -= lg.gradient(idim, tmp.get_k3(i,j,k)) * wnoise.kelem(idx) * C_species * phi_bc;
@@ -693,7 +742,7 @@ int Run( config_file& the_config )
                                 tmp.kelem(idx) = lg.gradient(idim,tmp.get_k3(i,j,k)) * phitot_v 
                                         + vfac3 * (lg.gradient(idimp,tmp.get_k3(i,j,k)) * A3[idimpp]->kelem(idx) - lg.gradient(idimpp,tmp.get_k3(i,j,k)) * A3[idimp]->kelem(idx));
 
-                                if( bDoBaryons && LPTorder > 1 ){
+                                if( bDoBaryons && !bUsePerturbedMasses && LPTorder > 1 ){
                                     tmp.kelem(idx) += C_species * vfac * dbc3[idim]->kelem(idx);
                                 }
 

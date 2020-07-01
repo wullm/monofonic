@@ -20,29 +20,40 @@ namespace particle{
 class container
 {
 public:
-	std::vector<float > positions32_, velocities32_;
-	std::vector<double> positions64_, velocities64_;
+	std::vector<float > positions32_, velocities32_, mass32_;
+	std::vector<double> positions64_, velocities64_, mass64_;
 	
 	std::vector<uint32_t> ids32_;
 	std::vector<uint64_t> ids64_;
 	
+	bool bhas_individual_masses_;
 
-	container(){ }
+	container() : bhas_individual_masses_(false) { }
 
 	container(const container &) = delete;
 
-	void allocate(size_t nump, bool b64reals, bool b64ids)
+	void allocate(size_t nump, bool b64reals, bool b64ids, bool bindividualmasses)
 	{
+		bhas_individual_masses_ = bindividualmasses;
+
 		if( b64reals ){
 			positions64_.resize(3 * nump);
 			velocities64_.resize(3 * nump);
 			positions32_.clear();
 			velocities32_.clear();
+			if( bindividualmasses ){
+				mass64_.resize(nump);
+				mass32_.clear();
+			}
 		}else{
 			positions32_.resize(3 * nump);
 			velocities32_.resize(3 * nump);
 			positions64_.clear();
 			velocities64_.clear();
+			if( bindividualmasses ){
+				mass32_.resize(nump);
+				mass64_.clear();
+			}
 		}
 
 		if( b64ids ){
@@ -100,6 +111,22 @@ public:
 
 	void set_id64(size_t ipart, uint64_t id){
 		ids64_[ipart] = id;
+	}
+
+	const void* get_mass32_ptr() const{
+		return reinterpret_cast<const void*>( &mass32_[0] );
+	}
+
+	void set_mass32(size_t ipart, float m){
+		mass32_[ipart] = m;
+	}
+
+	const void* get_mass64_ptr() const{
+		return reinterpret_cast<const void*>( &mass64_[0] );
+	}
+
+	void set_mass64(size_t ipart, double m){
+		mass64_[ipart] = m;
 	}
 
 	size_t get_local_num_particles(void) const

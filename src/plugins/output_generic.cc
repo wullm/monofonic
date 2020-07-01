@@ -57,6 +57,8 @@ public:
 	real_t position_unit() const { return 1.0; }
 	
 	real_t velocity_unit() const { return 1.0; }
+
+	real_t mass_unit() const { return 1.0; }
 	
 	void write_grid_data(const Grid_FFT<real_t> &g, const cosmo_species &s, const fluid_component &c );
 };

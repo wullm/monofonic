@@ -142,7 +142,7 @@ namespace particle
         particle::container particles_;
 
         public:
-        lattice_generator(lattice lattice_type, const bool b64reals, const bool b64ids, size_t IDoffset, const field_t &field, config_file &cf)
+        lattice_generator(lattice lattice_type, const bool b64reals, const bool b64ids, const bool bwithmasses, size_t IDoffset, const field_t &field, config_file &cf)
         {
             if (lattice_type != lattice_glass)
             {
@@ -151,7 +151,7 @@ namespace particle
                 // unless SC lattice is used, particle number is a multiple of the number of modes (=num_p_in_load):
                 const size_t overload = 1ull << std::max<int>(0, lattice_type); // 1 for sc, 2 for bcc, 4 for fcc, 8 for rsc
                 // allocate memory for all local particles
-                particles_.allocate(overload * num_p_in_load, b64reals, b64ids);
+                particles_.allocate(overload * num_p_in_load, b64reals, b64ids, bwithmasses);
                 // set particle IDs to the Lagrangian coordinate (1D encoded) with additionally the field shift encoded as well
 
                 IDoffset = IDoffset * overload * field.global_size();
@@ -180,7 +180,7 @@ namespace particle
             else
             {
                 glass_ptr_ = std::make_unique<glass>( cf, field );
-                particles_.allocate(glass_ptr_->size(), b64reals, b64ids);
+                particles_.allocate(glass_ptr_->size(), b64reals, b64ids, false);
 
                 #pragma omp parallel for
                 for (size_t i = 0; i < glass_ptr_->size(); ++i)
@@ -198,9 +198,57 @@ namespace particle
         }
 
         // invalidates field, phase shifted to unspecified position after return
-        void set_positions(const lattice lattice_type, bool is_second_lattice, int idim, real_t lunit, const bool b64reals, field_t &field, config_file &cf)
+        void set_masses(const lattice lattice_type, bool is_second_lattice, const real_t munit, const bool b64reals, field_t &field, config_file &cf)
         {
             // works only for Bravais types
+            if (lattice_type >= 0)
+            {
+                const size_t num_p_in_load = field.local_size();
+                const real_t pmeanmass = munit / real_t(num_p_in_load);
+
+                for (int ishift = 0; ishift < (1 << lattice_type); ++ishift)
+                {
+                    // if we are dealing with the secondary lattice, apply a global shift
+                    if (ishift == 0 && is_second_lattice)
+                    {
+                        field.shift_field(second_lattice_shift[lattice_type]);
+                    }
+
+                    // can omit first shift since zero by convention, unless shifted already above, otherwise apply relative phase shift
+                    if (ishift > 0)
+                    {
+                        field.shift_field(lattice_shifts[lattice_type][ishift] - lattice_shifts[lattice_type][ishift - 1]);
+                    }
+                    // read out values from phase shifted field and set assoc. particle's value
+                    const auto ipcount0 = ishift * num_p_in_load;
+                    for (size_t i = 0, ipcount = ipcount0; i < field.size(0); ++i)
+                    {
+                        for (size_t j = 0; j < field.size(1); ++j)
+                        {
+                            for (size_t k = 0; k < field.size(2); ++k)
+                            {
+                                if (b64reals)
+                                {
+                                    particles_.set_mass64(ipcount++, pmeanmass * field.relem(i, j, k));
+                                }
+                                else
+                                {
+                                    particles_.set_mass32(ipcount++, pmeanmass * field.relem(i, j, k));
+                                }
+                            }
+                        }
+                    }
+                }
+            }else{
+                // should not happen
+                music::elog << "Cannot have individual particle masses for glasses!" << std::endl;
+                throw std::runtime_error("cannot have individual particle masses for glasses");
+            }
+        }
+
+        // invalidates field, phase shifted to unspecified position after return
+        void set_positions(const lattice lattice_type, bool is_second_lattice, int idim, real_t lunit, const bool b64reals, field_t &field, config_file &cf)
+        {
             if (lattice_type >= 0)
             {
                 const size_t num_p_in_load = field.local_size();
@@ -261,7 +309,6 @@ namespace particle
 
         void set_velocities(lattice lattice_type, bool is_second_lattice, int idim, const bool b64reals, field_t &field, config_file &cf)
         {
-            // works only for Bravais types
             if (lattice_type >= 0)
             {
                 const size_t num_p_in_load = field.local_size();

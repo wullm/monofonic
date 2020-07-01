@@ -70,6 +70,9 @@ public:
 
 	//! routine to return a multiplicative factor that contains the desired velocity units for the output
 	virtual real_t velocity_unit() const = 0;
+
+	//! routine to return a multiplicative factor that contains critical density * box volume in desired mass units for output
+	virtual real_t mass_unit() const = 0;
 };
 
 /*!

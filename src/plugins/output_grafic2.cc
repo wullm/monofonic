@@ -31,7 +31,7 @@ private:
 
 protected:
     header header_;
-    real_t lunit_, vunit_;
+    real_t lunit_, vunit_, munit_;
     uint32_t levelmin_;
     bool bhavebaryons_;
     std::vector<float> data_buf_;
@@ -82,6 +82,8 @@ public:
 
         lunit_ = boxlength;
         vunit_ = boxlength;
+        munit_ = 1.0;
+        #warning need to fix mass unit for grafic output
 
         // create directory structure
         dirname_ = this->fname_;
@@ -109,6 +111,8 @@ public:
     real_t position_unit() const { return lunit_; }
 
     real_t velocity_unit() const { return vunit_; }
+
+    real_t mass_unit() const { return munit_; }
 
     void write_grid_data(const Grid_FFT<real_t> &g, const cosmo_species &s, const fluid_component &c);
 };
