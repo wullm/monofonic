@@ -58,7 +58,7 @@ public:
         bUseSPT_ = cf_.get_value_safe<bool>("output", "grafic_use_SPT", false);
         levelmin_ = uint32_t(std::log2(double(ngrid)) + 1e-6);
 
-        if ( 1<<levelmin_ != ngrid )
+        if ( 1ul<<levelmin_ != ngrid )
         {
             music::elog << interface_name_ << " RAMSES requires setup/GridRes to be power of 2!" << std::endl;
             abort();
@@ -177,6 +177,11 @@ void grafic2_output_plugin::write_grid_data(const Grid_FFT<real_t> &g, const cos
         return;
     if (s == cosmo_species::baryon && (c == fluid_component::dx || c == fluid_component::dy || c == fluid_component::dz || c == fluid_component::mass ))
         return;
+
+    if (c == fluid_component::mass){
+        music::wlog << "You selected perturbed particle masses. " << std::endl;
+        music::wlog << "Make sure your version of RAMSES supports this!" << std::endl;
+    }
 
     // get file name based on species and fluid component type
     std::string file_name = this->get_file_name(s, c);
