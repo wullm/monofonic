@@ -82,8 +82,7 @@ public:
 
         lunit_ = boxlength;
         vunit_ = boxlength;
-        munit_ = 1.0;
-        #warning need to fix mass unit for grafic output
+        munit_ = omegam;
 
         // create directory structure
         dirname_ = this->fname_;
@@ -161,6 +160,9 @@ std::string grafic2_output_plugin::get_file_name(const cosmo_species &s, const f
     case fluid_component::dz:
         file_name += "pos" + species_str + "z";
         break;
+    case fluid_component::mass:
+        file_name += "mass" + species_str;
+        break;
     default:
         break;
     }
@@ -173,7 +175,7 @@ void grafic2_output_plugin::write_grid_data(const Grid_FFT<real_t> &g, const cos
     // ignore certain components
     if (s == cosmo_species::dm && c == fluid_component::density)
         return;
-    if (s == cosmo_species::baryon && (c == fluid_component::dx || c == fluid_component::dy || c == fluid_component::dz))
+    if (s == cosmo_species::baryon && (c == fluid_component::dx || c == fluid_component::dy || c == fluid_component::dz || c == fluid_component::mass ))
         return;
 
     // get file name based on species and fluid component type

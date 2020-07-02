@@ -463,16 +463,8 @@ int Run( config_file& the_config )
         }
     }
 
-    // count how many species should be written out as Lagrangian particles
-    int num_particle_species = 0;
-    for( const auto& this_species : species_list )
-    {
-        if( the_output_plugin->write_species_as( this_species ) == output_type::particles )
-            ++num_particle_species;
-    }
-
     // use pertubed masses if switched on and using more than one species as particles
-    const bool bUsePerturbedMasses = bPerturbedMasses && (num_particle_species > 1);
+    const bool bUsePerturbedMasses = bPerturbedMasses && bDoBaryons;
 
     //==============================================================//
     // main output loop, loop over all species that are enabled
@@ -501,7 +493,8 @@ int Run( config_file& the_config )
             }
 
             // if we use perturbed particle masses, set them
-            if( bUsePerturbedMasses && the_output_plugin->write_species_as( this_species ) == output_type::particles )
+            if( bUsePerturbedMasses && (the_output_plugin->write_species_as( this_species ) == output_type::particles
+                || the_output_plugin->write_species_as( this_species ) == output_type::field_lagrangian ) )
             {
                 bool shifted_lattice = (this_species == cosmo_species::baryon &&
                                         the_output_plugin->write_species_as(this_species) == output_type::particles) ? true : false;
@@ -520,12 +513,16 @@ int Run( config_file& the_config )
                 }, wnoise );
                 rho.zero_DC_mode();
                 rho.FourierTransformBackward();
-                
-                rho.apply_function_r( [&]( auto prho ){
-                    return 1.0 + C_species * prho;
-                });
 
-                particle_lattice_generator_ptr->set_masses( lattice_type, shifted_lattice, Omega[this_species] * munit, the_output_plugin->has_64bit_reals(), rho, the_config );
+                rho.apply_function_r( [&]( auto prho ){
+                    return (1.0 + C_species * prho) * Omega[this_species] * munit;
+                });
+                
+                if( the_output_plugin->write_species_as( this_species ) == output_type::particles ){
+                    particle_lattice_generator_ptr->set_masses( lattice_type, shifted_lattice, 1.0, the_output_plugin->has_64bit_reals(), rho, the_config );
+                }else if( the_output_plugin->write_species_as( this_species ) == output_type::field_lagrangian ){
+                    the_output_plugin->write_grid_data( rho, this_species, fluid_component::mass );
+                }
             }
 
             //if( the_output_plugin->write_species_as( cosmo_species::dm ) == output_type::field_eulerian ){
