@@ -82,7 +82,7 @@ public:
 
         lunit_ = boxlength;
         vunit_ = boxlength;
-        munit_ = omegam;
+        munit_ = 1.0 / omegam; // ramses wants mass in units of critical
 
         // create directory structure
         dirname_ = this->fname_;
