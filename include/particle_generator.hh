@@ -203,8 +203,9 @@ namespace particle
             // works only for Bravais types
             if (lattice_type >= 0)
             {
+                const size_t overload = 1ull << std::max<int>(0, lattice_type); // 1 for sc, 2 for bcc, 4 for fcc, 8 for rsc
                 const size_t num_p_in_load = field.local_size();
-                const real_t pmeanmass = munit / real_t(num_p_in_load);
+                const real_t pmeanmass = munit / real_t(field.global_size()* overload);
 
                 for (int ishift = 0; ishift < (1 << lattice_type); ++ishift)
                 {
