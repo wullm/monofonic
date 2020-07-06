@@ -32,6 +32,7 @@ class gadget_hdf5_output_plugin : public output_plugin
     int num_files;
     double BoxSize;
     double Omega0;
+    double OmegaBaryon;
     double OmegaLambda;
     double HubbleParam;
     int flag_stellarage;
@@ -91,6 +92,7 @@ public:
     header_.BoxSize = lunit_;
     header_.Omega0 = cf_.get_value<double>("cosmology", "Omega_m");
     header_.OmegaLambda = cf_.get_value<double>("cosmology", "Omega_L");
+    header_.OmegaBaryon = cf_.get_value<double>("cosmology", "Omega_b");
     header_.HubbleParam = cf_.get_value<double>("cosmology", "H0") / 100.0;
     header_.flag_stellarage = 0;
     header_.flag_metals = 0;
@@ -142,6 +144,7 @@ public:
     HDFWriteGroupAttribute(this_fname_, "Header", "NumFilesPerSnapshot", from_value<int>(header_.num_files));
     HDFWriteGroupAttribute(this_fname_, "Header", "BoxSize", from_value<double>(header_.BoxSize));
     HDFWriteGroupAttribute(this_fname_, "Header", "Omega0", from_value<double>(header_.Omega0));
+    HDFWriteGroupAttribute(this_fname_, "Header", "OmegaBaryon", from_value<double>(header_.OmegaBaryon));
     HDFWriteGroupAttribute(this_fname_, "Header", "OmegaLambda", from_value<double>(header_.OmegaLambda));
     HDFWriteGroupAttribute(this_fname_, "Header", "HubbleParam", from_value<double>(header_.HubbleParam));
     HDFWriteGroupAttribute(this_fname_, "Header", "Flag_Sfr", from_value<int>(0));
