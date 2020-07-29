@@ -26,6 +26,10 @@ public:
 	{
 		real_t astart   = 1.0/(1.0+cf_.get_value<double>("setup", "zstart"));
 		real_t boxsize  = cf_.get_value<double>("setup", "BoxLength");
+		real_t omegab   = cf_.get_value<double>("cosmology", "Omega_b");
+		real_t omegam   = cf_.get_value<double>("cosmology", "Omega_m");
+		real_t omegal   = cf_.get_value<double>("cosmology", "Omega_L");
+		
 
 		out_eulerian_   = cf_.get_value_safe<bool>("output", "generic_out_eulerian",false);
 
@@ -36,6 +40,10 @@ public:
 			HDFCreateGroup( fname_, "Header" );
 			HDFWriteGroupAttribute<double>( fname_, "Header", "Boxsize", boxsize );
 			HDFWriteGroupAttribute<double>( fname_, "Header", "astart", astart );
+			HDFWriteGroupAttribute<double>( fname_, "Header", "Omega_b", omegab );
+			HDFWriteGroupAttribute<double>( fname_, "Header", "Omega_m", omegam );
+			HDFWriteGroupAttribute<double>( fname_, "Header", "Omega_L", omegal );
+			
 		}
 
 #if defined(USE_MPI)
