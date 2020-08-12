@@ -80,12 +80,13 @@ public:
     // avoid implicit copying of data
     Grid_FFT(const grid_fft_t &g) = delete;
 
-    ~Grid_FFT()
+    ~Grid_FFT() { reset(); }
+
+    void reset()
     {
-        if (data_ != nullptr)
-        {
-            fftw_free(data_);
-        }
+        if (data_ != nullptr) { fftw_free(data_); }
+        if (plan_ != nullptr) { fftw_destroy_plan(plan_); }
+        if (iplan_ != nullptr) { fftw_destroy_plan(iplan_); }
     }
 
     const grid_fft_t *get_grid(size_t ilevel) const { return this; }

@@ -244,6 +244,9 @@ int main( int argc, char** argv )
     // particle::test_plt();
     ///////////////////////////////////////////////////////////////////////
 
+    // call the destructor of plugins before tearing down MPI
+    ic_generator::reset();
+
 #if defined(USE_MPI)
     MPI_Barrier(MPI_COMM_WORLD);
     MPI_Finalize();

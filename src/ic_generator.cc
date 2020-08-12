@@ -49,6 +49,12 @@ int Initialise( config_file& the_config )
     return 0;
 }
 
+void reset () {
+    the_random_number_generator.reset();
+    the_output_plugin.reset();
+    the_cosmo_calc.reset();
+}
+
 int Run( config_file& the_config )
 {
     //--------------------------------------------------------------------------------------------------------
