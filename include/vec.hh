@@ -94,7 +94,7 @@ struct vec_t
   {
     vec_t<N, T> res;
     for (int i = 0; i < N; ++i)
-      res[i] = std::abs(data_[i]);
+      res[i] = std::fabs(data_[i]);
     return res;
   }
 

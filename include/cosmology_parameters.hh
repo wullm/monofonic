@@ -22,6 +22,7 @@ struct parameters
         Omega_DE, //!< dark energy density (cosmological constant or parameterised)
         Omega_r,  //!< photon + relativistic particle density
         Omega_k,  //!< curvature density
+        f_b,      //!< baryon fraction
         H0,       //!< Hubble constant in km/s/Mpc
         h,        //!< hubble parameter
         nspect,   //!< long-wave spectral index (scale free is nspect=1)
@@ -63,7 +64,7 @@ struct parameters
 
         Neff = cf.get_value_safe<double>("cosmology", "Neff", 3.046);
 
-        sigma8 = cf.get_value<double>("cosmology", "sigma_8");
+        sigma8 = cf.get_value_safe<double>("cosmology", "sigma_8",-1.0);
 
         // calculate energy density in ultrarelativistic species from Tcmb and Neff
         double Omega_gamma = 4 * phys_const::sigma_SI / std::pow(phys_const::c_SI, 3) * std::pow(Tcmb, 4.0) / phys_const::rhocrit_h2_SI / (h * h);
@@ -74,6 +75,8 @@ struct parameters
         {
             Omega_r = 0.0;
         }
+
+        f_b = Omega_b / Omega_m;
 #if 1
         // assume zero curvature, take difference from dark energy
         Omega_DE += 1.0 - Omega_m - Omega_DE - Omega_r;

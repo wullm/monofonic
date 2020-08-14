@@ -13,6 +13,7 @@ enum tf_type
     vtotal,
     vcdm,
     vbaryon,
+    deltabc,
     total0,
     cdm0,
     baryon0,

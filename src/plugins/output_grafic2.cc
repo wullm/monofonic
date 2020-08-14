@@ -31,7 +31,7 @@ private:
 
 protected:
     header header_;
-    real_t lunit_, vunit_;
+    real_t lunit_, vunit_, munit_;
     uint32_t levelmin_;
     bool bhavebaryons_;
     std::vector<float> data_buf_;
@@ -58,9 +58,9 @@ public:
         bUseSPT_ = cf_.get_value_safe<bool>("output", "grafic_use_SPT", false);
         levelmin_ = uint32_t(std::log2(double(ngrid)) + 1e-6);
 
-        if (std::abs(std::pow(2.0, levelmin_) - double(ngrid)) > 1e-4)
+        if ( 1ul<<levelmin_ != ngrid )
         {
-            music::elog << interface_name_ << " plugin requires setup/GridRes to be power of 2!" << std::endl;
+            music::elog << interface_name_ << " RAMSES requires setup/GridRes to be power of 2!" << std::endl;
             abort();
         }
 
@@ -82,6 +82,7 @@ public:
 
         lunit_ = boxlength;
         vunit_ = boxlength;
+        munit_ = 1.0 / omegam; // ramses wants mass in units of critical
 
         // create directory structure
         dirname_ = this->fname_;
@@ -109,6 +110,8 @@ public:
     real_t position_unit() const { return lunit_; }
 
     real_t velocity_unit() const { return vunit_; }
+
+    real_t mass_unit() const { return munit_; }
 
     void write_grid_data(const Grid_FFT<real_t> &g, const cosmo_species &s, const fluid_component &c);
 };
@@ -140,22 +143,25 @@ std::string grafic2_output_plugin::get_file_name(const cosmo_species &s, const f
         file_name += "delta" + species_str;
         break;
     case fluid_component::vx:
-        file_name += "vel" + species_str + "z";
+        file_name += "vel" + species_str + "x";
         break;
     case fluid_component::vy:
         file_name += "vel" + species_str + "y";
         break;
     case fluid_component::vz:
-        file_name += "vel" + species_str + "x";
+        file_name += "vel" + species_str + "z";
         break;
     case fluid_component::dx:
-        file_name += "pos" + species_str + "z";
+        file_name += "pos" + species_str + "x";
         break;
     case fluid_component::dy:
         file_name += "pos" + species_str + "y";
         break;
     case fluid_component::dz:
-        file_name += "pos" + species_str + "x";
+        file_name += "pos" + species_str + "z";
+        break;
+    case fluid_component::mass:
+        file_name += "mass" + species_str;
         break;
     default:
         break;
@@ -169,8 +175,13 @@ void grafic2_output_plugin::write_grid_data(const Grid_FFT<real_t> &g, const cos
     // ignore certain components
     if (s == cosmo_species::dm && c == fluid_component::density)
         return;
-    if (s == cosmo_species::baryon && (c == fluid_component::dx || c == fluid_component::dy || c == fluid_component::dz))
+    if (s == cosmo_species::baryon && (c == fluid_component::dx || c == fluid_component::dy || c == fluid_component::dz || c == fluid_component::mass ))
         return;
+
+    if (c == fluid_component::mass){
+        music::wlog << "You selected perturbed particle masses. " << std::endl;
+        music::wlog << "Make sure your version of RAMSES supports this!" << std::endl;
+    }
 
     // get file name based on species and fluid component type
     std::string file_name = this->get_file_name(s, c);
@@ -200,13 +211,13 @@ void grafic2_output_plugin::write_grid_data(const Grid_FFT<real_t> &g, const cos
             assert( g.global_size(0) == ngrid && g.global_size(1) == ngrid && g.global_size(2) == ngrid);
             assert( g.size(1) == ngrid && g.size(2) == ngrid);
             // write actual field slice by slice
-            for (size_t i = 0; i < g.size(0); ++i)
+            for (size_t i = 0; i < g.size(2); ++i)
             {
                 for (unsigned j = 0; j < g.size(1); ++j)
                 {
-                    for (unsigned k = 0; k < g.size(2); ++k)
+                    for (unsigned k = 0; k < g.size(0); ++k)
                     {
-                        data_buf_[j * ngrid + k] = g.relem(i, j, k);
+                        data_buf_[j * ngrid + k] = g.relem(k, j, i);
                     }
                 }
 

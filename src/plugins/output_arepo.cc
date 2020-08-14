@@ -32,6 +32,7 @@ class gadget_hdf5_output_plugin : public output_plugin
     int num_files;
     double BoxSize;
     double Omega0;
+    double OmegaBaryon;
     double OmegaLambda;
     double HubbleParam;
     int flag_stellarage;
@@ -44,7 +45,7 @@ class gadget_hdf5_output_plugin : public output_plugin
 protected:
   int num_files_, num_simultaneous_writers_;
   header_t header_;
-  real_t lunit_, vunit_;
+  real_t lunit_, vunit_, munit_;
   bool blongids_;
   std::string this_fname_;
   double Tini_;
@@ -65,8 +66,12 @@ public:
     MPI_Comm_size(MPI_COMM_WORLD, &num_files_);
 #endif
     real_t astart = 1.0 / (1.0 + cf_.get_value<double>("setup", "zstart"));
+    const double rhoc = 27.7519737; // in h^2 1e10 M_sol / Mpc^3
+
     lunit_ = cf_.get_value<double>("setup", "BoxLength");
     vunit_ = lunit_ / std::sqrt(astart);
+    munit_ = rhoc * std::pow(cf_.get_value<double>("setup", "BoxLength"), 3); // in 1e10 h^-1 M_sol
+    
     blongids_ = cf_.get_value_safe<bool>("output", "UseLongids", false);
     num_simultaneous_writers_ = cf_.get_value_safe<int>("output", "NumSimWriters", num_files_);
 
@@ -87,6 +92,7 @@ public:
     header_.BoxSize = lunit_;
     header_.Omega0 = cf_.get_value<double>("cosmology", "Omega_m");
     header_.OmegaLambda = cf_.get_value<double>("cosmology", "Omega_L");
+    header_.OmegaBaryon = cf_.get_value<double>("cosmology", "Omega_b");
     header_.HubbleParam = cf_.get_value<double>("cosmology", "H0") / 100.0;
     header_.flag_stellarage = 0;
     header_.flag_metals = 0;
@@ -99,6 +105,8 @@ public:
     double h = cf_.get_value<double>("cosmology", "H0") / 100.0, h2 = h*h;
     double adec = 1.0 / (160.0 * pow(Omegab * h2 / 0.022, 2.0 / 5.0));
     Tini_ = astart < adec ? Tcmb0 / astart : Tcmb0 / astart / astart * adec;
+
+    music::ilog << "Setting initial gas temperature to T = " << Tini_ << "K/µ" << std::endl;
 
     // suggested PM res
     pmgrid_ = 2*cf_.get_value<double>("setup", "GridRes");
@@ -136,6 +144,7 @@ public:
     HDFWriteGroupAttribute(this_fname_, "Header", "NumFilesPerSnapshot", from_value<int>(header_.num_files));
     HDFWriteGroupAttribute(this_fname_, "Header", "BoxSize", from_value<double>(header_.BoxSize));
     HDFWriteGroupAttribute(this_fname_, "Header", "Omega0", from_value<double>(header_.Omega0));
+    HDFWriteGroupAttribute(this_fname_, "Header", "OmegaBaryon", from_value<double>(header_.OmegaBaryon));
     HDFWriteGroupAttribute(this_fname_, "Header", "OmegaLambda", from_value<double>(header_.OmegaLambda));
     HDFWriteGroupAttribute(this_fname_, "Header", "HubbleParam", from_value<double>(header_.HubbleParam));
     HDFWriteGroupAttribute(this_fname_, "Header", "Flag_Sfr", from_value<int>(0));
@@ -162,6 +171,8 @@ public:
   real_t position_unit() const { return lunit_; }
 
   real_t velocity_unit() const { return vunit_; }
+
+  real_t mass_unit() const { return munit_; }
 
   bool has_64bit_reals() const
   {
@@ -201,9 +212,11 @@ public:
     header_.npartTotal[sid] = (uint32_t)(pc.get_global_num_particles());
     header_.npartTotalHighWord[sid] = (uint32_t)((pc.get_global_num_particles()) >> 32);
 
-    double rhoc = 27.7519737; // in h^2 1e10 M_sol / Mpc^3
-    double boxmass = Omega_species * rhoc * std::pow(header_.BoxSize, 3);
-    header_.mass[sid] = boxmass / pc.get_global_num_particles();
+    if( pc.bhas_individual_masses_ ){
+      header_.mass[sid] = 0.0;
+    }else{
+      header_.mass[sid] = Omega_species * munit_ / pc.get_global_num_particles();
+    }
 
     HDFCreateGroup(this_fname_, std::string("PartType") + std::to_string(sid));
 
@@ -220,10 +233,20 @@ public:
     }
 
     //... write ids.....
-    if (this->has_64bit_ids())
+    if (this->has_64bit_ids()){
       HDFWriteDataset(this_fname_, std::string("PartType") + std::to_string(sid) + std::string("/ParticleIDs"), pc.ids64_);
-    else
+    }else{
       HDFWriteDataset(this_fname_, std::string("PartType") + std::to_string(sid) + std::string("/ParticleIDs"), pc.ids32_);
+    }
+
+    //... write masses.....
+    if( pc.bhas_individual_masses_ ){
+      if (this->has_64bit_reals()){
+        HDFWriteDataset(this_fname_, std::string("PartType") + std::to_string(sid) + std::string("/Masses"), pc.mass64_);
+      }else{
+        HDFWriteDataset(this_fname_, std::string("PartType") + std::to_string(sid) + std::string("/Masses"), pc.mass32_);
+      }
+    }
 
     // std::cout << ">>>A> " << header_.npart[sid] << std::endl;
   }

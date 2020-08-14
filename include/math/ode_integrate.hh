@@ -73,7 +73,7 @@ do_ckrk5trialstep:
   errmax = 0.0;
   for (size_t i = 0; i < yerr.size(); ++i)
   {
-    errmax = std::max(errmax, std::abs(yerr[i] / yscale[i]));
+    errmax = std::max(errmax, std::fabs(yerr[i] / yscale[i]));
   }
   errmax = errmax / eps;
   if (errmax > 1.0)

@@ -80,11 +80,16 @@ public:
     //! return the (local) size of dimension i
     size_t size(size_t i) const noexcept { assert(i<4); return sizes_[i]; }
 
+    //! return locally stored number of elements of field
+    size_t local_size(void) const noexcept { return local_0_size_ * n_[1] * n_[2]; }
+
+    //! return globally stored number of elements of field
+    size_t global_size(void) const noexcept { return n_[0] * n_[1] * n_[2]; }
+
     //! return the (global) size of dimension i
     size_t global_size(size_t i) const noexcept { assert(i<3); return n_[i]; }
 
-    //! return locally stored number of elements of field
-    size_t local_size(void) const noexcept { return local_0_size_ * n_[1] * n_[2]; }
+    size_t rsize( size_t i ) const noexcept { return (i==0)? local_0_size_ : n_[i]; }
 
     //! return a bounding box of the global extent of the field
     const bounding_box<size_t> &get_global_range(void) const noexcept
@@ -213,7 +218,7 @@ public:
 
     size_t get_cell_idx_1d(const size_t i, const size_t j, const size_t k) const noexcept
     {
-        return ((i + local_0_start_) * size(1) + j) * size(2) + k;
+        return ((i + local_0_start_) * n_[1] + j) * n_[2] + k;
     }
 
     //! deprecated function, was needed for old output plugin

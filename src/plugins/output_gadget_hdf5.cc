@@ -44,7 +44,7 @@ class gadget_hdf5_output_plugin : public output_plugin
 protected:
   int num_files_, num_simultaneous_writers_;
   header_t header_;
-  real_t lunit_, vunit_;
+  real_t lunit_, vunit_, munit_;
   bool blongids_;
   std::string this_fname_;
 
@@ -59,8 +59,12 @@ public:
     MPI_Comm_size(MPI_COMM_WORLD, &num_files_);
 #endif
     real_t astart = 1.0 / (1.0 + cf_.get_value<double>("setup", "zstart"));
+    const double rhoc = 27.7519737; // in h^2 1e10 M_sol / Mpc^3
+
     lunit_ = cf_.get_value<double>("setup", "BoxLength");
     vunit_ = lunit_ / std::sqrt(astart);
+    munit_ = rhoc * std::pow(cf_.get_value<double>("setup", "BoxLength"), 3); // in 1e10 h^-1 M_sol
+
     blongids_ = cf_.get_value_safe<bool>("output", "UseLongids", false);
     num_simultaneous_writers_ = cf_.get_value_safe<int>("output", "NumSimWriters", num_files_);
 
@@ -133,6 +137,8 @@ public:
 
   real_t velocity_unit() const { return vunit_; }
 
+  real_t mass_unit() const { return munit_; }
+
   bool has_64bit_reals() const
   {
     if (typeid(write_real_t) == typeid(double))
@@ -154,10 +160,11 @@ public:
     case cosmo_species::dm:
       return 1;
     case cosmo_species::baryon:
-      return 0;
+      return 2;
     case cosmo_species::neutrino:
       return 3;
     }
+    #warning Baryons hardwired to species 2 in G2
     return -1;
   }
 
@@ -171,9 +178,10 @@ public:
     header_.npartTotal[sid] = (uint32_t)(pc.get_global_num_particles());
     header_.npartTotalHighWord[sid] = (uint32_t)((pc.get_global_num_particles()) >> 32);
 
-    double rhoc = 27.7519737; // in h^2 1e10 M_sol / Mpc^3
-    double boxmass = Omega_species * rhoc * std::pow(header_.BoxSize, 3);
-    header_.mass[sid] = boxmass / pc.get_global_num_particles();
+    if( pc.bhas_individual_masses_ )
+      header_.mass[sid] = 0.0;
+    else
+      header_.mass[sid] = Omega_species * munit_ / pc.get_global_num_particles();
 
     HDFCreateGroup(this_fname_, std::string("PartType") + std::to_string(sid));
 
@@ -194,6 +202,15 @@ public:
       HDFWriteDataset(this_fname_, std::string("PartType") + std::to_string(sid) + std::string("/ParticleIDs"), pc.ids64_);
     else
       HDFWriteDataset(this_fname_, std::string("PartType") + std::to_string(sid) + std::string("/ParticleIDs"), pc.ids32_);
+
+    //... write masses.....
+    if( pc.bhas_individual_masses_ ){
+      if (this->has_64bit_reals()){
+        HDFWriteDataset(this_fname_, std::string("PartType") + std::to_string(sid) + std::string("/Masses"), pc.mass64_);
+      }else{
+        HDFWriteDataset(this_fname_, std::string("PartType") + std::to_string(sid) + std::string("/Masses"), pc.mass32_);
+      }
+    }
 
     // std::cout << ">>>A> " << header_.npart[sid] << std::endl;
   }

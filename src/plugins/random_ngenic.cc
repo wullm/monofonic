@@ -107,7 +107,7 @@ public:
                         } else{ /* k=0 plane needs special treatment */
                             if( g.is_distributed() ){
                                 if (j == 0) {
-                                    if (i < nres_ / 2 && i_in_range)
+                                    if (i < nres_ / 2 )
                                     {
                                         if(i_in_range) g.kelem(ip,jj,k) = zrand;
                                         if(ii_in_range) g.kelem(iip,j,k) = std::conj(zrand);
