@@ -7,7 +7,7 @@
 class genericio_output_plugin : public output_plugin
 {
 protected:
-    real_t lunit_, vunit_;
+    real_t lunit_, vunit_, munit_;
     bool hacc_hydro_;
     float hacc_etamax_;
     float hh_value_, rho_value_, mu_value_;
@@ -27,12 +27,15 @@ public:
         lunit_ = cf_.get_value<double>("setup", "BoxLength");
         vunit_ = lunit_;
         hacc_hydro_ = cf_.get_value_safe<bool>("output", "GenericIO_HACCHydro", false);
-        hacc_etamax_ = cf_.get_value_safe<float>("output", "GenericIO_ETAMAX", 1.0f);
-        hh_value_ = 4.0f * hacc_etamax_ * lunit_ / cf_.get_value<float>("setup", "GridRes");
-        mu_value_ = 4.0 / (8.0 - 5.0 * (1.0 - 0.75)); // neutral value. FIXME: account for ionization?
+        // initial smoothing length is mean particle seperation
+        hh_value_ = lunit_ / cf_.get_value<float>("setup", "GridRes");
+        // neutral value for molecular weight. FIXME: account for ionization?
+        const float primordial_x = 0.75;
+        mu_value_ = 4.0 / (1.0 + 3.0*primordial_x);
         
         double rhoc = 27.7519737; // in h^2 1e10 M_sol / Mpc^3
         rho_value_ = cf_.get_value<double>("cosmology", "Omega_b") * rhoc;
+        munit_ = rhoc * std::pow(cf_.get_value<double>("setup", "BoxLength"), 3);
     }
 
     output_type write_species_as(const cosmo_species &) const { return output_type::particles; }
@@ -40,6 +43,8 @@ public:
     real_t position_unit() const { return lunit_; }
 
     real_t velocity_unit() const { return vunit_; }
+
+    real_t mass_unit() const { return munit_; }
 
     bool has_64bit_reals() const { return false; }
 
@@ -65,6 +70,7 @@ public:
         auto _pos = reinterpret_cast<const float*>(pc.get_pos32_ptr());
         auto _vel = reinterpret_cast<const float*>(pc.get_vel32_ptr());
         auto _ids = reinterpret_cast<const uint64_t*>(pc.get_ids64_ptr());
+        auto _mass = reinterpret_cast<const float*>(pc.get_mass32_ptr());
         
         for(size_t i=0; i<npart; ++i) {
             xx.push_back(_pos[3*i + 0]);
@@ -83,8 +89,12 @@ public:
             size_t prev_size = mass.size();
             size_t new_size = prev_size + npart;
             
-            mass.resize(new_size);
-            std::fill(mass.begin() + prev_size, mass.end(), particle_mass);
+            if(pc.bhas_individual_masses_) {
+                std::copy(_mass, _mass+npart, std::back_inserter(mass));
+            } else {
+                mass.resize(new_size);
+                std::fill(mass.begin() + prev_size, mass.end(), particle_mass);
+            }
 
             mask.resize(new_size);
             std::fill(mask.begin() + prev_size, mask.end(), s == cosmo_species::baryon ? 1<<2 : 0);
