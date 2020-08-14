@@ -131,6 +131,7 @@ int Run( config_file& the_config )
     const real_t volfac(std::pow(boxlen / ngrid / 2.0 / M_PI, 1.5));
 
     the_cosmo_calc->write_powerspectrum(astart, "input_powerspec.txt" );
+    the_cosmo_calc->write_transfer("input_transfer.txt" );
 
     //--------------------------------------------------------------------
     // Compute LPT time coefficients
@@ -461,6 +462,18 @@ int Run( config_file& the_config )
             music::flog << "unknown test '" << testing << "'" << std::endl;
             std::abort();
         }
+    }
+
+    if( true && MPI::get_rank()==0 )
+    {
+        std::ofstream ofs("growthfac.txt");
+        double a=1e-3;
+        double ainc = 1.01;
+        while( a<1.1 ){
+            ofs << std::setw(16) << a << " " << std::setw(16) << the_cosmo_calc->get_growth_factor( a ) << std::endl;
+            a *= ainc;
+        }
+        ofs.close();
     }
 
     // use pertubed masses if switched on and using more than one species as particles

@@ -215,6 +215,43 @@ public:
         music::ilog << "Wrote power spectrum at a=" << a << " to file \'" << fname << "\'" << std::endl;
     }
 
+    //! Write out a correctly scaled power spectrum at starting time
+    void write_transfer( std::string fname ) const
+    {
+        // const real_t Dplus0 = this->get_growth_factor(a);
+
+        if (CONFIG::MPI_task_rank == 0)
+        {
+            double kmin = std::max(1e-4, transfer_function_->get_kmin());
+
+            // write power spectrum to a file
+            std::ofstream ofs(fname.c_str());
+            std::stringstream ss;
+            ss << " ,ap=" << astart_ << "";
+            ofs << "# " << std::setw(18) << "k [h/Mpc]"
+                << std::setw(20) << ("delta_c(k,a=ap)")
+                << std::setw(20) << ("delta_b(k,a=ap)")
+                << std::setw(20) << ("delta_m(k,a=ap)")
+                << std::setw(20) << ("delta_bc(k,a=ap)")
+                << std::endl;
+            double fb = cosmo_param_.Omega_b / cosmo_param_.Omega_m, fc = 1.0-fb;
+            for (double k = kmin; k < transfer_function_->get_kmax(); k *= 1.05)
+            {
+                double dm  = this->get_amplitude(k, total) * Dplus_start_ / Dplus_target_;
+                double dbc = this->get_amplitude(k, baryon) - this->get_amplitude(k, cdm);
+                double db  = dm + fc * dbc;
+                double dc  = dm - fb * dbc;
+                ofs << std::setw(20) << std::setprecision(10) << k
+                    << std::setw(20) << std::setprecision(10) << dc
+                    << std::setw(20) << std::setprecision(10) << db
+                    << std::setw(20) << std::setprecision(10) << dm
+                    << std::setw(20) << std::setprecision(10) << dbc
+                    << std::endl;
+            }
+        }
+        music::ilog << "Wrote input transfer functions at a=" << astart_ << " to file \'" << fname << "\'" << std::endl;
+    }
+
     const cosmology::parameters &get_parameters(void) const noexcept
     {
         return cosmo_param_;
