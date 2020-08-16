@@ -370,7 +370,7 @@ int Run( config_file& the_config )
         //... 3a term ...
         wtime = get_wtime();
         music::ilog << std::setw(40) << std::setfill('.') << std::left << "Computing phi(3a) term" << std::flush;
-        phi3a.FourierTransformForward(false);
+        phi3.FourierTransformForward(false);
         Conv.convolve_Hessians(phi, {0, 0}, phi, {1, 1}, phi, {2, 2}, op::assign_to(phi3));
         Conv.convolve_Hessians(phi, {0, 1}, phi, {0, 2}, phi, {1, 2}, op::multiply_add_to(phi3,2.0));
         Conv.convolve_Hessians(phi, {1, 2}, phi, {1, 2}, phi, {0, 0}, op::subtract_from(phi3));
@@ -457,13 +457,13 @@ int Run( config_file& the_config )
     {
         music::wlog << "you are running in testing mode. No ICs, only diagnostic output will be written out!" << std::endl;
         if (testing == "potentials_and_densities"){
-            testing::output_potentials_and_densities(the_config, ngrid, boxlen, phi, phi2, phi3a, phi3b, A3);
+            testing::output_potentials_and_densities(the_config, ngrid, boxlen, phi, phi2, phi3, A3);
         }
         else if (testing == "velocity_displacement_symmetries"){
-            testing::output_velocity_displacement_symmetries(the_config, ngrid, boxlen, vfac, Dplus0, phi, phi2, phi3a, phi3b, A3);
+            testing::output_velocity_displacement_symmetries(the_config, ngrid, boxlen, vfac, Dplus0, phi, phi2, phi3, A3);
         }
         else if (testing == "convergence"){
-            testing::output_convergence(the_config, the_cosmo_calc.get(), ngrid, boxlen, vfac, Dplus0, phi, phi2, phi3a, phi3b, A3);
+            testing::output_convergence(the_config, the_cosmo_calc.get(), ngrid, boxlen, vfac, Dplus0, phi, phi2, phi3, A3);
         }
         else{
             music::flog << "unknown test '" << testing << "'" << std::endl;
@@ -700,7 +700,7 @@ int Run( config_file& the_config )
                         for (size_t j = 0; j < phi.size(1); ++j) {
                             for (size_t k = 0; k < phi.size(2); ++k) {
                                 size_t idx = phi.get_idx(i,j,k);
-                                auto phitot = phi.kelem(idx) + phi2.kelem(idx) + phi3a.kelem(idx) + phi3b.kelem(idx);
+                                auto phitot = phi.kelem(idx) + phi2.kelem(idx) + phi3.kelem(idx);
                                 
                                 tmp.kelem(idx) = lg.gradient(idim,tmp.get_k3(i,j,k)) * phitot 
                                     + lg.gradient(idimp,tmp.get_k3(i,j,k)) * A3[idimpp]->kelem(idx) - lg.gradient(idimpp,tmp.get_k3(i,j,k)) * A3[idimp]->kelem(idx);
@@ -756,7 +756,7 @@ int Run( config_file& the_config )
                             for (size_t k = 0; k < phi.size(2); ++k) {
                                 size_t idx = phi.get_idx(i,j,k);
                                 
-                                auto phitot_v = vfac1 * phi.kelem(idx) + vfac2 * phi2.kelem(idx) + vfac3 * (phi3a.kelem(idx) + phi3b.kelem(idx));
+                                auto phitot_v = vfac1 * phi.kelem(idx) + vfac2 * phi2.kelem(idx) + vfac3 * phi3.kelem(idx);
 
                                 tmp.kelem(idx) = lg.gradient(idim,tmp.get_k3(i,j,k)) * phitot_v 
                                         + vfac3 * (lg.gradient(idimp,tmp.get_k3(i,j,k)) * A3[idimpp]->kelem(idx) - lg.gradient(idimpp,tmp.get_k3(i,j,k)) * A3[idimp]->kelem(idx));
