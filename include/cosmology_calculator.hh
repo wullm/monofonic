@@ -145,7 +145,7 @@ public:
         Dplus_start_ = D_of_a_( astart_ ) / Dnow_;
         Dplus_target_ = D_of_a_( atarget_ ) / Dnow_;
 
-        music::ilog << "D+ = " << Dplus_target_ << ", " << Dplus_start_ << std::endl;
+        music::ilog << "Linear growth factors: D+_target = " << Dplus_target_ << ", D+_start = " << Dplus_start_ << std::endl;
 
         // set up transfer functions and compute normalisation
         transfer_function_ = std::move(select_TransferFunction_plugin(cf));
