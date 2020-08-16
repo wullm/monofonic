@@ -167,11 +167,11 @@ int Run( config_file& the_config )
     // Create arrays
     //--------------------------------------------------------------------
     Grid_FFT<real_t> phi({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
-    Grid_FFT<real_t> phi2({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
-    Grid_FFT<real_t> phi3({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
-    Grid_FFT<real_t> A3x({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
-    Grid_FFT<real_t> A3y({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
-    Grid_FFT<real_t> A3z({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
+    Grid_FFT<real_t> phi2({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen}, false); // do not allocate these unless needed
+    Grid_FFT<real_t> phi3({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen}, false); //   ..
+    Grid_FFT<real_t> A3x({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen}, false);  //   ..
+    Grid_FFT<real_t> A3y({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen}, false);  //   ..
+    Grid_FFT<real_t> A3z({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen}, false);  //   ..
 
     //... array [.] access to components of A3:
     std::array<Grid_FFT<real_t> *, 3> A3({&A3x, &A3y, &A3z});
@@ -331,9 +331,11 @@ int Run( config_file& the_config )
     //======================================================================
     if (LPTorder > 1)
     {
+        phi2.allocate();
+        phi2.FourierTransformForward(false);
+        
         wtime = get_wtime();
         music::ilog << std::setw(40) << std::setfill('.') << std::left << "Computing phi(2) term" << std::flush;
-        phi2.FourierTransformForward(false);
         Conv.convolve_SumOfHessians(phi, {0, 0}, phi, {1, 1}, {2, 2}, op::assign_to(phi2));
         Conv.convolve_Hessians(phi, {1, 1}, phi, {2, 2}, op::add_to(phi2));
         Conv.convolve_Hessians(phi, {0, 1}, phi, {0, 1}, op::subtract_from(phi2));
@@ -366,11 +368,14 @@ int Run( config_file& the_config )
     //======================================================================
     if (LPTorder > 2)
     {
+        phi3.allocate();
+        phi3.FourierTransformForward(false);
+
+        
         //... phi3 = phi3a - 10/7 phi3b
         //... 3a term ...
         wtime = get_wtime();
         music::ilog << std::setw(40) << std::setfill('.') << std::left << "Computing phi(3a) term" << std::flush;
-        phi3.FourierTransformForward(false);
         Conv.convolve_Hessians(phi, {0, 0}, phi, {1, 1}, phi, {2, 2}, op::assign_to(phi3));
         Conv.convolve_Hessians(phi, {0, 1}, phi, {0, 2}, phi, {1, 2}, op::multiply_add_to(phi3,2.0));
         Conv.convolve_Hessians(phi, {1, 2}, phi, {1, 2}, phi, {0, 0}, op::subtract_from(phi3));
@@ -400,6 +405,7 @@ int Run( config_file& the_config )
         {
             // cyclic rotations of indices
             int idimp = (idim + 1) % 3, idimpp = (idim + 2) % 3;
+            A3[idim]->allocate();
             A3[idim]->FourierTransformForward(false);
             Conv.convolve_Hessians(phi2, {idim, idimp}, phi, {idim, idimpp}, op::assign_to(*A3[idim]));
             Conv.convolve_Hessians(phi2, {idim, idimpp}, phi, {idim, idimp}, op::subtract_from(*A3[idim]));
@@ -437,11 +443,19 @@ int Run( config_file& the_config )
 
     ///... scale all potentials with respective growth factors
     phi *= g1;
-    phi2 *= g2;
-    phi3 *= g3;
-    (*A3[0]) *= g3c;
-    (*A3[1]) *= g3c;
-    (*A3[2]) *= g3c;
+
+    if (LPTorder > 1)
+    {
+        phi2 *= g2;
+    }
+    
+    if (LPTorder > 2)
+    {
+        phi3 *= g3;
+        (*A3[0]) *= g3c;
+        (*A3[1]) *= g3c;
+        (*A3[2]) *= g3c;
+    }
 
     music::ilog << "-------------------------------------------------------------------------------" << std::endl;
 
@@ -688,8 +702,15 @@ int Run( config_file& the_config )
 #endif
 
                 phi.FourierTransformForward();
-                phi2.FourierTransformForward();
-                phi3.FourierTransformForward();
+                if( LPTorder > 1 ){
+                    phi2.FourierTransformForward();
+                }
+                if( LPTorder > 2 ){
+                    phi3.FourierTransformForward();
+                    A3[0]->FourierTransformForward();
+                    A3[1]->FourierTransformForward();
+                    A3[2]->FourierTransformForward();
+                }
             
                 // write out positions
                 for( int idim=0; idim<3; ++idim ){
@@ -705,10 +726,21 @@ int Run( config_file& the_config )
                         for (size_t j = 0; j < phi.size(1); ++j) {
                             for (size_t k = 0; k < phi.size(2); ++k) {
                                 size_t idx = phi.get_idx(i,j,k);
-                                auto phitot = phi.kelem(idx) + phi2.kelem(idx) + phi3.kelem(idx);
-                                
-                                tmp.kelem(idx) = lg.gradient(idim,tmp.get_k3(i,j,k)) * phitot 
-                                    + lg.gradient(idimp,tmp.get_k3(i,j,k)) * A3[idimpp]->kelem(idx) - lg.gradient(idimpp,tmp.get_k3(i,j,k)) * A3[idimp]->kelem(idx);
+                                auto phitot = phi.kelem(idx);
+
+                                if( LPTorder > 1 ){
+                                    phitot += phi2.kelem(idx);
+                                }
+
+                                if( LPTorder > 2 ){
+                                    phitot += phi3.kelem(idx);
+                                }
+
+                                tmp.kelem(idx) = lg.gradient(idim,tmp.get_k3(i,j,k)) * phitot;
+
+                                if( LPTorder > 2 ){
+                                    tmp.kelem(idx) += lg.gradient(idimp,tmp.get_k3(i,j,k)) * A3[idimpp]->kelem(idx) - lg.gradient(idimpp,tmp.get_k3(i,j,k)) * A3[idimp]->kelem(idx);
+                                }
 
 #if defined(ENABLE_PERTURBED_BARYON_POS)
                                 if( bDoBaryons && !bUsePerturbedMasses ){
@@ -761,10 +793,21 @@ int Run( config_file& the_config )
                             for (size_t k = 0; k < phi.size(2); ++k) {
                                 size_t idx = phi.get_idx(i,j,k);
                                 
-                                auto phitot_v = vfac1 * phi.kelem(idx) + vfac2 * phi2.kelem(idx) + vfac3 * phi3.kelem(idx);
+                                auto phitot_v = vfac1 * phi.kelem(idx);
+                                
+                                if( LPTorder > 1 ){
+                                    phitot_v += vfac2 * phi2.kelem(idx);
+                                }
 
-                                tmp.kelem(idx) = lg.gradient(idim,tmp.get_k3(i,j,k)) * phitot_v 
-                                        + vfac3 * (lg.gradient(idimp,tmp.get_k3(i,j,k)) * A3[idimpp]->kelem(idx) - lg.gradient(idimpp,tmp.get_k3(i,j,k)) * A3[idimp]->kelem(idx));
+                                if( LPTorder > 2 ){
+                                    phitot_v += vfac3 * phi3.kelem(idx);
+                                }
+                                
+                                tmp.kelem(idx) = lg.gradient(idim,tmp.get_k3(i,j,k)) * phitot_v;
+                                
+                                if( LPTorder > 2 ){
+                                    tmp.kelem(idx) += vfac3 * (lg.gradient(idimp,tmp.get_k3(i,j,k)) * A3[idimpp]->kelem(idx) - lg.gradient(idimpp,tmp.get_k3(i,j,k)) * A3[idimp]->kelem(idx));
+                                }
 
 #if defined(ENABLE_PERTURBED_BARYON_POS)
                                 if( bDoBaryons && !bUsePerturbedMasses && LPTorder > 1 ){

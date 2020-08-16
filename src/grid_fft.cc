@@ -3,7 +3,7 @@
 #include <thread>
 
 template <typename data_t, bool bdistributed>
-void Grid_FFT<data_t, bdistributed>::Setup(void)
+void Grid_FFT<data_t, bdistributed>::allocate(void)
 {
     if (!bdistributed)
     {
@@ -157,6 +157,7 @@ void Grid_FFT<data_t, bdistributed>::Setup(void)
         throw std::runtime_error("MPI is required for distributed FFT arrays!");
 #endif //// of #ifdef #else USE_MPI ////////////////////////////////////////////////////////////////////////////////////
     }
+    ballocated_ = true;
 }
 
 template <typename data_t, bool bdistributed>
@@ -372,7 +373,7 @@ void Grid_FFT<data_t, bdistributed>::Read_from_HDF5(const std::string Filename, 
     {
         fftw_free(data_);
     }
-    this->Setup();
+    this->allocate();
 
     //... copy data to internal array ...
     real_t sum1{0.0}, sum2{0.0};

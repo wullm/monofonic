@@ -47,14 +47,18 @@ public:
 
     real_t fft_norm_fac_;
 
+    bool ballocated_;
+
     ptrdiff_t local_0_start_, local_1_start_;
     ptrdiff_t local_0_size_, local_1_size_;
 
-    Grid_FFT(const std::array<size_t, 3> &N, const std::array<real_t, 3> &L, space_t initialspace = rspace_id)
+    //! constructor for FTable grid object
+    Grid_FFT(const std::array<size_t, 3> &N, const std::array<real_t, 3> &L, bool allocate = true, space_t initialspace = rspace_id)
         : n_(N), length_(L), space_(initialspace), data_(nullptr), cdata_(nullptr)
     {
-        //invalidated = true;
-        this->Setup();
+        if( allocate ){
+            this->allocate();
+        }
     }
 
     // avoid implicit copying of data
@@ -70,9 +74,12 @@ public:
 
     const grid_fft_t *get_grid(size_t ilevel) const { return this; }
 
+    //! return if grid object is 
     bool is_distributed( void ) const noexcept { return bdistributed; }
 
-    void Setup();
+    void allocate();
+
+    bool is_allocated( void ) const noexcept { return ballocated_; }
 
     //! return the number of data_t elements that we store in the container
     size_t memsize( void ) const noexcept { return ntot_; }
