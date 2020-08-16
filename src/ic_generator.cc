@@ -141,8 +141,9 @@ int Run( config_file& the_config )
 
     const double g1  = -Dplus0;
     const double g2  = ((LPTorder>1)? -3.0/7.0*Dplus0*Dplus0 : 0.0);
-    const double g3a = ((LPTorder>2)? 1.0/3.0*Dplus0*Dplus0*Dplus0 : 0.0);
-    const double g3b = ((LPTorder>2)? -10.0/21.*Dplus0*Dplus0*Dplus0 : 0.0);
+    const double g3  = ((LPTorder>2)? 1.0/3.0*Dplus0*Dplus0*Dplus0 : 0.0);
+    // const double g3a = ((LPTorder>2)? 1.0/3.0*Dplus0*Dplus0*Dplus0 : 0.0);
+    // const double g3b = ((LPTorder>2)? -10.0/21.*Dplus0*Dplus0*Dplus0 : 0.0);
     const double g3c = ((LPTorder>2)? 1.0/7.0*Dplus0*Dplus0*Dplus0 : 0.0);
 
     // vfac = d log D+ / dt 
@@ -165,8 +166,7 @@ int Run( config_file& the_config )
     //--------------------------------------------------------------------
     Grid_FFT<real_t> phi({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
     Grid_FFT<real_t> phi2({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
-    Grid_FFT<real_t> phi3a({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
-    Grid_FFT<real_t> phi3b({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
+    Grid_FFT<real_t> phi3({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
     Grid_FFT<real_t> A3x({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
     Grid_FFT<real_t> A3y({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
     Grid_FFT<real_t> A3z({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
@@ -363,30 +363,31 @@ int Run( config_file& the_config )
     //======================================================================
     if (LPTorder > 2)
     {
+        //... phi3 = phi3a - 10/7 phi3b
         //... 3a term ...
         wtime = get_wtime();
         music::ilog << std::setw(40) << std::setfill('.') << std::left << "Computing phi(3a) term" << std::flush;
         phi3a.FourierTransformForward(false);
-        Conv.convolve_Hessians(phi, {0, 0}, phi, {1, 1}, phi, {2, 2}, op::assign_to(phi3a));
-        Conv.convolve_Hessians(phi, {0, 1}, phi, {0, 2}, phi, {1, 2}, op::multiply_add_to(phi3a,2.0));
-        Conv.convolve_Hessians(phi, {1, 2}, phi, {1, 2}, phi, {0, 0}, op::subtract_from(phi3a));
-        Conv.convolve_Hessians(phi, {0, 2}, phi, {0, 2}, phi, {1, 1}, op::subtract_from(phi3a));
-        Conv.convolve_Hessians(phi, {0, 1}, phi, {0, 1}, phi, {2, 2}, op::subtract_from(phi3a));
-        phi3a.apply_InverseLaplacian();
+        Conv.convolve_Hessians(phi, {0, 0}, phi, {1, 1}, phi, {2, 2}, op::assign_to(phi3));
+        Conv.convolve_Hessians(phi, {0, 1}, phi, {0, 2}, phi, {1, 2}, op::multiply_add_to(phi3,2.0));
+        Conv.convolve_Hessians(phi, {1, 2}, phi, {1, 2}, phi, {0, 0}, op::subtract_from(phi3));
+        Conv.convolve_Hessians(phi, {0, 2}, phi, {0, 2}, phi, {1, 1}, op::subtract_from(phi3));
+        Conv.convolve_Hessians(phi, {0, 1}, phi, {0, 1}, phi, {2, 2}, op::subtract_from(phi3));
+        // phi3a.apply_InverseLaplacian();
         music::ilog << std::setw(20) << std::setfill(' ') << std::right << "took " << get_wtime() - wtime << "s" << std::endl;
 
         //... 3b term ...
         wtime = get_wtime();
         music::ilog << std::setw(40) << std::setfill('.') << std::left << "Computing phi(3b) term" << std::flush;
-        phi3b.FourierTransformForward(false);
-        Conv.convolve_SumOfHessians(phi, {0, 0}, phi2, {1, 1}, {2, 2}, op::assign_to(phi3b));
-        Conv.convolve_SumOfHessians(phi, {1, 1}, phi2, {2, 2}, {0, 0}, op::add_to(phi3b));
-        Conv.convolve_SumOfHessians(phi, {2, 2}, phi2, {0, 0}, {1, 1}, op::add_to(phi3b));
-        Conv.convolve_Hessians(phi, {0, 1}, phi2, {0, 1}, op::multiply_add_to(phi3b,-2.0));
-        Conv.convolve_Hessians(phi, {0, 2}, phi2, {0, 2}, op::multiply_add_to(phi3b,-2.0));
-        Conv.convolve_Hessians(phi, {1, 2}, phi2, {1, 2}, op::multiply_add_to(phi3b,-2.0));
-        phi3b.apply_InverseLaplacian();
-        phi3b *= 0.5; // factor 1/2 from definition of phi(3b)!
+        // phi3b.FourierTransformForward(false);
+        Conv.convolve_SumOfHessians(phi, {0, 0}, phi2, {1, 1}, {2, 2}, op::multiply_add_to(phi3,-5.0/7.0));
+        Conv.convolve_SumOfHessians(phi, {1, 1}, phi2, {2, 2}, {0, 0}, op::multiply_add_to(phi3,-5.0/7.0));
+        Conv.convolve_SumOfHessians(phi, {2, 2}, phi2, {0, 0}, {1, 1}, op::multiply_add_to(phi3,-5.0/7.0));
+        Conv.convolve_Hessians(phi, {0, 1}, phi2, {0, 1}, op::multiply_add_to(phi3,+10.0/7.0));
+        Conv.convolve_Hessians(phi, {0, 2}, phi2, {0, 2}, op::multiply_add_to(phi3,+10.0/7.0));
+        Conv.convolve_Hessians(phi, {1, 2}, phi2, {1, 2}, op::multiply_add_to(phi3,+10.0/7.0));
+        phi3.apply_InverseLaplacian();
+        //phi3b *= 0.5; // factor 1/2 from definition of phi(3b)!
         music::ilog << std::setw(20) << std::setfill(' ') << std::right << "took " << get_wtime() - wtime << "s" << std::endl;
 
         //... transversal term ...
@@ -434,8 +435,8 @@ int Run( config_file& the_config )
     ///... scale all potentials with respective growth factors
     phi *= g1;
     phi2 *= g2;
-    phi3a *= g3a;
-    phi3b *= g3b;
+    phi3 *= g3;
+    //phi3b *= g3b;
     (*A3[0]) *= g3c;
     (*A3[1]) *= g3c;
     (*A3[2]) *= g3c;
