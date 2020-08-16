@@ -174,6 +174,7 @@ int Run( config_file& the_config )
     //... array [.] access to components of A3:
     std::array<Grid_FFT<real_t> *, 3> A3({&A3x, &A3y, &A3z});
 
+#if defined(ENABLE_PERTURBED_BARYON_POS)
     // additional baryon-CDM offset
     Grid_FFT<real_t> dbcx({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
     Grid_FFT<real_t> dbcy({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
@@ -181,6 +182,7 @@ int Run( config_file& the_config )
     
     //... array [.] access to components of dbc:
     std::array<Grid_FFT<real_t> *, 3> dbc3({&dbcx, &dbcy, &dbcz});
+#endif
 
     // white noise field 
     Grid_FFT<real_t> wnoise({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
@@ -404,10 +406,10 @@ int Run( config_file& the_config )
         music::ilog << std::setw(20) << std::setfill(' ') << std::right << "took " << get_wtime() - wtime << "s" << std::endl;
     }
 
-    //======================================================================
-    //... for two-fluid ICs we need to evolve the offset field
-    //======================================================================
-    
+#if defined(ENABLE_PERTURBED_BARYON_POS)
+    //===========================================================================================
+    //... for two-fluid ICs with displacement perturbations, we need to evolve the offset field
+    //===========================================================================================
     if( bDoBaryons && !bPerturbedMasses && LPTorder > 1 )
     {
         // compute phi_bc
@@ -427,6 +429,7 @@ int Run( config_file& the_config )
             (*dbc3[idim]) *= -g1;
         }
     }
+#endif
 
     ///... scale all potentials with respective growth factors
     phi *= g1;
@@ -698,6 +701,7 @@ int Run( config_file& the_config )
                                 tmp.kelem(idx) = lg.gradient(idim,tmp.get_k3(i,j,k)) * phitot 
                                     + lg.gradient(idimp,tmp.get_k3(i,j,k)) * A3[idimpp]->kelem(idx) - lg.gradient(idimpp,tmp.get_k3(i,j,k)) * A3[idimp]->kelem(idx);
 
+#if defined(ENABLE_PERTURBED_BARYON_POS)
                                 if( bDoBaryons && !bUsePerturbedMasses ){
                                     vec3_t<real_t> kvec = phi.get_k<real_t>(i,j,k);
                                     real_t phi_bc = the_cosmo_calc->get_amplitude_phibc(kvec.norm());
@@ -706,6 +710,7 @@ int Run( config_file& the_config )
                                         tmp.kelem(idx) += C_species * dbc3[idim]->kelem(idx);
                                     }
                                 }
+#endif
 
                                 if( the_output_plugin->write_species_as( this_species ) == output_type::particles && lattice_type == particle::lattice_glass){
                                     tmp.kelem(idx) *= interp.compensation_kernel( tmp.get_k<real_t>(i,j,k) ) ;
@@ -752,9 +757,11 @@ int Run( config_file& the_config )
                                 tmp.kelem(idx) = lg.gradient(idim,tmp.get_k3(i,j,k)) * phitot_v 
                                         + vfac3 * (lg.gradient(idimp,tmp.get_k3(i,j,k)) * A3[idimpp]->kelem(idx) - lg.gradient(idimpp,tmp.get_k3(i,j,k)) * A3[idimp]->kelem(idx));
 
+#if defined(ENABLE_PERTURBED_BARYON_POS)
                                 if( bDoBaryons && !bUsePerturbedMasses && LPTorder > 1 ){
                                     tmp.kelem(idx) += C_species * vfac * dbc3[idim]->kelem(idx);
                                 }
+#endif
 
                                 // correct with interpolation kernel if we used interpolation to read out the positions (for glasses)
                                 if( the_output_plugin->write_species_as( this_species ) == output_type::particles && lattice_type == particle::lattice_glass){
