@@ -439,7 +439,6 @@ int Run( config_file& the_config )
     phi *= g1;
     phi2 *= g2;
     phi3 *= g3;
-    //phi3b *= g3b;
     (*A3[0]) *= g3c;
     (*A3[1]) *= g3c;
     (*A3[2]) *= g3c;
@@ -684,7 +683,13 @@ int Run( config_file& the_config )
                 //     particle::initialize_lattice( particles, lattice_type, the_output_plugin->has_64bit_reals(), the_output_plugin->has_64bit_ids(), IDoffset, tmp, the_config );
                 // }
 
+#if defined(ENABLE_PERTURBED_BARYON_POS)
                 wnoise.FourierTransformForward();
+#endif
+
+                phi.FourierTransformForward();
+                phi2.FourierTransformForward();
+                phi3.FourierTransformForward();
             
                 // write out positions
                 for( int idim=0; idim<3; ++idim ){
