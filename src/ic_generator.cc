@@ -72,7 +72,9 @@ int Run( config_file& the_config )
 
     //--------------------------------------------------------------------------------------------------------
     //! apply fixing of the complex mode amplitude following Angulo & Pontzen (2016) [https://arxiv.org/abs/1603.05253]
-    const bool bDoFixing = the_config.get_value_safe<bool>("setup", "DoFixing", false);
+    const bool bDoFixing    = the_config.get_value_safe<bool>("setup", "DoFixing", false);
+    const bool bDoInversion = the_config.get_value_safe<bool>("setup", "DoInversion", false);
+    
 
     //--------------------------------------------------------------------------------------------------------
     //! do baryon ICs?
@@ -264,9 +266,10 @@ int Run( config_file& the_config )
     //--------------------------------------------------------------------
 
     wnoise.apply_function_k( [&](auto wn){
-        if (bDoFixing)
+        if (bDoFixing){
             wn = (std::fabs(wn) != 0.0) ? wn / std::fabs(wn) : wn;
-        return wn / volfac;
+        }
+        return ((bDoInversion)? real_t{-1.0} : real_t{1.0}) wn / volfac;
     });
 
 
