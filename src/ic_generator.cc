@@ -484,17 +484,18 @@ int Run( config_file& the_config )
         }
     }
 
-    if( true && MPI::get_rank()==0 )
-    {
-        std::ofstream ofs("growthfac.txt");
-        double a=1e-3;
-        double ainc = 1.01;
-        while( a<1.1 ){
-            ofs << std::setw(16) << a << " " << std::setw(16) << the_cosmo_calc->get_growth_factor( a ) << std::endl;
-            a *= ainc;
-        }
-        ofs.close();
-    }
+    // // write out internally computed growth factor
+    // if( true && MPI::get_rank()==0 )
+    // {
+    //     std::ofstream ofs("growthfac.txt");
+    //     double a=1e-3;
+    //     double ainc = 1.01;
+    //     while( a<1.1 ){
+    //         ofs << std::setw(16) << a << " " << std::setw(16) << the_cosmo_calc->get_growth_factor( a ) << std::endl;
+    //         a *= ainc;
+    //     }
+    //     ofs.close();
+    // }
 
     // use pertubed masses if switched on and using more than one species as particles
     const bool bUsePerturbedMasses = bPerturbedMasses && bDoBaryons;
