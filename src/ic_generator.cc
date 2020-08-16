@@ -271,7 +271,7 @@ int Run( config_file& the_config )
         if (bDoFixing){
             wn = (std::fabs(wn) != 0.0) ? wn / std::fabs(wn) : wn;
         }
-        return ((bDoInversion)? real_t{-1.0} : real_t{1.0}) wn / volfac;
+        return ((bDoInversion)? real_t{-1.0} : real_t{1.0}) * wn / volfac;
     });
 
 
