@@ -1,6 +1,22 @@
-# monofonIC
+# MUSIC2 - monofonIC
+Modular high-precision IC generator for cosmological simulations. MUSIC2-monofonIC is for non-zoom full box ICs (use [MUSIC](https://bitbucket.org/ohahn/music) for zooms, MUSIC2 for zooms is in the works).
 
-High order LPT/QPT tool for single resolution simulations
+[Full manual is available here as a wiki](https://bitbucket.org/ohahn/monofonic/wiki/). Quick instructions follow below.
+
+Currently supported features (list is growing, so check back):
+
+- Support for up to 3rd order Lagrangian perturbation theory (i.e. 1,2, and 3LPT)
+
+- Multiple Einstein-Boltzmann modules: direct interface with [CLASS](https://lesgourg.github.io/class_public/class.html), file input from CAMB, and fitting formulae (Eisenstein&Hu).
+
+- Multiple output modules for RAMSES, Arepo and Gadget-2/3 via plugins (Swift and Nyx are next). New codes can be added (see how to contribute in CONTRIBUTING.md file)
+
+- Hybrid parallelization with MPI+OpenMP/threads.
+    
+- Requires FFTW v3, GSL (and HDF5 for output for some codes), as well as a CMake build system.
+
+See file CONTRIBUTING.md on how to contribute to the development.
+
 
 ## Build Instructions
 Clone code including submodules (currently only CLASS is used as a submodule):
