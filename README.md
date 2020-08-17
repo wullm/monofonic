@@ -15,7 +15,10 @@ Currently supported features (list is growing, so check back):
     
 - Requires FFTW v3, GSL (and HDF5 for output for some codes), as well as a CMake build system.
 
-See file CONTRIBUTING.md on how to contribute to the development.
+See file CONTRIBUTING.md on how to contribute to the development. The software is licensed under GPL v3. 
+
+If you use MUSIC, or MUSIC2-monofonIC in scientific work, you are required to acknowledge this by linking to
+this repository and citing the relevant papers.
 
 
 ## Build Instructions
