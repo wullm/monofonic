@@ -336,6 +336,20 @@ public:
         return k * k * w * w * std::pow(k, nspect) * tf * tf;
     }
 
+    // static double dSigma_bc(double k, void *pParams)
+    // {
+    //     if (k <= 0.0)
+    //         return 0.0f;
+
+    //     cosmology::calculator *pcc = reinterpret_cast<cosmology::calculator *>(pParams);
+
+    //     static double nspect = static_cast<double>(pcc->cosmo_param_.nspect);
+    //     double tf = pcc->transfer_function_->compute(k, deltabc);
+
+    //     //... no growth factor since we compute at z=0 and normalize so that D+(z=0)=1
+    //     return k * k * std::pow(k, nspect) * tf * tf; // * cosmo_param_.sqrtpnorm * Dplus_target_;
+    // }
+
     //! Computes the amplitude of a mode from the power spectrum
     /*! Function evaluates the supplied transfer function ptransfer_fun_
 	 * and returns the amplitude of fluctuations at wave number k at z=0
@@ -376,6 +390,19 @@ public:
 
         return std::sqrt(sigma0);
     }
+
+    // real_t compute_sigma_bc( void )
+    // {
+    //     real_t sigma0, kmin, kmax;
+    //     kmax = 100.0; //transfer_function_->get_kmax();
+    //     kmin = transfer_function_->get_kmin();
+
+    //     sigma0 = 4.0 * M_PI * integrate(&dSigma_bc, static_cast<double>(kmin), static_cast<double>(kmax), this);
+    //     sigma0 = std::sqrt(sigma0);
+    //     sigma0 *= cosmo_param_.sqrtpnorm * Dplus_target_;
+    //     std::cout << "kmin = " << kmin << ", kmax = " << kmax << ", sigma_bc = " << sigma0 << std::endl;
+    //     return sigma0;
+    // }
 
     //! Computes the normalization for the power spectrum
     /*!

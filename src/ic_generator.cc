@@ -56,11 +56,6 @@ int Run( config_file& the_config )
     const int LPTorder = the_config.get_value_safe<double>("setup","LPTorder",100);
 
     //--------------------------------------------------------------------------------------------------------
-    //! use mass perturbations instead of displacements in multi-fluid ICs
-    const bool bPerturbedMasses = the_config.get_value_safe<bool>("setup","PerturbedMasses",true);
-
-
-    //--------------------------------------------------------------------------------------------------------
     //! initialice particles on a bcc or fcc lattice instead of a standard sc lattice (doubles and quadruples the number of particles) 
     std::string lattice_str = the_config.get_value_safe<std::string>("setup","ParticleLoad","sc");
     const particle::lattice lattice_type = 
@@ -135,6 +130,9 @@ int Run( config_file& the_config )
     the_cosmo_calc->write_powerspectrum(astart, "input_powerspec.txt" );
     the_cosmo_calc->write_transfer("input_transfer.txt" );
 
+    // the_cosmo_calc->compute_sigma_bc();
+    // abort();
+
     //--------------------------------------------------------------------
     // Compute LPT time coefficients
     //--------------------------------------------------------------------
@@ -175,16 +173,6 @@ int Run( config_file& the_config )
 
     //... array [.] access to components of A3:
     std::array<Grid_FFT<real_t> *, 3> A3({&A3x, &A3y, &A3z});
-
-#if defined(ENABLE_PERTURBED_BARYON_POS)
-    // additional baryon-CDM offset
-    Grid_FFT<real_t> dbcx({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
-    Grid_FFT<real_t> dbcy({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
-    Grid_FFT<real_t> dbcz({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
-    
-    //... array [.] access to components of dbc:
-    std::array<Grid_FFT<real_t> *, 3> dbc3({&dbcx, &dbcy, &dbcz});
-#endif
 
     // white noise field 
     Grid_FFT<real_t> wnoise({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
@@ -416,31 +404,6 @@ int Run( config_file& the_config )
         music::ilog << std::setw(20) << std::setfill(' ') << std::right << "took " << get_wtime() - wtime << "s" << std::endl;
     }
 
-#if defined(ENABLE_PERTURBED_BARYON_POS)
-    //===========================================================================================
-    //... for two-fluid ICs with displacement perturbations, we need to evolve the offset field
-    //===========================================================================================
-    if( bDoBaryons && !bPerturbedMasses && LPTorder > 1 )
-    {
-        // compute phi_bc
-        tmp.FourierTransformForward(false);
-        tmp.assign_function_of_grids_kdep([&](auto kvec, auto wn){
-            return wn * the_cosmo_calc->get_amplitude_phibc(kvec.norm());
-        },wnoise);
-        tmp.zero_DC_mode();
-
-        for (int idim = 0; idim < 3; ++idim)
-        {
-            dbc3[idim]->FourierTransformForward(false);
-            Conv.convolve_Gradient_and_Hessian(tmp,{0},phi,{0,idim},op::assign_to(*dbc3[idim]));
-            Conv.convolve_Gradient_and_Hessian(tmp,{1},phi,{1,idim},op::add_to(*dbc3[idim]));
-            Conv.convolve_Gradient_and_Hessian(tmp,{2},phi,{2,idim},op::add_to(*dbc3[idim]));
-            dbc3[idim]->zero_DC_mode();
-            (*dbc3[idim]) *= -g1;
-        }
-    }
-#endif
-
     ///... scale all potentials with respective growth factors
     phi *= g1;
 
@@ -497,9 +460,6 @@ int Run( config_file& the_config )
     //     ofs.close();
     // }
 
-    // use pertubed masses if switched on and using more than one species as particles
-    const bool bUsePerturbedMasses = bPerturbedMasses && bDoBaryons;
-
     //==============================================================//
     // main output loop, loop over all species that are enabled
     //==============================================================//
@@ -523,12 +483,12 @@ int Run( config_file& the_config )
                 // allocate particle structure and generate particle IDs
                 particle_lattice_generator_ptr = 
                 std::make_unique<particle::lattice_generator<Grid_FFT<real_t>>>( lattice_type, the_output_plugin->has_64bit_reals(), the_output_plugin->has_64bit_ids(), 
-                    bUsePerturbedMasses, IDoffset, tmp, the_config );
+                    bDoBaryons, IDoffset, tmp, the_config );
             }
 
-            // if we use perturbed particle masses, set them
-            if( bUsePerturbedMasses && (the_output_plugin->write_species_as( this_species ) == output_type::particles
-                || the_output_plugin->write_species_as( this_species ) == output_type::field_lagrangian ) )
+            // set the perturbed particle masses if we have baryons
+            if( bDoBaryons && (the_output_plugin->write_species_as( this_species ) == output_type::particles
+                || the_output_plugin->write_species_as( this_species ) == output_type::field_lagrangian) ) 
             {
                 bool shifted_lattice = (this_species == cosmo_species::baryon &&
                                         the_output_plugin->write_species_as(this_species) == output_type::particles) ? true : false;
@@ -688,19 +648,7 @@ int Run( config_file& the_config )
                                         the_output_plugin->write_species_as(this_species) == output_type::particles) ? true : false;
 
                 
-
                 grid_interpolate<1,Grid_FFT<real_t>> interp( tmp );
-
-                // if output plugin wants particles, then we need to store them, along with their IDs
-                // if( the_output_plugin->write_species_as( this_species ) == output_type::particles )
-                // {
-                //     // allocate particle structure and generate particle IDs
-                //     particle::initialize_lattice( particles, lattice_type, the_output_plugin->has_64bit_reals(), the_output_plugin->has_64bit_ids(), IDoffset, tmp, the_config );
-                // }
-
-#if defined(ENABLE_PERTURBED_BARYON_POS)
-                wnoise.FourierTransformForward();
-#endif
 
                 phi.FourierTransformForward();
                 if( LPTorder > 1 ){
@@ -742,17 +690,6 @@ int Run( config_file& the_config )
                                 if( LPTorder > 2 ){
                                     tmp.kelem(idx) += lg.gradient(idimp,tmp.get_k3(i,j,k)) * A3[idimpp]->kelem(idx) - lg.gradient(idimpp,tmp.get_k3(i,j,k)) * A3[idimp]->kelem(idx);
                                 }
-
-#if defined(ENABLE_PERTURBED_BARYON_POS)
-                                if( bDoBaryons && !bUsePerturbedMasses ){
-                                    vec3_t<real_t> kvec = phi.get_k<real_t>(i,j,k);
-                                    real_t phi_bc = the_cosmo_calc->get_amplitude_phibc(kvec.norm());
-                                    tmp.kelem(idx) -= lg.gradient(idim, tmp.get_k3(i,j,k)) * wnoise.kelem(idx) * C_species * phi_bc;
-                                    if( LPTorder > 1 ){
-                                        tmp.kelem(idx) += C_species * dbc3[idim]->kelem(idx);
-                                    }
-                                }
-#endif
 
                                 if( the_output_plugin->write_species_as( this_species ) == output_type::particles && lattice_type == particle::lattice_glass){
                                     tmp.kelem(idx) *= interp.compensation_kernel( tmp.get_k<real_t>(i,j,k) ) ;
@@ -809,12 +746,6 @@ int Run( config_file& the_config )
                                 if( LPTorder > 2 ){
                                     tmp.kelem(idx) += vfac3 * (lg.gradient(idimp,tmp.get_k3(i,j,k)) * A3[idimpp]->kelem(idx) - lg.gradient(idimpp,tmp.get_k3(i,j,k)) * A3[idimp]->kelem(idx));
                                 }
-
-#if defined(ENABLE_PERTURBED_BARYON_POS)
-                                if( bDoBaryons && !bUsePerturbedMasses && LPTorder > 1 ){
-                                    tmp.kelem(idx) += C_species * vfac * dbc3[idim]->kelem(idx);
-                                }
-#endif
 
                                 // correct with interpolation kernel if we used interpolation to read out the positions (for glasses)
                                 if( the_output_plugin->write_species_as( this_species ) == output_type::particles && lattice_type == particle::lattice_glass){
