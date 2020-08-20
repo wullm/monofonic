@@ -47,14 +47,18 @@ public:
 
     real_t fft_norm_fac_;
 
+    bool ballocated_;
+
     ptrdiff_t local_0_start_, local_1_start_;
     ptrdiff_t local_0_size_, local_1_size_;
 
-    Grid_FFT(const std::array<size_t, 3> &N, const std::array<real_t, 3> &L, space_t initialspace = rspace_id)
+    //! constructor for FTable grid object
+    Grid_FFT(const std::array<size_t, 3> &N, const std::array<real_t, 3> &L, bool allocate = true, space_t initialspace = rspace_id)
         : n_(N), length_(L), space_(initialspace), data_(nullptr), cdata_(nullptr)
     {
-        //invalidated = true;
-        this->Setup();
+        if( allocate ){
+            this->allocate();
+        }
     }
 
     // avoid implicit copying of data
@@ -70,9 +74,12 @@ public:
 
     const grid_fft_t *get_grid(size_t ilevel) const { return this; }
 
+    //! return if grid object is 
     bool is_distributed( void ) const noexcept { return bdistributed; }
 
-    void Setup();
+    void allocate();
+
+    bool is_allocated( void ) const noexcept { return ballocated_; }
 
     //! return the number of data_t elements that we store in the container
     size_t memsize( void ) const noexcept { return ntot_; }
@@ -552,7 +559,106 @@ public:
 
         return real_t(sum1);
     }
+/*
+    real_t absmax(void) const
+    {
+        double locmax{-1e30};
 
+        #pragma omp parallel for reduction(max : locmax)
+        for (size_t i = 0; i < sizes_[0]; ++i)
+        {
+            for (size_t j = 0; j < sizes_[1]; ++j)
+            {
+                for (size_t k = 0; k < sizes_[2]; ++k)
+                {
+                    const auto elem = std::abs(this->relem(i, j, k));
+                    locmax = (elem>locmax)? elem : locmax;
+                }
+            }
+        }
+
+#ifdef USE_MPI
+        if( bdistributed ){
+            double globmax{locmax};
+            
+
+            MPI_Allreduce(reinterpret_cast<const void *>(&locmax),
+                        reinterpret_cast<void *>(&globmax),
+                        1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
+
+            locmax  = globmax;
+        }
+#endif
+
+        return real_t(locmax);
+    }
+
+    real_t max(void) const
+    {
+        double locmax{-1e30};
+
+        #pragma omp parallel for reduction(max : locmax)
+        for (size_t i = 0; i < sizes_[0]; ++i)
+        {
+            for (size_t j = 0; j < sizes_[1]; ++j)
+            {
+                for (size_t k = 0; k < sizes_[2]; ++k)
+                {
+                    const auto elem = std::real(this->relem(i, j, k));
+                    locmax = (elem>locmax)? elem : locmax;
+                }
+            }
+        }
+
+#ifdef USE_MPI
+        if( bdistributed ){
+            double globmax{locmax};
+            
+
+            MPI_Allreduce(reinterpret_cast<const void *>(&locmax),
+                        reinterpret_cast<void *>(&globmax),
+                        1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
+
+            locmax  = globmax;
+        }
+#endif
+
+        return real_t(locmax);
+    }
+
+    real_t min(void) const
+    {
+        double locmin{+1e30};
+
+        #pragma omp parallel for reduction(min : locmin)
+        for (size_t i = 0; i < sizes_[0]; ++i)
+        {
+            for (size_t j = 0; j < sizes_[1]; ++j)
+            {
+                for (size_t k = 0; k < sizes_[2]; ++k)
+                {
+                    const auto elem = std::real(this->relem(i, j, k));
+                    locmin = (elem<locmin)? elem : locmin;
+                }
+            }
+        }
+
+#ifdef USE_MPI
+        if( bdistributed ){
+            double globmin{locmin};
+            
+
+            MPI_Allreduce(reinterpret_cast<const void *>(&locmin),
+                        reinterpret_cast<void *>(&globmin),
+                        1, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD);
+
+            locmin  = globmin;
+        }
+#endif
+
+        return real_t(locmin);
+    }
+*/
     template <typename functional, typename grid_t>
     void assign_function_of_grids_r(const functional &f, const grid_t &g)
     {

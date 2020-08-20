@@ -190,8 +190,8 @@ public:
     NaiveConvolver(const std::array<size_t, 3> &N, const std::array<real_t, 3> &L)
         : BaseConvolver<data_t, NaiveConvolver<data_t>>(N, L)
     {
-        fbuf1_ = new Grid_FFT<data_t>(N, length_, kspace_id);
-        fbuf2_ = new Grid_FFT<data_t>(N, length_, kspace_id);
+        fbuf1_ = new Grid_FFT<data_t>(N, length_, true, kspace_id);
+        fbuf2_ = new Grid_FFT<data_t>(N, length_, true, kspace_id);
     }
 
     ~NaiveConvolver()
@@ -323,9 +323,9 @@ public:
         : BaseConvolver<data_t, OrszagConvolver<data_t>>({3 * N[0] / 2, 3 * N[1] / 2, 3 * N[2] / 2}, L)
     {
         //... create temporaries
-        f1p_ = new Grid_FFT<data_t>(np_, length_, kspace_id);
-        f2p_ = new Grid_FFT<data_t>(np_, length_, kspace_id);
-        fbuf_ = new Grid_FFT<data_t>(N, length_, kspace_id); // needed for MPI, or for triple conv.
+        f1p_ = new Grid_FFT<data_t>(np_, length_, true, kspace_id);
+        f2p_ = new Grid_FFT<data_t>(np_, length_, true, kspace_id);
+        fbuf_ = new Grid_FFT<data_t>(N, length_, true, kspace_id); // needed for MPI, or for triple conv.
 
 #if defined(USE_MPI)
         maxslicesz_ = f1p_->sizes_[1] * f1p_->sizes_[3] * 2;

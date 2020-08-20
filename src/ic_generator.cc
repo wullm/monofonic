@@ -56,11 +56,6 @@ int Run( config_file& the_config )
     const int LPTorder = the_config.get_value_safe<double>("setup","LPTorder",100);
 
     //--------------------------------------------------------------------------------------------------------
-    //! use mass perturbations instead of displacements in multi-fluid ICs
-    const bool bPerturbedMasses = the_config.get_value_safe<bool>("setup","PerturbedMasses",true);
-
-
-    //--------------------------------------------------------------------------------------------------------
     //! initialice particles on a bcc or fcc lattice instead of a standard sc lattice (doubles and quadruples the number of particles) 
     std::string lattice_str = the_config.get_value_safe<std::string>("setup","ParticleLoad","sc");
     const particle::lattice lattice_type = 
@@ -133,6 +128,10 @@ int Run( config_file& the_config )
     const real_t volfac(std::pow(boxlen / ngrid / 2.0 / M_PI, 1.5));
 
     the_cosmo_calc->write_powerspectrum(astart, "input_powerspec.txt" );
+    the_cosmo_calc->write_transfer("input_transfer.txt" );
+
+    // the_cosmo_calc->compute_sigma_bc();
+    // abort();
 
     //--------------------------------------------------------------------
     // Compute LPT time coefficients
@@ -142,8 +141,9 @@ int Run( config_file& the_config )
 
     const double g1  = -Dplus0;
     const double g2  = ((LPTorder>1)? -3.0/7.0*Dplus0*Dplus0 : 0.0);
-    const double g3a = ((LPTorder>2)? 1.0/3.0*Dplus0*Dplus0*Dplus0 : 0.0);
-    const double g3b = ((LPTorder>2)? -10.0/21.*Dplus0*Dplus0*Dplus0 : 0.0);
+    const double g3  = ((LPTorder>2)? 1.0/3.0*Dplus0*Dplus0*Dplus0 : 0.0);
+    // const double g3a = ((LPTorder>2)? 1.0/3.0*Dplus0*Dplus0*Dplus0 : 0.0);
+    // const double g3b = ((LPTorder>2)? -10.0/21.*Dplus0*Dplus0*Dplus0 : 0.0);
     const double g3c = ((LPTorder>2)? 1.0/7.0*Dplus0*Dplus0*Dplus0 : 0.0);
 
     // vfac = d log D+ / dt 
@@ -165,23 +165,14 @@ int Run( config_file& the_config )
     // Create arrays
     //--------------------------------------------------------------------
     Grid_FFT<real_t> phi({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
-    Grid_FFT<real_t> phi2({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
-    Grid_FFT<real_t> phi3a({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
-    Grid_FFT<real_t> phi3b({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
-    Grid_FFT<real_t> A3x({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
-    Grid_FFT<real_t> A3y({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
-    Grid_FFT<real_t> A3z({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
+    Grid_FFT<real_t> phi2({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen}, false); // do not allocate these unless needed
+    Grid_FFT<real_t> phi3({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen}, false); //   ..
+    Grid_FFT<real_t> A3x({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen}, false);  //   ..
+    Grid_FFT<real_t> A3y({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen}, false);  //   ..
+    Grid_FFT<real_t> A3z({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen}, false);  //   ..
 
     //... array [.] access to components of A3:
     std::array<Grid_FFT<real_t> *, 3> A3({&A3x, &A3y, &A3z});
-
-    // additional baryon-CDM offset
-    Grid_FFT<real_t> dbcx({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
-    Grid_FFT<real_t> dbcy({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
-    Grid_FFT<real_t> dbcz({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
-    
-    //... array [.] access to components of dbc:
-    std::array<Grid_FFT<real_t> *, 3> dbc3({&dbcx, &dbcy, &dbcz});
 
     // white noise field 
     Grid_FFT<real_t> wnoise({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
@@ -268,7 +259,7 @@ int Run( config_file& the_config )
         if (bDoFixing){
             wn = (std::fabs(wn) != 0.0) ? wn / std::fabs(wn) : wn;
         }
-        return ((bDoInversion)? real_t{-1.0} : real_t{1.0}) wn / volfac;
+        return ((bDoInversion)? real_t{-1.0} : real_t{1.0}) * wn / volfac;
     });
 
 
@@ -328,9 +319,11 @@ int Run( config_file& the_config )
     //======================================================================
     if (LPTorder > 1)
     {
+        phi2.allocate();
+        phi2.FourierTransformForward(false);
+        
         wtime = get_wtime();
         music::ilog << std::setw(40) << std::setfill('.') << std::left << "Computing phi(2) term" << std::flush;
-        phi2.FourierTransformForward(false);
         Conv.convolve_SumOfHessians(phi, {0, 0}, phi, {1, 1}, {2, 2}, op::assign_to(phi2));
         Conv.convolve_Hessians(phi, {1, 1}, phi, {2, 2}, op::add_to(phi2));
         Conv.convolve_Hessians(phi, {0, 1}, phi, {0, 1}, op::subtract_from(phi2));
@@ -363,30 +356,34 @@ int Run( config_file& the_config )
     //======================================================================
     if (LPTorder > 2)
     {
+        phi3.allocate();
+        phi3.FourierTransformForward(false);
+
+        
+        //... phi3 = phi3a - 10/7 phi3b
         //... 3a term ...
         wtime = get_wtime();
         music::ilog << std::setw(40) << std::setfill('.') << std::left << "Computing phi(3a) term" << std::flush;
-        phi3a.FourierTransformForward(false);
-        Conv.convolve_Hessians(phi, {0, 0}, phi, {1, 1}, phi, {2, 2}, op::assign_to(phi3a));
-        Conv.convolve_Hessians(phi, {0, 1}, phi, {0, 2}, phi, {1, 2}, op::multiply_add_to(phi3a,2.0));
-        Conv.convolve_Hessians(phi, {1, 2}, phi, {1, 2}, phi, {0, 0}, op::subtract_from(phi3a));
-        Conv.convolve_Hessians(phi, {0, 2}, phi, {0, 2}, phi, {1, 1}, op::subtract_from(phi3a));
-        Conv.convolve_Hessians(phi, {0, 1}, phi, {0, 1}, phi, {2, 2}, op::subtract_from(phi3a));
-        phi3a.apply_InverseLaplacian();
+        Conv.convolve_Hessians(phi, {0, 0}, phi, {1, 1}, phi, {2, 2}, op::assign_to(phi3));
+        Conv.convolve_Hessians(phi, {0, 1}, phi, {0, 2}, phi, {1, 2}, op::multiply_add_to(phi3,2.0));
+        Conv.convolve_Hessians(phi, {1, 2}, phi, {1, 2}, phi, {0, 0}, op::subtract_from(phi3));
+        Conv.convolve_Hessians(phi, {0, 2}, phi, {0, 2}, phi, {1, 1}, op::subtract_from(phi3));
+        Conv.convolve_Hessians(phi, {0, 1}, phi, {0, 1}, phi, {2, 2}, op::subtract_from(phi3));
+        // phi3a.apply_InverseLaplacian();
         music::ilog << std::setw(20) << std::setfill(' ') << std::right << "took " << get_wtime() - wtime << "s" << std::endl;
 
         //... 3b term ...
         wtime = get_wtime();
         music::ilog << std::setw(40) << std::setfill('.') << std::left << "Computing phi(3b) term" << std::flush;
-        phi3b.FourierTransformForward(false);
-        Conv.convolve_SumOfHessians(phi, {0, 0}, phi2, {1, 1}, {2, 2}, op::assign_to(phi3b));
-        Conv.convolve_SumOfHessians(phi, {1, 1}, phi2, {2, 2}, {0, 0}, op::add_to(phi3b));
-        Conv.convolve_SumOfHessians(phi, {2, 2}, phi2, {0, 0}, {1, 1}, op::add_to(phi3b));
-        Conv.convolve_Hessians(phi, {0, 1}, phi2, {0, 1}, op::multiply_add_to(phi3b,-2.0));
-        Conv.convolve_Hessians(phi, {0, 2}, phi2, {0, 2}, op::multiply_add_to(phi3b,-2.0));
-        Conv.convolve_Hessians(phi, {1, 2}, phi2, {1, 2}, op::multiply_add_to(phi3b,-2.0));
-        phi3b.apply_InverseLaplacian();
-        phi3b *= 0.5; // factor 1/2 from definition of phi(3b)!
+        // phi3b.FourierTransformForward(false);
+        Conv.convolve_SumOfHessians(phi, {0, 0}, phi2, {1, 1}, {2, 2}, op::multiply_add_to(phi3,-5.0/7.0));
+        Conv.convolve_SumOfHessians(phi, {1, 1}, phi2, {2, 2}, {0, 0}, op::multiply_add_to(phi3,-5.0/7.0));
+        Conv.convolve_SumOfHessians(phi, {2, 2}, phi2, {0, 0}, {1, 1}, op::multiply_add_to(phi3,-5.0/7.0));
+        Conv.convolve_Hessians(phi, {0, 1}, phi2, {0, 1}, op::multiply_add_to(phi3,+10.0/7.0));
+        Conv.convolve_Hessians(phi, {0, 2}, phi2, {0, 2}, op::multiply_add_to(phi3,+10.0/7.0));
+        Conv.convolve_Hessians(phi, {1, 2}, phi2, {1, 2}, op::multiply_add_to(phi3,+10.0/7.0));
+        phi3.apply_InverseLaplacian();
+        //phi3b *= 0.5; // factor 1/2 from definition of phi(3b)!
         music::ilog << std::setw(20) << std::setfill(' ') << std::right << "took " << get_wtime() - wtime << "s" << std::endl;
 
         //... transversal term ...
@@ -396,6 +393,7 @@ int Run( config_file& the_config )
         {
             // cyclic rotations of indices
             int idimp = (idim + 1) % 3, idimpp = (idim + 2) % 3;
+            A3[idim]->allocate();
             A3[idim]->FourierTransformForward(false);
             Conv.convolve_Hessians(phi2, {idim, idimp}, phi, {idim, idimpp}, op::assign_to(*A3[idim]));
             Conv.convolve_Hessians(phi2, {idim, idimpp}, phi, {idim, idimp}, op::subtract_from(*A3[idim]));
@@ -406,38 +404,21 @@ int Run( config_file& the_config )
         music::ilog << std::setw(20) << std::setfill(' ') << std::right << "took " << get_wtime() - wtime << "s" << std::endl;
     }
 
-    //======================================================================
-    //... for two-fluid ICs we need to evolve the offset field
-    //======================================================================
-    
-    if( bDoBaryons && !bPerturbedMasses && LPTorder > 1 )
-    {
-        // compute phi_bc
-        tmp.FourierTransformForward(false);
-        tmp.assign_function_of_grids_kdep([&](auto kvec, auto wn){
-            return wn * the_cosmo_calc->get_amplitude_phibc(kvec.norm());
-        },wnoise);
-        tmp.zero_DC_mode();
-
-        for (int idim = 0; idim < 3; ++idim)
-        {
-            dbc3[idim]->FourierTransformForward(false);
-            Conv.convolve_Gradient_and_Hessian(tmp,{0},phi,{0,idim},op::assign_to(*dbc3[idim]));
-            Conv.convolve_Gradient_and_Hessian(tmp,{1},phi,{1,idim},op::add_to(*dbc3[idim]));
-            Conv.convolve_Gradient_and_Hessian(tmp,{2},phi,{2,idim},op::add_to(*dbc3[idim]));
-            dbc3[idim]->zero_DC_mode();
-            (*dbc3[idim]) *= -g1;
-        }
-    }
-
     ///... scale all potentials with respective growth factors
     phi *= g1;
-    phi2 *= g2;
-    phi3a *= g3a;
-    phi3b *= g3b;
-    (*A3[0]) *= g3c;
-    (*A3[1]) *= g3c;
-    (*A3[2]) *= g3c;
+
+    if (LPTorder > 1)
+    {
+        phi2 *= g2;
+    }
+    
+    if (LPTorder > 2)
+    {
+        phi3 *= g3;
+        (*A3[0]) *= g3c;
+        (*A3[1]) *= g3c;
+        (*A3[2]) *= g3c;
+    }
 
     music::ilog << "-------------------------------------------------------------------------------" << std::endl;
 
@@ -452,13 +433,13 @@ int Run( config_file& the_config )
     {
         music::wlog << "you are running in testing mode. No ICs, only diagnostic output will be written out!" << std::endl;
         if (testing == "potentials_and_densities"){
-            testing::output_potentials_and_densities(the_config, ngrid, boxlen, phi, phi2, phi3a, phi3b, A3);
+            testing::output_potentials_and_densities(the_config, ngrid, boxlen, phi, phi2, phi3, A3);
         }
         else if (testing == "velocity_displacement_symmetries"){
-            testing::output_velocity_displacement_symmetries(the_config, ngrid, boxlen, vfac, Dplus0, phi, phi2, phi3a, phi3b, A3);
+            testing::output_velocity_displacement_symmetries(the_config, ngrid, boxlen, vfac, Dplus0, phi, phi2, phi3, A3);
         }
         else if (testing == "convergence"){
-            testing::output_convergence(the_config, the_cosmo_calc.get(), ngrid, boxlen, vfac, Dplus0, phi, phi2, phi3a, phi3b, A3);
+            testing::output_convergence(the_config, the_cosmo_calc.get(), ngrid, boxlen, vfac, Dplus0, phi, phi2, phi3, A3);
         }
         else{
             music::flog << "unknown test '" << testing << "'" << std::endl;
@@ -466,8 +447,18 @@ int Run( config_file& the_config )
         }
     }
 
-    // use pertubed masses if switched on and using more than one species as particles
-    const bool bUsePerturbedMasses = bPerturbedMasses && bDoBaryons;
+    // // write out internally computed growth factor
+    // if( true && MPI::get_rank()==0 )
+    // {
+    //     std::ofstream ofs("growthfac.txt");
+    //     double a=1e-3;
+    //     double ainc = 1.01;
+    //     while( a<1.1 ){
+    //         ofs << std::setw(16) << a << " " << std::setw(16) << the_cosmo_calc->get_growth_factor( a ) << std::endl;
+    //         a *= ainc;
+    //     }
+    //     ofs.close();
+    // }
 
     //==============================================================//
     // main output loop, loop over all species that are enabled
@@ -492,12 +483,12 @@ int Run( config_file& the_config )
                 // allocate particle structure and generate particle IDs
                 particle_lattice_generator_ptr = 
                 std::make_unique<particle::lattice_generator<Grid_FFT<real_t>>>( lattice_type, the_output_plugin->has_64bit_reals(), the_output_plugin->has_64bit_ids(), 
-                    bUsePerturbedMasses, IDoffset, tmp, the_config );
+                    bDoBaryons, IDoffset, tmp, the_config );
             }
 
-            // if we use perturbed particle masses, set them
-            if( bUsePerturbedMasses && (the_output_plugin->write_species_as( this_species ) == output_type::particles
-                || the_output_plugin->write_species_as( this_species ) == output_type::field_lagrangian ) )
+            // set the perturbed particle masses if we have baryons
+            if( bDoBaryons && (the_output_plugin->write_species_as( this_species ) == output_type::particles
+                || the_output_plugin->write_species_as( this_species ) == output_type::field_lagrangian) ) 
             {
                 bool shifted_lattice = (this_species == cosmo_species::baryon &&
                                         the_output_plugin->write_species_as(this_species) == output_type::particles) ? true : false;
@@ -657,17 +648,18 @@ int Run( config_file& the_config )
                                         the_output_plugin->write_species_as(this_species) == output_type::particles) ? true : false;
 
                 
-
                 grid_interpolate<1,Grid_FFT<real_t>> interp( tmp );
 
-                // if output plugin wants particles, then we need to store them, along with their IDs
-                // if( the_output_plugin->write_species_as( this_species ) == output_type::particles )
-                // {
-                //     // allocate particle structure and generate particle IDs
-                //     particle::initialize_lattice( particles, lattice_type, the_output_plugin->has_64bit_reals(), the_output_plugin->has_64bit_ids(), IDoffset, tmp, the_config );
-                // }
-
-                wnoise.FourierTransformForward();
+                phi.FourierTransformForward();
+                if( LPTorder > 1 ){
+                    phi2.FourierTransformForward();
+                }
+                if( LPTorder > 2 ){
+                    phi3.FourierTransformForward();
+                    A3[0]->FourierTransformForward();
+                    A3[1]->FourierTransformForward();
+                    A3[2]->FourierTransformForward();
+                }
             
                 // write out positions
                 for( int idim=0; idim<3; ++idim ){
@@ -683,18 +675,20 @@ int Run( config_file& the_config )
                         for (size_t j = 0; j < phi.size(1); ++j) {
                             for (size_t k = 0; k < phi.size(2); ++k) {
                                 size_t idx = phi.get_idx(i,j,k);
-                                auto phitot = phi.kelem(idx) + phi2.kelem(idx) + phi3a.kelem(idx) + phi3b.kelem(idx);
-                                
-                                tmp.kelem(idx) = lg.gradient(idim,tmp.get_k3(i,j,k)) * phitot 
-                                    + lg.gradient(idimp,tmp.get_k3(i,j,k)) * A3[idimpp]->kelem(idx) - lg.gradient(idimpp,tmp.get_k3(i,j,k)) * A3[idimp]->kelem(idx);
+                                auto phitot = phi.kelem(idx);
 
-                                if( bDoBaryons && !bUsePerturbedMasses ){
-                                    vec3_t<real_t> kvec = phi.get_k<real_t>(i,j,k);
-                                    real_t phi_bc = the_cosmo_calc->get_amplitude_phibc(kvec.norm());
-                                    tmp.kelem(idx) -= lg.gradient(idim, tmp.get_k3(i,j,k)) * wnoise.kelem(idx) * C_species * phi_bc;
-                                    if( LPTorder > 1 ){
-                                        tmp.kelem(idx) += C_species * dbc3[idim]->kelem(idx);
-                                    }
+                                if( LPTorder > 1 ){
+                                    phitot += phi2.kelem(idx);
+                                }
+
+                                if( LPTorder > 2 ){
+                                    phitot += phi3.kelem(idx);
+                                }
+
+                                tmp.kelem(idx) = lg.gradient(idim,tmp.get_k3(i,j,k)) * phitot;
+
+                                if( LPTorder > 2 ){
+                                    tmp.kelem(idx) += lg.gradient(idimp,tmp.get_k3(i,j,k)) * A3[idimpp]->kelem(idx) - lg.gradient(idimpp,tmp.get_k3(i,j,k)) * A3[idimp]->kelem(idx);
                                 }
 
                                 if( the_output_plugin->write_species_as( this_species ) == output_type::particles && lattice_type == particle::lattice_glass){
@@ -737,13 +731,20 @@ int Run( config_file& the_config )
                             for (size_t k = 0; k < phi.size(2); ++k) {
                                 size_t idx = phi.get_idx(i,j,k);
                                 
-                                auto phitot_v = vfac1 * phi.kelem(idx) + vfac2 * phi2.kelem(idx) + vfac3 * (phi3a.kelem(idx) + phi3b.kelem(idx));
+                                auto phitot_v = vfac1 * phi.kelem(idx);
+                                
+                                if( LPTorder > 1 ){
+                                    phitot_v += vfac2 * phi2.kelem(idx);
+                                }
 
-                                tmp.kelem(idx) = lg.gradient(idim,tmp.get_k3(i,j,k)) * phitot_v 
-                                        + vfac3 * (lg.gradient(idimp,tmp.get_k3(i,j,k)) * A3[idimpp]->kelem(idx) - lg.gradient(idimpp,tmp.get_k3(i,j,k)) * A3[idimp]->kelem(idx));
-
-                                if( bDoBaryons && !bUsePerturbedMasses && LPTorder > 1 ){
-                                    tmp.kelem(idx) += C_species * vfac * dbc3[idim]->kelem(idx);
+                                if( LPTorder > 2 ){
+                                    phitot_v += vfac3 * phi3.kelem(idx);
+                                }
+                                
+                                tmp.kelem(idx) = lg.gradient(idim,tmp.get_k3(i,j,k)) * phitot_v;
+                                
+                                if( LPTorder > 2 ){
+                                    tmp.kelem(idx) += vfac3 * (lg.gradient(idimp,tmp.get_k3(i,j,k)) * A3[idimpp]->kelem(idx) - lg.gradient(idimpp,tmp.get_k3(i,j,k)) * A3[idimp]->kelem(idx));
                                 }
 
                                 // correct with interpolation kernel if we used interpolation to read out the positions (for glasses)

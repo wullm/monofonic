@@ -268,6 +268,7 @@ public:
       v1 = m_tab_Tk_tot[n1];
       v2 = m_tab_Tk_tot[n];
       return pow(10.0, (v2 - v1) / dk * (delk) + v2);
+      #warning TODO: add deltabc here
     default:
       throw std::runtime_error(
           "Invalid type requested in transfer function evaluation");

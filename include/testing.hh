@@ -19,8 +19,7 @@ namespace testing{
         size_t ngrid, real_t boxlen,
         Grid_FFT<real_t>& phi,
         Grid_FFT<real_t>& phi2,
-        Grid_FFT<real_t>& phi3a,
-        Grid_FFT<real_t>& phi3b,
+        Grid_FFT<real_t>& phi3,
         std::array< Grid_FFT<real_t>*,3 >& A3 );
 
     void output_velocity_displacement_symmetries(
@@ -28,8 +27,7 @@ namespace testing{
         size_t ngrid, real_t boxlen, real_t vfac, real_t dplus,
         Grid_FFT<real_t> &phi,
         Grid_FFT<real_t> &phi2,
-        Grid_FFT<real_t> &phi3a,
-        Grid_FFT<real_t> &phi3b,
+        Grid_FFT<real_t> &phi3,
         std::array<Grid_FFT<real_t> *, 3> &A3,
         bool bwrite_out_fields=false);
 
@@ -39,7 +37,6 @@ namespace testing{
         std::size_t ngrid, real_t boxlen, real_t vfac, real_t dplus,
         Grid_FFT<real_t> &phi,
         Grid_FFT<real_t> &phi2,
-        Grid_FFT<real_t> &phi3a,
-        Grid_FFT<real_t> &phi3b,
+        Grid_FFT<real_t> &phi3,
         std::array<Grid_FFT<real_t> *, 3> &A3);
 }

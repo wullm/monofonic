@@ -145,7 +145,7 @@ public:
         Dplus_start_ = D_of_a_( astart_ ) / Dnow_;
         Dplus_target_ = D_of_a_( atarget_ ) / Dnow_;
 
-        music::ilog << "D+ = " << Dplus_target_ << ", " << Dplus_start_ << std::endl;
+        music::ilog << "Linear growth factors: D+_target = " << Dplus_target_ << ", D+_start = " << Dplus_start_ << std::endl;
 
         // set up transfer functions and compute normalisation
         transfer_function_ = std::move(select_TransferFunction_plugin(cf));
@@ -213,6 +213,43 @@ public:
             }
         }
         music::ilog << "Wrote power spectrum at a=" << a << " to file \'" << fname << "\'" << std::endl;
+    }
+
+    //! Write out a correctly scaled power spectrum at starting time
+    void write_transfer( std::string fname ) const
+    {
+        // const real_t Dplus0 = this->get_growth_factor(a);
+
+        if (CONFIG::MPI_task_rank == 0)
+        {
+            double kmin = std::max(1e-4, transfer_function_->get_kmin());
+
+            // write power spectrum to a file
+            std::ofstream ofs(fname.c_str());
+            std::stringstream ss;
+            ss << " ,ap=" << astart_ << "";
+            ofs << "# " << std::setw(18) << "k [h/Mpc]"
+                << std::setw(20) << ("delta_c(k,a=ap)")
+                << std::setw(20) << ("delta_b(k,a=ap)")
+                << std::setw(20) << ("delta_m(k,a=ap)")
+                << std::setw(20) << ("delta_bc(k,a=ap)")
+                << std::endl;
+            double fb = cosmo_param_.Omega_b / cosmo_param_.Omega_m, fc = 1.0-fb;
+            for (double k = kmin; k < transfer_function_->get_kmax(); k *= 1.05)
+            {
+                double dm  = this->get_amplitude(k, total) * Dplus_start_ / Dplus_target_;
+                double dbc = this->get_amplitude(k, baryon) - this->get_amplitude(k, cdm);
+                double db  = dm + fc * dbc;
+                double dc  = dm - fb * dbc;
+                ofs << std::setw(20) << std::setprecision(10) << k
+                    << std::setw(20) << std::setprecision(10) << dc
+                    << std::setw(20) << std::setprecision(10) << db
+                    << std::setw(20) << std::setprecision(10) << dm
+                    << std::setw(20) << std::setprecision(10) << dbc
+                    << std::endl;
+            }
+        }
+        music::ilog << "Wrote input transfer functions at a=" << astart_ << " to file \'" << fname << "\'" << std::endl;
     }
 
     const cosmology::parameters &get_parameters(void) const noexcept
@@ -299,6 +336,20 @@ public:
         return k * k * w * w * std::pow(k, nspect) * tf * tf;
     }
 
+    // static double dSigma_bc(double k, void *pParams)
+    // {
+    //     if (k <= 0.0)
+    //         return 0.0f;
+
+    //     cosmology::calculator *pcc = reinterpret_cast<cosmology::calculator *>(pParams);
+
+    //     static double nspect = static_cast<double>(pcc->cosmo_param_.nspect);
+    //     double tf = pcc->transfer_function_->compute(k, deltabc);
+
+    //     //... no growth factor since we compute at z=0 and normalize so that D+(z=0)=1
+    //     return k * k * std::pow(k, nspect) * tf * tf; // * cosmo_param_.sqrtpnorm * Dplus_target_;
+    // }
+
     //! Computes the amplitude of a mode from the power spectrum
     /*! Function evaluates the supplied transfer function ptransfer_fun_
 	 * and returns the amplitude of fluctuations at wave number k at z=0
@@ -339,6 +390,19 @@ public:
 
         return std::sqrt(sigma0);
     }
+
+    // real_t compute_sigma_bc( void )
+    // {
+    //     real_t sigma0, kmin, kmax;
+    //     kmax = 100.0; //transfer_function_->get_kmax();
+    //     kmin = transfer_function_->get_kmin();
+
+    //     sigma0 = 4.0 * M_PI * integrate(&dSigma_bc, static_cast<double>(kmin), static_cast<double>(kmax), this);
+    //     sigma0 = std::sqrt(sigma0);
+    //     sigma0 *= cosmo_param_.sqrtpnorm * Dplus_target_;
+    //     std::cout << "kmin = " << kmin << ", kmax = " << kmax << ", sigma_bc = " << sigma0 << std::endl;
+    //     return sigma0;
+    // }
 
     //! Computes the normalization for the power spectrum
     /*!
