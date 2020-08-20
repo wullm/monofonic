@@ -2,6 +2,7 @@
 
 #include <map>
 #include <string>
+#include <memory>
 #include <general.hh>
 #include <config_file.hh>
 
