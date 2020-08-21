@@ -66,7 +66,7 @@ public:
 		real_t astart = 1.0 / (1.0 + cf_.get_value<double>("setup", "zstart"));
 		lunit_ = cf_.get_value<double>("setup", "BoxLength");
 		vunit_ = lunit_ / std::sqrt(astart);
-		munit_ = rhoc * std::pow(cf_.get_value<double>("setup", "BoxLength"), 3);;
+		munit_ = rhoc * std::pow(cf_.get_value<double>("setup", "BoxLength"), 3);
 		blongids_ = cf_.get_value_safe<bool>("output", "UseLongids", false);
 	}
 

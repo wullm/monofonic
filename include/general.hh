@@ -28,12 +28,12 @@
 #include <fftw3.h>
 #endif
 
-#include <config_file.hh>
+#include "config_file.hh"
 
 #define _unused(x) ((void)(x))
 
 // include CMake controlled configuration settings
-#include <cmake_config.hh>
+#include "cmake_config.hh"
 
 #if defined(USE_PRECISION_FLOAT)
 using real_t = float;

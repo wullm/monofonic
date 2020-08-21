@@ -386,10 +386,7 @@ void Grid_FFT<data_t, bdistributed>::Read_from_HDF5(const std::string Filename, 
         this->n_[i] = dimsize[i];
     this->space_ = rspace_id;
 
-    if (data_ != nullptr)
-    {
-        fftw_free(data_);
-    }
+    this->reset();
     this->allocate();
 
     //... copy data to internal array ...
