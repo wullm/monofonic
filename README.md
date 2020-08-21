@@ -27,6 +27,8 @@ For total matter sims, or 3LPT/PLT related aspects: Michaux et al. 2020 (arXiv:T
 
 For baryon+CDM sims, or PPT numerics related aspects: Hahn et al. 2020 (arXiv:TBD)
 
+We acknowledge support from the European Research Council (ERC) under the European Union’s Horizon 2020 research and innovation programmes for the development of this software (Grant agreement No. 679145).
+
 
 ## Build Instructions
 Clone code including submodules (currently only CLASS is used as a submodule):
