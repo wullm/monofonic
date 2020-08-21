@@ -88,7 +88,7 @@ int Run( config_file& the_config )
 
     //--------------------------------------------------------------------------------------------------------
     //! do constrained ICs?
-    const bool bAddConstrainedModes =  the_config.contains_key("setup", "ConstraintFieldFile" );
+    const bool bAddConstrainedModes =  the_config.contains_key("random", "ConstraintFieldFile" );
 
     //--------------------------------------------------------------------------------------------------------
     //! add beyond box tidal field modes following Schmidt et al. (2018) [https://arxiv.org/abs/1803.03274]
@@ -195,8 +195,8 @@ int Run( config_file& the_config )
     //--------------------------------------------------------------------
     if( bAddConstrainedModes ){
         Grid_FFT<real_t,false> cwnoise({8,8,8}, {boxlen,boxlen,boxlen});
-        cwnoise.Read_from_HDF5( the_config.get_value<std::string>("setup", "ConstraintFieldFile"), 
-                the_config.get_value<std::string>("setup", "ConstraintFieldName") );
+        cwnoise.Read_from_HDF5( the_config.get_value<std::string>("random", "ConstraintFieldFile"), 
+                the_config.get_value<std::string>("random", "ConstraintFieldName") );
         cwnoise.FourierTransformForward();
 
         size_t ngrid_c = cwnoise.size(0), ngrid_c_2 = ngrid_c/2;
