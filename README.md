@@ -19,15 +19,23 @@ Currently supported features (list is growing, so check back):
     
 - Requires FFTW v3, GSL (and HDF5 for output for some codes), as well as a CMake build system.
 
+## Contributing and Licensing
+
 See file CONTRIBUTING.md on how to contribute to the development. The software is licensed under GPL v3 (see file LICENSE). 
+
+
+## Citing in scientific publications or presentations
 
 If you use MUSIC2-monofonIC in your scientific work, you are required to acknowledge this by linking to this repository and citing the relevant papers:
 
-For total matter sims, or 3LPT/PLT related aspects: Michaux et al. 2020 (arXiv:TBD)
+ - For total matter sims, or 3LPT/PLT related aspects: Michaux et al. 2020 (arXiv:TBD)
 
-For baryon+CDM sims, or PPT numerics related aspects: Hahn et al. 2020 (arXiv:TBD)
+ - For baryon+CDM sims, or PPT numerics related aspects: Hahn et al. 2020 (arXiv:TBD)
 
-We acknowledge support from the European Research Council (ERC) under the European Unionâ€™s Horizon 2020 research and innovation programmes for the development of this software (Grant agreement No. 679145).
+
+## Acknowledgments
+
+We acknowledge support from the European Research Council (ERC) under the European Union’s Horizon 2020 research and innovation programmes for the development of this software (Grant agreement No. 679145).
 
 
 ## Build Instructions
