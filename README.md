@@ -13,7 +13,7 @@ Currently supported features (list is growing, so check back):
 
 - Multiple Einstein-Boltzmann modules: direct interface with [CLASS](https://lesgourg.github.io/class_public/class.html), file input from CAMB, and fitting formulae (Eisenstein&Hu).
 
-- Multiple output modules for RAMSES, Arepo and Gadget-2/3 via plugins (Swift and Nyx are next). New codes can be added (see how to contribute in CONTRIBUTING.md file)
+- Multiple output modules for RAMSES, Arepo, Gadget-2/3, and HACC (courtesy M.Buehlmann) via plugins (Swift and Nyx are next). New codes can be added (see how to contribute in CONTRIBUTING.md file)
 
 - Hybrid parallelization with MPI+OpenMP/threads.
     
