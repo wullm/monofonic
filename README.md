@@ -28,14 +28,14 @@ See file CONTRIBUTING.md on how to contribute to the development. The software i
 
 If you use MUSIC2-monofonIC in your scientific work, you are required to acknowledge this by linking to this repository and citing the relevant papers:
 
- - For total matter sims, or 3LPT/PLT related aspects: Michaux et al. 2020 (arXiv:TBD)
+- For total matter sims, or 3LPT/PLT related aspects: Michaux et al. 2020 (arXiv:TBD)
 
- - For baryon+CDM sims, or PPT numerics related aspects: Hahn et al. 2020 (arXiv:TBD)
+- For baryon+CDM sims, or PPT numerics related aspects: Hahn et al. 2020 (arXiv:TBD)
 
 
 ## Acknowledgments
 
-We acknowledge support from the European Research Council (ERC) under the European Union’s Horizon 2020 research and innovation programmes for the development of this software (Grant agreement No. 679145).
+We acknowledge support from the European Research Council (ERC) under the European Union's Horizon 2020 research and innovation programmes during the development of this software (Grant agreement No. 679145).
 
 
 ## Build Instructions
