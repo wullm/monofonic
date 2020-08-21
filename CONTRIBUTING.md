@@ -10,12 +10,13 @@ We would love to have your input! We want to make contributing to this project a
 
 When contributing to this repository, please first discuss the change you wish to make via issue, email, or any other method with the owners of this repository. Codebase contributions should be made in the form of pull requests.
 
-To discuss the state of the code or exchange with other users, consider joining the MUSIC user google group: https://groups.google.com/g/cosmo_music
+To discuss the state of the code or exchange with other users, consider joining the [MUSIC user google group](https://groups.google.com/g/cosmo_music)
 
 Please note we have a code of conduct, please follow it in all your interactions with the project.
 
 ## Write bug reports with detail and background
 A bug report needs
+
 - A quick summary of what happened vs. what should have happened
 - Steps to reproduce incl. the config file used, compile-time and run-time options and info on which compiler/libraries were used in the build.
 - Detailed diagnostic output (copy of log file, error messages, ...)
