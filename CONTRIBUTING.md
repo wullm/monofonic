@@ -7,6 +7,7 @@ We would love to have your input! We want to make contributing to this project a
 - Submitting a fix
 - Submitting a new feature or plugin
 - Proposing new features
+- Improving documentation
 
 When contributing to this repository, please first discuss the change you wish to make via issue, email, or any other method with the owners of this repository. Codebase contributions should be made in the form of pull requests.
 
