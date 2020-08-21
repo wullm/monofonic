@@ -87,6 +87,7 @@ public:
         if (data_ != nullptr) { fftw_free(data_); }
         if (plan_ != nullptr) { fftw_destroy_plan(plan_); }
         if (iplan_ != nullptr) { fftw_destroy_plan(iplan_); }
+        ballocated_ = false;
     }
 
     const grid_fft_t *get_grid(size_t ilevel) const { return this; }
