@@ -16,7 +16,7 @@ protected:
     std::vector<float> vx, vy, vz;
     std::vector<float> mass, hh, uu;
     std::vector<float> mu, phi, rho;
-    std::vector<int16_t> mask;
+    std::vector<uint16_t> mask;
 
 public:
     //! constructor
