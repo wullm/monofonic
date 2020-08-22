@@ -21,8 +21,8 @@ initfile(1)='ics_ramses'
 /
 
 &AMR_PARAMS
-levelmin=6
-levelmax=11
+levelmin=7
+levelmax=15
 nexpand=1
 ngridmax=2000000
 npartmax=3000000
@@ -31,7 +31,7 @@ npartmax=3000000
 &HYDRO_PARAMS
 gamma=1.6666667
 courant_factor=0.8
-slope_type=1
+slope_type=2
 pressure_fix=.true.
 scheme='muscl'
 /
@@ -41,20 +41,8 @@ cooling=.false.
 metal=.false.
 /
 
-&SF_PARAMS
-t_star=8.0
-n_star=0.1
-T2_star=1d4
-/
-
-&FEEDBACK_PARAMS
-eta_sn=0.1
-yield=0.1
-/
-
 &REFINE_PARAMS
 m_refine=7*8.
 interpol_var=1
 interpol_type=0
 /
-
