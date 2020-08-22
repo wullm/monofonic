@@ -70,7 +70,7 @@ public:
 
     //! constructor for FTable grid object
     Grid_FFT(const std::array<size_t, 3> &N, const std::array<real_t, 3> &L, bool allocate = true, space_t initialspace = rspace_id)
-        : n_(N), length_(L), space_(initialspace), data_(nullptr), cdata_(nullptr)
+        : n_(N), length_(L), space_(initialspace), data_(nullptr), cdata_(nullptr), plan_(nullptr), iplan_(nullptr), ballocated_( false )
     {
         if( allocate ){
             this->allocate();
@@ -84,9 +84,9 @@ public:
 
     void reset()
     {
-        if (data_ != nullptr) { fftw_free(data_); }
-        if (plan_ != nullptr) { fftw_destroy_plan(plan_); }
-        if (iplan_ != nullptr) { fftw_destroy_plan(iplan_); }
+        if (data_ != nullptr) { fftw_free(data_); data_ = nullptr; }
+        if (plan_ != nullptr) { fftw_destroy_plan(plan_); plan_ = nullptr; }
+        if (iplan_ != nullptr) { fftw_destroy_plan(iplan_); iplan_ = nullptr; }
         ballocated_ = false;
     }
 
