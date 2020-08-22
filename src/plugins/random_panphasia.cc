@@ -282,14 +282,15 @@ public:
       {
         panphasia_descriptor d(descriptor_string_);
 
-        int lextra = (log10((double)ngrid_ / (double)d.i_base) + 0.001) / log10(2.0);
+        const int lextra = (log10((double)ngrid_ / (double)d.i_base) + 0.001) / log10(2.0);
         int level_p = d.wn_level_base + lextra;
-        int ratio = 1 << lextra;
+        const int ratio = 1 << lextra;
 
         lstate[mythread].layer_min = 0;
         lstate[mythread].layer_max = level_p;
         lstate[mythread].indep_field = 1;
 
+        _unused(ratio);
         assert(ngrid_ == ratio * d.i_base);
 
         long long ix_rel[3];
@@ -419,14 +420,15 @@ public:
       {
         panphasia_descriptor d(descriptor_string_);
 
-        int lextra = (log10((double)ngrid_ / (double)d.i_base) + 0.001) / log10(2.0);
+        const int lextra = (log10((double)ngrid_ / (double)d.i_base) + 0.001) / log10(2.0);
         int level_p = d.wn_level_base + lextra;
-        int ratio = 1 << lextra;
+        const int ratio = 1 << lextra;
 
         lstate[mythread].layer_min = 0;
         lstate[mythread].layer_max = level_p;
         lstate[mythread].indep_field = 1;
 
+        _unused(ratio);
         assert(ngrid_ == ratio * d.i_base);
 
         long long ix_rel[3];
