@@ -41,39 +41,9 @@ music_wnoise_generator<T>::music_wnoise_generator(unsigned res, unsigned cubesiz
   double mean = 0.0;
   size_t res_l = res;
 
-  bool musicnoise = true;
-  if (!musicnoise)
-    cubesize_ = res_;
-
-  if (!musicnoise)
-    music::elog.Print("This currently breaks compatibility. Need to disable by hand! Make sure to not check into repo");
-
   initialize();
-
-  if (musicnoise)
-    mean = fill_all();
-  else
-  {
-    rnums_.push_back(new Meshvar<T>(res, 0, 0, 0));
-    cubemap_[0] = 0; // create dummy map index
-    register_cube(0, 0, 0);
-    //rapid_proto_ngenic_rng( res_, baseseed_, *this );
-  }
-
-  /*
-
-    if( musicnoise )
-    mean = fill_all();
-    else
-    {
-    rnums_.push_back( new Meshvar<T>( res, 0, 0, 0 ) );
-    cubemap_[0] = 0; // create dummy map index
-    register_cube(0,0,0);
-    rapid_proto_ngenic_rng( res_, baseseed_, *this );
-    }
-     
-  */
-
+  mean = fill_all();
+  
   if (zeromean)
   {
     mean = 0.0;

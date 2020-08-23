@@ -24,6 +24,7 @@ class RNG_music : public RNG_plugin
 protected:
   std::vector<long> rngseeds_;
   std::vector<std::string> rngfnames_;
+  std::vector<rng *> randc_;
   unsigned ran_cube_size_;
 
   int levelmin_, levelmax_, levelmin_seed_;
@@ -49,21 +50,73 @@ protected:
   //! store the white noise fields in memory or on disk
   //void store_rnd(int ilevel, rng *prng);
 
-public:
-  explicit RNG_music(config_file &cf) : RNG_plugin(cf), initialized_(false) {}
+  bool is_power_of_two(size_t x) const
+  {
+      return (x & (x - 1)) == 0;
+  }
 
-  ~RNG_music() {}
+  unsigned int_log2( size_t v ) const
+  {
+    unsigned r{0}; // r will be lg(v)
+    while (v >>= 1) r++;
+    return r;
+  }
+
+public:
+  explicit RNG_music(config_file &cf) : RNG_plugin(cf), initialized_(false) 
+  {
+    // we need to make sure that the chosen resolution is a power of 2 resolution
+    size_t res = pcf_->get_value<size_t>("setup", "GridRes");
+    if( !is_power_of_two(res) ){
+      std::string errmsg("MUSIC random number plugin requires [setup]/GridRes to be a power of 2!");
+      music::flog << errmsg << std::endl;
+      throw std::runtime_error(errmsg.c_str());
+    } 
+    levelmin_ = int_log2(res);
+    levelmax_ = levelmin_;
+    music::ilog << "MUSIC1 RNG plugin: setting levelmin = levelmax = " << levelmin_ << std::endl;
+
+    this->initialize_for_grid_structure( );
+    
+  }
+
+  ~RNG_music() 
+  {
+    for( auto rr : randc_ ){
+      if( rr != nullptr ) delete rr;
+    }
+  }
 
   bool isMultiscale() const { return true; }
 
-  void Fill_Grid( Grid_FFT<real_t>& g ) {} //const { }
-
-  void initialize_for_grid_structure()//const refinement_hierarchy &refh)
+  void Fill_Grid( Grid_FFT<real_t>& g ) 
   {
-    //prefh_ = &refh;
-    levelmin_ = pcf_->get_value<unsigned>("setup", "levelmin");
-    levelmax_ = pcf_->get_value<unsigned>("setup", "levelmax");
+    // determine extent of grid to be filled (can be a slab with MPI)
+    const size_t i0 = g.local_0_start_, j0{0}, k0{0};
+    const size_t Ni = g.rsize(0), Nj = g.rsize(1), Nk = g.rsize(2);
 
+    // make sure we're in real space
+    g.FourierTransformBackward();
+
+    // copy over
+    #pragma omp parallel for
+    for( auto i = i0; i<Ni; ++i )
+    {
+      size_t ip  = i-i0; // index in g
+      for( auto j = j0; j<Nj; ++j )
+      {
+        auto   jp = j-j0; // index in g
+        for( auto k = k0; k<Nk; ++k )
+        {
+          auto   kp = k-k0; // index in g
+          g.relem(ip,jp,kp) = (*randc_[levelmin_])(i,j,k);
+        } 
+      }  
+    }
+  } 
+
+  void initialize_for_grid_structure()
+  {
     ran_cube_size_ = pcf_->get_value_safe<unsigned>("random", "cubesize", DEF_RAN_CUBE_SIZE);
     disk_cached_ = pcf_->get_value_safe<bool>("random", "disk_cached", true);
     restart_ = pcf_->get_value_safe<bool>("random", "restart", false);
@@ -159,17 +212,18 @@ void RNG_music::compute_random_numbers(void)
 {
   bool rndsign = pcf_->get_value_safe<bool>("random", "grafic_sign", false);
 
-  std::vector<rng *> randc(std::max(levelmax_, levelmin_seed_) + 1, (rng *)NULL);
-
   //--- FILL ALL WHITE NOISE ARRAYS FOR WHICH WE NEED THE FULL FIELD ---//
+
+  randc_.assign(std::max(levelmax_, levelmin_seed_) + 1, nullptr);
+
 
   //... seeds are given for a level coarser than levelmin
   if (levelmin_seed_ < levelmin_)
   {
     if (rngfnames_[levelmin_seed_].size() > 0)
-      randc[levelmin_seed_] = new rng(1 << levelmin_seed_, rngfnames_[levelmin_seed_], rndsign);
+      randc_[levelmin_seed_] = new rng(1 << levelmin_seed_, rngfnames_[levelmin_seed_], rndsign);
     else
-      randc[levelmin_seed_] = new rng(1 << levelmin_seed_, ran_cube_size_, rngseeds_[levelmin_seed_], true);
+      randc_[levelmin_seed_] = new rng(1 << levelmin_seed_, ran_cube_size_, rngseeds_[levelmin_seed_], true);
 
     for (int i = levelmin_seed_ + 1; i <= levelmin_; ++i)
     {
@@ -178,9 +232,9 @@ void RNG_music::compute_random_numbers(void)
       if (rngfnames_[i].size() > 0)
         music::ilog.Print("Warning: Cannot use filenames for higher levels currently! Ignoring!");
 
-      randc[i] = new rng(*randc[i - 1], ran_cube_size_, rngseeds_[i], true);
-      delete randc[i - 1];
-      randc[i - 1] = NULL;
+      randc_[i] = new rng(*randc_[i - 1], ran_cube_size_, rngseeds_[i], true);
+      delete randc_[i - 1];
+      randc_[i - 1] = NULL;
     }
   }
 
@@ -188,9 +242,9 @@ void RNG_music::compute_random_numbers(void)
   if (levelmin_seed_ > levelmin_)
   {
     if (rngfnames_[levelmin_seed_].size() > 0)
-      randc[levelmin_seed_] = new rng(1 << levelmin_seed_, rngfnames_[levelmin_seed_], rndsign);
+      randc_[levelmin_seed_] = new rng(1 << levelmin_seed_, rngfnames_[levelmin_seed_], rndsign);
     else
-      randc[levelmin_seed_] =
+      randc_[levelmin_seed_] =
           new rng(1 << levelmin_seed_, ran_cube_size_, rngseeds_[levelmin_seed_], true); //, x0, lx );
 
     for (int ilevel = levelmin_seed_ - 1; ilevel >= (int)levelmin_; --ilevel)
@@ -201,14 +255,14 @@ void RNG_music::compute_random_numbers(void)
                 ilevel, levelmin_seed_);
 
       // if( brealspace_tf && ilevel < levelmax_ )
-      //  randc[ilevel] = new rng( *randc[ilevel+1], false );
+      //  randc_[ilevel] = new rng( *randc_[ilevel+1], false );
       // else // do k-space averaging
-      randc[ilevel] = new rng(*randc[ilevel + 1], true);
+      randc_[ilevel] = new rng(*randc_[ilevel + 1], true);
 
       if (ilevel + 1 > levelmax_)
       {
-        delete randc[ilevel + 1];
-        randc[ilevel + 1] = NULL;
+        delete randc_[ilevel + 1];
+        randc_[ilevel + 1] = NULL;
       }
     }
   }
@@ -216,12 +270,12 @@ void RNG_music::compute_random_numbers(void)
   //--- GENERATE AND STORE ALL LEVELS, INCLUDING REFINEMENTS ---//
 
   //... levelmin
-  if (randc[levelmin_] == NULL)
+  if (randc_[levelmin_] == NULL)
   {
     if (rngfnames_[levelmin_].size() > 0)
-      randc[levelmin_] = new rng(1 << levelmin_, rngfnames_[levelmin_], rndsign);
+      randc_[levelmin_] = new rng(1 << levelmin_, rngfnames_[levelmin_], rndsign);
     else
-      randc[levelmin_] = new rng(1 << levelmin_, ran_cube_size_, rngseeds_[levelmin_], true);
+      randc_[levelmin_] = new rng(1 << levelmin_, ran_cube_size_, rngseeds_[levelmin_], true);
   }
 
 // if( levelmax_ == levelmin_ )
@@ -232,11 +286,11 @@ void RNG_music::compute_random_numbers(void)
     //... constraints.apply will return without doing anything
     int x0[3] = { 0, 0, 0 };
     int lx[3] = { 1<<levelmin_, 1<<levelmin_, 1<<levelmin_ };
-    constraints.apply( levelmin_, x0, lx, randc[levelmin_] );
+    constraints.apply( levelmin_, x0, lx, randc_[levelmin_] );
   }
 #endif
 
-  // store_rnd(levelmin_, randc[levelmin_]);
+  // store_rnd(levelmin_, randc_[levelmin_]);
 
   //... refinement levels
   // for (int ilevel = levelmin_ + 1; ilevel <= levelmax_; ++ilevel)
@@ -258,22 +312,22 @@ void RNG_music::compute_random_numbers(void)
   //   x0[1] = prefh_->offset_abs(ilevel, 1) - lfac * shift[1] - lx[1] / 4;
   //   x0[2] = prefh_->offset_abs(ilevel, 2) - lfac * shift[2] - lx[2] / 4;
 
-  //   if (randc[ilevel] == NULL)
-  //     randc[ilevel] =
-  //         new rng(*randc[ilevel - 1], ran_cube_size_, rngseeds_[ilevel], kavg, ilevel == levelmin_ + 1, x0, lx);
-  //   delete randc[ilevel - 1];
-  //   randc[ilevel - 1] = NULL;
+  //   if (randc_[ilevel] == NULL)
+  //     randc_[ilevel] =
+  //         new rng(*randc_[ilevel - 1], ran_cube_size_, rngseeds_[ilevel], kavg, ilevel == levelmin_ + 1, x0, lx);
+  //   delete randc_[ilevel - 1];
+  //   randc_[ilevel - 1] = NULL;
 
   //   //... apply constraints to this level, if any
   //   // if( ilevel == levelmax_ )
-  //   // constraints.apply( ilevel, x0, lx, randc[ilevel] );
+  //   // constraints.apply( ilevel, x0, lx, randc_[ilevel] );
 
   //   //... store numbers
-  //   store_rnd(ilevel, randc[ilevel]);
+  //   store_rnd(ilevel, randc_[ilevel]);
   // }
 
-  delete randc[levelmax_];
-  randc[levelmax_] = NULL;
+  // delete randc_[levelmax_];
+  // randc_[levelmax_] = NULL;
 
   //... make sure that the coarse grid contains oct averages where it overlaps with a fine grid
   //... this also ensures that constraints enforced on fine grids are carried to the coarser grids
@@ -287,9 +341,9 @@ void RNG_music::compute_random_numbers(void)
   /*if( levelmax_rand_ >= (int)levelmin_ )
     {
     std::cerr << "lmaxread >= (int)levelmin\n";
-    randc[levelmax_rand_] = new rng( (unsigned)pow(2,levelmax_rand_), rngfnames_[levelmax_rand_] );
+    randc_[levelmax_rand_] = new rng( (unsigned)pow(2,levelmax_rand_), rngfnames_[levelmax_rand_] );
     for( int ilevel = levelmax_rand_-1; ilevel >= (int)levelmin_; --ilevel )
-    randc[ilevel] = new rng( *randc[ilevel+1] );
+    randc_[ilevel] = new rng( *randc_[ilevel+1] );
          }*/
 }
 
@@ -297,5 +351,5 @@ void RNG_music::compute_random_numbers(void)
 
 namespace
 {
-RNG_plugin_creator_concrete<RNG_music> creator("MUSIC");
+RNG_plugin_creator_concrete<RNG_music> creator("MUSIC1");
 }

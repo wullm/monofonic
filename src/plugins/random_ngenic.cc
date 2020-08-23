@@ -117,7 +117,7 @@ public:
                         if (i == nres_ / 2 || j == nres_ / 2 || k == nres_ / 2) continue;
                         if (i == 0 && j == 0 && k == 0) continue;
 
-                        ampl = -std::sqrt(-std::log(ampl));
+                        ampl = std::sqrt(-std::log(ampl));
                         ccomplex_t zrand(ampl*std::cos(phase),ampl*std::sin(phase));
 
                         if (k > 0) {
@@ -143,7 +143,7 @@ public:
                                     }
                                 } else if (i < nres_ / 2) {
                                     if(i_in_range) g.kelem(ip,j,k) = zrand;
-                                    if (ii_in_range) g.kelem(iip,jj,k) = std::conj(zrand);
+                                    if(ii_in_range) g.kelem(iip,jj,k) = std::conj(zrand);
                                 }
                             }
                         }
