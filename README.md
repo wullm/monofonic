@@ -21,6 +21,8 @@ Currently supported features (the list is growing, so check back):
 
 - Multiple random number modules (MUSIC1,NGenIC,Panphasia,...) (A new MUSIC2 module is in development)
 
+- Multiple pre-IC modules (various Bravais lattices, glass)
+
 - Hybrid parallelization with MPI+OpenMP/threads.
     
 - Requires FFTW v3, GSL (and HDF5 for output for some codes), as well as a CMake build system.
