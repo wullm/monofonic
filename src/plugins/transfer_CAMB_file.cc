@@ -184,6 +184,8 @@ public:
   transfer_CAMB_file_plugin(config_file &cf)
       : TransferFunction_plugin(cf)
   {
+    music::wlog << "The CAMB file plugin is not well tested! Proceed with checks of correctness of output before running a simulation!" << std::endl;
+
     m_filename_Tk = pcf_->get_value<std::string>("cosmology", "transfer_file");
     m_Omega_m = cf.get_value<double>("cosmology", "Omega_m"); //MvD
     m_Omega_b = cf.get_value<double>("cosmology", "Omega_b"); //MvD
@@ -249,6 +251,7 @@ public:
     double lk = log10(k);
     double dk = m_tab_k[n] - m_tab_k[n1];
     double delk = lk - m_tab_k[n];
+    double dc{0.0}, db{0.0};
 
     switch (type)
     {
@@ -280,7 +283,14 @@ public:
       v1 = m_tab_Tk_tot[n1];
       v2 = m_tab_Tk_tot[n];
       return pow(10.0, (v2 - v1) / dk * (delk) + v2);
-      #warning TODO: add deltabc here
+    case deltabc:
+      v1 = m_tab_Tk_cdm[n1];
+      v2 = m_tab_Tk_cdm[n];
+      dc = pow(10.0, (v2 - v1) / dk * (delk) + v2);
+      v1 = m_tab_Tk_baryon[n1];
+      v2 = m_tab_Tk_baryon[n];
+      db = pow(10.0, (v2 - v1) / dk * (delk) + v2);
+      return db-dc;
     default:
       throw std::runtime_error(
           "Invalid type requested in transfer function evaluation");
