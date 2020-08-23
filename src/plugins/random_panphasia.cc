@@ -1,6 +1,7 @@
 // This file is part of monofonIC (MUSIC2)
 // A software package to generate ICs for cosmological simulations
 // Copyright (C) 2020 by Oliver Hahn and Adrian Jenkins (this file)
+// but see distinct licensing for PANPHASIA below
 // 
 // monofonIC is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -14,6 +15,13 @@
 // 
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
+//
+// IMPORTANT NOTICE:
+// Note that PANPHASIA itself is not released under the GPL. Make sure
+// to read and agree to its distinct licensing before you use or modify
+// the code below or in the /external/panphasia directory which can be
+// found here: http://icc.dur.ac.uk/Panphasia.php
+// NOTE THAT PANPHASIA REQUIRES REGISTRATION ON THIS WEBSITE PRIOR TO USE
 
 #if defined(USE_PANPHASIA)
 
