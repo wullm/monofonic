@@ -71,7 +71,7 @@ public:
     munit_ = rhoc * std::pow(boxsize_, 3) / hubble_param_; // final units will be in 1e10 M_sol    
 
     blongids_ = cf_.get_value_safe<bool>("output", "UseLongids", false);
-    
+    bdobaryons_ = cf_.get_value<bool>("setup","DoBaryons");
 
     for (int i = 0; i < 6; ++i)
     {
