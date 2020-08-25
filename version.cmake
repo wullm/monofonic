@@ -19,7 +19,7 @@ else()
         COMMAND bash -c "git diff --quiet --exit-code || echo +"
         OUTPUT_VARIABLE GIT_DIFF)
     execute_process(
-        COMMAND git describe --exact-match --tags
+        COMMAND git describe #--exact-match --tags
         OUTPUT_VARIABLE GIT_TAG ERROR_QUIET)
     execute_process(
         COMMAND git rev-parse --abbrev-ref HEAD

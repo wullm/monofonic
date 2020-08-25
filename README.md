@@ -43,9 +43,9 @@ Please note the separate licensing for Panphasia (see external/panphasia/LICENSE
 
 If you use MUSIC2-monofonIC in your scientific work, you are required to acknowledge this by linking to this repository and citing the relevant papers:
 
-- For total matter sims, or 3LPT/PLT related aspects: Michaux et al. 2020 (arXiv:TBD)
+- For total matter sims, or 3LPT/PLT related aspects: Michaux et al. 2020 [arXiv:2008.09588](https://arxiv.org/abs/2008.09588)
 
-- For baryon+CDM sims, or PPT numerics related aspects: Hahn et al. 2020 (arXiv:TBD)
+- For baryon+CDM sims, or PPT numerics related aspects: Hahn et al. 2020 [arXiv:2008.09124](https://arxiv.org/abs/2008.09124)
 
 
 ## Acknowledgments

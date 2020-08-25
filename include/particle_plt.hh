@@ -1,6 +1,6 @@
 // This file is part of monofonIC (MUSIC2)
 // A software package to generate ICs for cosmological simulations
-// Copyright (C) 2020 by Oliver Hahn
+// Copyright (C) 2020 by Oliver Hahn & Bruno Marcos (this file)
 // 
 // monofonIC is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -14,6 +14,11 @@
 // 
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+//
+// NOTE: part of this code, notably the translation into the first Brillouin 
+//       zone (FBZ), was adapted from Fortran code written by Bruno Marcos
+//
 #pragma once
 
 #include <general.hh>
