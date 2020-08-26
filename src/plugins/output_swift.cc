@@ -151,6 +151,10 @@ public:
 
         std::vector<write_real_t> data( npart_[0], ceint );
         HDFWriteDataset(this_fname_, "PartType0/InternalEnergy", data);
+
+        data.assign( npart_[0], boxlength_ / cf_.get_value<double>("setup","GridRes") );
+        HDFWriteDataset(this_fname_, "PartType0/SmoothingLength", data);
+        
       }
 
       music::ilog << "Wrote SWIFT IC file(s) to " << this_fname_ << std::endl;
