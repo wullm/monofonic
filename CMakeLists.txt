@@ -15,9 +15,8 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-cmake_minimum_required(VERSION 3.9)
+cmake_minimum_required(VERSION 3.11)
 set(PRGNAME monofonIC)
-
 project(monofonIC C CXX)
 
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -march=native -Wall -fno-omit-frame-pointer -g  -fsanitize=address")
@@ -32,8 +31,7 @@ set(CMAKE_C_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}" CACHE STRING "Flags used by t
 set(CMAKE_C_FLAGS_DEBUGSANADD "${CMAKE_CXX_FLAGS_DEBUGSANADD}" CACHE STRING "Flags used by the compiler during Debug builds with Sanitizer for address." FORCE)
 set(CMAKE_C_FLAGS_DEBUGSANUNDEF "${CMAKE_CXX_FLAGS_DEBUGSANUNDEF}" CACHE STRING "Flags used by the compiler during Debug builds with Sanitizer for undefineds." FORCE)
 
-
-set(default_build_type "Release")
+set(default_build_type "RelWithDebInfo")
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
   message(STATUS "Setting build type to '${default_build_type}' as none was specified.")
   set(CMAKE_BUILD_TYPE "${default_build_type}" CACHE
@@ -47,12 +45,7 @@ mark_as_advanced(CMAKE_C_FLAGS_DEBUGSANADD CMAKE_C_FLAGS_DEBUGSANUNDEF)
 mark_as_advanced(CMAKE_EXECUTABLE_FORMAT CMAKE_OSX_ARCHITECTURES CMAKE_OSX_DEPLOYMENT_TARGET CMAKE_OSX_SYSROOT)
 
 
-########################################################################################################################
-# include class submodule
-include(${CMAKE_CURRENT_SOURCE_DIR}/external/class.cmake)
-
 find_package(PkgConfig REQUIRED)
-
 set(CMAKE_MODULE_PATH "${CMAKE_MODULE_PATH};${PROJECT_SOURCE_DIR}")
 
 
@@ -187,7 +180,7 @@ configure_file(
 )
 
 add_executable(${PRGNAME} ${SOURCES} ${PLUGINS})
-target_setup_class(${PRGNAME})
+# target_setup_class(${PRGNAME})
 
 set_target_properties(${PRGNAME} PROPERTIES CXX_STANDARD 14)
 
@@ -256,7 +249,19 @@ endif(ENABLE_PLT)
 
 target_link_libraries(${PRGNAME} PRIVATE GSL::gsl)
 
-# GenericIO
+
+########################################################################################################################
+# include CLASS
+option(ENABLE_CLASS "Enable CLASS support (as a submodule)." ON)
+  
+if(ENABLE_CLASS)
+  include(${CMAKE_CURRENT_SOURCE_DIR}/external/class.cmake)
+  target_link_libraries(${PRGNAME} PRIVATE class::libclass_cpp)
+  target_compile_definitions(${PRGNAME} PRIVATE "USE_CLASS")
+endif()
+
+########################################################################################################################
+# include GenericIO (only if MPI available)
 include(CMakeDependentOption)
 cmake_dependent_option(ENABLE_GENERICIO "Enable GenericIO (HACC) output support" off "ENABLE_MPI;MPI_CXX_FOUND" off)
 
