@@ -25,9 +25,9 @@
 
 namespace ic_generator{
 
-    int Run( config_file& the_config );
+    int run( config_file& the_config );
     
-    int Initialise( config_file& the_config );
+    int initialise( config_file& the_config );
 
     void reset();
 

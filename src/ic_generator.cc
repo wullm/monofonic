@@ -40,7 +40,7 @@ std::unique_ptr<RNG_plugin> the_random_number_generator;
 std::unique_ptr<output_plugin> the_output_plugin;
 std::unique_ptr<cosmology::calculator>  the_cosmo_calc;
 
-int Initialise( config_file& the_config )
+int initialise( config_file& the_config )
 {
     the_random_number_generator = std::move(select_RNG_plugin(the_config));
     the_output_plugin           = std::move(select_output_plugin(the_config));
@@ -55,7 +55,7 @@ void reset () {
     the_cosmo_calc.reset();
 }
 
-int Run( config_file& the_config )
+int run( config_file& the_config )
 {
     //--------------------------------------------------------------------------------------------------------
     // Read run parameters

@@ -221,12 +221,12 @@ int main( int argc, char** argv )
 #else
 	music::ilog << "FFTW_ESTIMATE" << std::endl;
 #endif
-    //--------------------------------------------------------------------
+
+    ///////////////////////////////////////////////////////////////////////
     // Initialise plug-ins
-    //--------------------------------------------------------------------
     try
     {
-        ic_generator::Initialise( the_config );
+        ic_generator::initialise( the_config );
     }catch(...){
         handle_eptr( std::current_exception() );
         music::elog << "Problem during initialisation. See error(s) above. Exiting..." << std::endl;
@@ -235,17 +235,20 @@ int main( int argc, char** argv )
         #endif
         return 1;
     }
+    ///////////////////////////////////////////////////////////////////////
+
 
     ///////////////////////////////////////////////////////////////////////
     // do the job...
-    ///////////////////////////////////////////////////////////////////////
-    ic_generator::Run( the_config );
-
-    // particle::test_plt();
+    ic_generator::run( the_config );
     ///////////////////////////////////////////////////////////////////////
 
+
+    ///////////////////////////////////////////////////////////////////////
     // call the destructor of plugins before tearing down MPI
     ic_generator::reset();
+    ///////////////////////////////////////////////////////////////////////
+
 
 #if defined(USE_MPI)
     MPI_Barrier(MPI_COMM_WORLD);
