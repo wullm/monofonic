@@ -677,10 +677,12 @@ public:
         return real_t(locmin);
     }
 */
-    template <typename functional, typename grid_t>
-    void assign_function_of_grids_r(const functional &f, const grid_t &g)
+    
+    //! In real space, assigns the value of a functional of arbitrarily many grids, i.e. f(x) = f(g1(x),g2(x),...)
+    template <typename functional, typename... Grids>
+    void assign_function_of_grids_r(const functional &f, Grids&... grids)
     {
-        assert(g.size(0) == size(0) && g.size(1) == size(1)); 
+        list_assert_all( { ((grids.size(0)==this->size(0))&&(grids.size(1)==this->size(1))&&(grids.size(2)==this->size(2)))... } );
 
         #pragma omp parallel for
         for (size_t i = 0; i < sizes_[0]; ++i)
@@ -689,20 +691,17 @@ public:
             {
                 for (size_t k = 0; k < sizes_[2]; ++k)
                 {
-                    auto &elem = this->relem(i, j, k);
-                    const auto &elemg = g.relem(i, j, k);
-
-                    elem = f(elemg);
+                    this->relem(i, j, k) = f((grids.relem(i, j, k))...);
                 }
             }
         }
     }
 
-    template <typename functional, typename grid1_t, typename grid2_t>
-    void assign_function_of_grids_r(const functional &f, const grid1_t &g1, const grid2_t &g2)
+    //! In Fourier space, assigns the value of a functional of arbitrarily many grids, i.e. f(k) = f(g1(k),g2(k),...)
+    template <typename functional, typename... Grids>
+    void assign_function_of_grids_k(const functional &f, Grids&... grids)
     {
-        assert(g1.size(0) == size(0) && g1.size(1) == size(1)); 
-        assert(g2.size(0) == size(0) && g2.size(1) == size(1)); 
+        list_assert_all( { ((grids.size(0)==this->size(0))&&(grids.size(1)==this->size(1))&&(grids.size(2)==this->size(2)))... } );
 
         #pragma omp parallel for
         for (size_t i = 0; i < sizes_[0]; ++i)
@@ -711,24 +710,18 @@ public:
             {
                 for (size_t k = 0; k < sizes_[2]; ++k)
                 {
-                    //auto idx = this->get_idx(i,j,k);
-                    auto &elem = this->relem(i, j, k);
-
-                    const auto &elemg1 = g1.relem(i, j, k);
-                    const auto &elemg2 = g2.relem(i, j, k);
-
-                    elem = f(elemg1, elemg2);
+                    this->kelem(i, j, k) = f((grids.kelem(i, j, k))...);
                 }
             }
         }
     }
 
-    template <typename functional, typename grid1_t, typename grid2_t, typename grid3_t>
-    void assign_function_of_grids_r(const functional &f, const grid1_t &g1, const grid2_t &g2, const grid3_t &g3)
+    //! In Fourier space, assigns the value of a functional of arbitrarily many grids where first argument is the 3d array index
+    //! i.e. f[ijk] = f({ijk}, g1[ijk], g2[ijk], ...)
+    template <typename functional, typename... Grids>
+    void assign_function_of_grids_ijk(const functional &f, Grids&... grids)
     {
-        assert(g1.size(0) == size(0) && g1.size(1) == size(1)); // && g1.size(2) == size(2));
-        assert(g2.size(0) == size(0) && g2.size(1) == size(1)); // && g2.size(2) == size(2));
-        assert(g3.size(0) == size(0) && g3.size(1) == size(1)); // && g3.size(2) == size(2));
+        list_assert_all( { ((grids.size(0)==this->size(0))&&(grids.size(1)==this->size(1))&&(grids.size(2)==this->size(2)))... } );
 
         #pragma omp parallel for
         for (size_t i = 0; i < sizes_[0]; ++i)
@@ -737,23 +730,19 @@ public:
             {
                 for (size_t k = 0; k < sizes_[2]; ++k)
                 {
-                    //auto idx = this->get_idx(i,j,k);
-                    auto &elem = this->relem(i, j, k);
-
-                    const auto &elemg1 = g1.relem(i, j, k);
-                    const auto &elemg2 = g2.relem(i, j, k);
-                    const auto &elemg3 = g3.relem(i, j, k);
-
-                    elem = f(elemg1, elemg2, elemg3);
+                    this->kelem(i, j, k) = f({i, j, k}, (grids.kelem(i, j, k))...);
                 }
             }
         }
     }
 
-    template <typename functional, typename grid_t>
-    void assign_function_of_grids_k(const functional &f, const grid_t &g)
+    //! In Fourier space, assigns the value of a functional of arbitrarily many grids where first argument is the k vector
+    //! i.e. f(k) = f(k, g1(k), g2(k), ...)
+    template <typename functional, typename... Grids>
+    void assign_function_of_grids_kdep(const functional &f, Grids&... grids)
     {
-        assert(g.size(0) == size(0) && g.size(1) == size(1)); // && g.size(2) == size(2) );
+        // check that all grids are same size
+        list_assert_all( { ((grids.size(0)==this->size(0))&&(grids.size(1)==this->size(1))&&(grids.size(2)==this->size(2)))... } );
 
         #pragma omp parallel for
         for (size_t i = 0; i < sizes_[0]; ++i)
@@ -762,77 +751,7 @@ public:
             {
                 for (size_t k = 0; k < sizes_[2]; ++k)
                 {
-                    auto &elem = this->kelem(i, j, k);
-                    const auto &elemg = g.kelem(i, j, k);
-
-                    elem = f(elemg);
-                }
-            }
-        }
-    }
-
-    template <typename functional, typename grid1_t, typename grid2_t>
-    void assign_function_of_grids_k(const functional &f, const grid1_t &g1, const grid2_t &g2)
-    {
-        assert(g1.size(0) == size(0) && g1.size(1) == size(1)); // && g.size(2) == size(2) );
-        assert(g2.size(0) == size(0) && g2.size(1) == size(1)); // && g.size(2) == size(2) );
-
-        #pragma omp parallel for
-        for (size_t i = 0; i < sizes_[0]; ++i)
-        {
-            for (size_t j = 0; j < sizes_[1]; ++j)
-            {
-                for (size_t k = 0; k < sizes_[2]; ++k)
-                {
-                    auto &elem = this->kelem(i, j, k);
-                    const auto &elemg1 = g1.kelem(i, j, k);
-                    const auto &elemg2 = g2.kelem(i, j, k);
-
-                    elem = f(elemg1, elemg2);
-                }
-            }
-        }
-    }
-
-    template <typename functional, typename grid_t>
-    void assign_function_of_grids_kdep(const functional &f, const grid_t &g)
-    {
-        assert(g.size(0) == size(0) && g.size(1) == size(1)); // && g.size(2) == size(2) );
-
-        #pragma omp parallel for
-        for (size_t i = 0; i < sizes_[0]; ++i)
-        {
-            for (size_t j = 0; j < sizes_[1]; ++j)
-            {
-                for (size_t k = 0; k < sizes_[2]; ++k)
-                {
-                    auto &elem = this->kelem(i, j, k);
-                    const auto &elemg = g.kelem(i, j, k);
-
-                    elem = f(this->get_k<real_t>(i, j, k), elemg);
-                }
-            }
-        }
-    }
-
-    template <typename functional, typename grid1_t, typename grid2_t>
-    void assign_function_of_grids_kdep(const functional &f, const grid1_t &g1, const grid2_t &g2)
-    {
-        assert(g1.size(0) == size(0) && g1.size(1) == size(1) && g1.size(2) == size(2) );
-        assert(g2.size(0) == size(0) && g2.size(1) == size(1) && g2.size(2) == size(2) );
-
-        #pragma omp parallel for
-        for (size_t i = 0; i < size(0); ++i)
-        {
-            for (size_t j = 0; j < size(1); ++j)
-            {
-                for (size_t k = 0; k < size(2); ++k)
-                {
-                    auto &elem = this->kelem(i, j, k);
-                    const auto &elemg1 = g1.kelem(i, j, k);
-                    const auto &elemg2 = g2.kelem(i, j, k);
-
-                    elem = f(this->get_k<real_t>(i, j, k), elemg1, elemg2);
+                    this->kelem(i, j, k) = f(this->get_k<real_t>(i, j, k), (grids.kelem(i, j, k))...);
                 }
             }
         }
