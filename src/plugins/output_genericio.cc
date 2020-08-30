@@ -25,7 +25,7 @@ public:
     {
         real_t astart = 1.0 / (1.0 + cf_.get_value<double>("setup", "zstart"));
         lunit_ = cf_.get_value<double>("setup", "BoxLength");
-        vunit_ = lunit_;
+        vunit_ = lunit_/astart;
         hacc_hydro_ = cf_.get_value_safe<bool>("output", "GenericIO_HACCHydro", false);
         // initial smoothing length is mean particle seperation
         hh_value_ = lunit_ / cf_.get_value<float>("setup", "GridRes");
@@ -33,7 +33,7 @@ public:
         const float primordial_x = 0.75;
         mu_value_ = 4.0 / (1.0 + 3.0*primordial_x);
         
-        double rhoc = 27.7519737; // in h^2 1e10 M_sol / Mpc^3
+        double rhoc = 27.7519737 * 1e10; // in h^2 M_sol / Mpc^3
         rho_value_ = cf_.get_value<double>("cosmology", "Omega_b") * rhoc;
         munit_ = rhoc * std::pow(cf_.get_value<double>("setup", "BoxLength"), 3);
     }

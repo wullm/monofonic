@@ -180,7 +180,6 @@ public:
     case cosmo_species::neutrino:
       return 3;
     }
-    #warning Baryons hardwired to species 2 in G2
     return -1;
   }
 
