@@ -75,9 +75,10 @@ private:
     add_class_parameter("Omega_b", Omega_b_);
     add_class_parameter("Omega_cdm", Omega_m_ - Omega_b_);
     add_class_parameter("Omega_k", 0.0);
-    // add_class_parameter("Omega_Lambda",1.0-Omega_m_);
     add_class_parameter("Omega_fld", 0.0);
     add_class_parameter("Omega_scf", 0.0);
+
+
     // add_class_parameter("fluid_equation_of_state","CLP");
     // add_class_parameter("w0_fld", -1 );
     // add_class_parameter("wa_fld", 0. );
@@ -87,7 +88,7 @@ private:
 #if 1
     //default off
     // add_class_parameter("Omega_ur",0.0);
-    add_class_parameter("N_ur", N_ur_);
+    add_class_parameter("N_eff", N_ur_);
     add_class_parameter("N_ncdm", 0);
 
 #else
@@ -110,6 +111,9 @@ private:
     add_class_parameter("alpha_s", 0.0);
     add_class_parameter("T_cmb", Tcmb_);
     add_class_parameter("YHe", 0.248);
+
+    // additional parameters
+    add_class_parameter("reio_parametrization", "reio_none");
 
     // precision parameters
     add_class_parameter("k_per_decade_for_pk", 100);
@@ -256,32 +260,6 @@ public:
     kmax_ = k.back();
 
     music::ilog << "CLASS table contains k = " << this->get_kmin() << " to " << this->get_kmax() << " h Mpc-1." << std::endl;
-
-    //--------------------------------------------------------------------------
-    // single fluid growing/decaying mode decomposition
-    //--------------------------------------------------------------------------
-    /*gsl_ia_Cplus_ = gsl_interp_accel_alloc();
-    gsl_ia_Cminus_ = gsl_interp_accel_alloc();
-
-    gsl_sp_Cplus_ = gsl_spline_alloc(gsl_interp_cspline, tab_lnk_.size());
-    gsl_sp_Cminus_ = gsl_spline_alloc(gsl_interp_cspline, tab_lnk_.size());
-
-    tab_Cplus_.assign(tab_lnk_.size(), 0);
-    tab_Cminus_.assign(tab_lnk_.size(), 0);
-
-    std::ofstream ofs("grow_decay.txt");
-
-    for (size_t i = 0; i < tab_lnk_.size(); ++i)
-    {
-      tab_Cplus_[i] = (3.0 / 5.0 * tab_dtot_[i] / atarget_ - 2.0 / 5.0 * tab_ttot_[i] / atarget_);
-      tab_Cminus_[i] = (2.0 / 5.0 * std::pow(atarget_, 1.5) * (tab_dtot_[i] + tab_ttot_[i]));
-
-      ofs << std::exp(tab_lnk_[i]) << " " << tab_Cplus_[i] << " " << tab_Cminus_[i] << " " << tab_dtot_[i] << " " << tab_ttot_[i] << std::endl;
-    }
-
-    gsl_spline_init(gsl_sp_Cplus_, &tab_lnk_[0], &tab_Cplus_[0], tab_lnk_.size());
-    gsl_spline_init(gsl_sp_Cminus_, &tab_lnk_[0], &tab_Cminus_[0], tab_lnk_.size());*/
-    //--------------------------------------------------------------------------
 
     tf_distinct_ = true;
     tf_withvel_ = true;

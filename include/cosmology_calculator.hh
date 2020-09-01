@@ -138,14 +138,16 @@ private:
     }
 
 public:
+    
     calculator() = delete;
+    
     calculator(const calculator& c) = delete;
+
     //! constructor for a cosmology calculator object
     /*!
 	 * @param acosmo a cosmological parameters structure
 	 * @param pTransferFunction pointer to an instance of a transfer function object
 	 */
-
     explicit calculator(config_file &cf)
         : cosmo_param_(cf), astart_( 1.0/(1.0+cf.get_value<double>("setup","zstart")) ),
             atarget_( 1.0/(1.0+cf.get_value_safe<double>("cosmology","ztarget",1./astart_-1.)))

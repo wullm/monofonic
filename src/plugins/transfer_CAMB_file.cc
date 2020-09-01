@@ -1,17 +1,17 @@
 // This file is part of monofonIC (MUSIC2)
 // A software package to generate ICs for cosmological simulations
 // Copyright (C) 2020 by Oliver Hahn
-// 
+//
 // monofonIC is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
-// 
+//
 // monofonIC is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
-// 
+//
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
@@ -102,14 +102,13 @@ private:
         if (ss.bad() || ss.fail())
         {
           music::elog.Print("error reading the transfer function file (corrupt or not in expected format)!");
-          throw std::runtime_error("error reading transfer function file \'" +
-                                   m_filename_Tk + "\'");
+          throw std::runtime_error("error reading transfer function file \'" + m_filename_Tk + "\'");
         }
 
         if (m_Omega_b < 1e-6)
           Tkvtot = Tktot;
         else
-          Tkvtot = ((m_Omega_m - m_Omega_b) * Tkvc + m_Omega_b * Tkvb) / m_Omega_m; //MvD
+          Tkvtot = ((m_Omega_m - m_Omega_b) * Tkvc + m_Omega_b * Tkvb) / m_Omega_m; 
 
         m_linbaryoninterp |= Tkb < 0.0 || Tkvb < 0.0;
 
@@ -222,6 +221,7 @@ public:
 
     tf_distinct_ = true; // different density between CDM v.s. Baryon
     tf_withvel_ = true;  // using velocity transfer function
+    tf_withtotal0_ = false; // only have 1 file for the moment
   }
 
   ~transfer_CAMB_file_plugin()
@@ -255,34 +255,26 @@ public:
 
     switch (type)
     {
+    case total0:
+    case total:
+      v1 = m_tab_Tk_tot[n1];
+      v2 = m_tab_Tk_tot[n];
+      return pow(10.0, (v2 - v1) / dk * (delk) + v2);
+
+    case cdm0:
     case cdm:
       v1 = m_tab_Tk_cdm[n1];
       v2 = m_tab_Tk_cdm[n];
       return pow(10.0, (v2 - v1) / dk * (delk) + v2);
+    
+    case baryon0:
     case baryon:
       v1 = m_tab_Tk_baryon[n1];
       v2 = m_tab_Tk_baryon[n];
       if (m_linbaryoninterp)
         return std::max((v2 - v1) / dk * (delk) + v2, tiny);
       return pow(10.0, (v2 - v1) / dk * (delk) + v2);
-    case vtotal: //>[150609SH: add]
-      v1 = m_tab_Tvk_tot[n1];
-      v2 = m_tab_Tvk_tot[n];
-      return pow(10.0, (v2 - v1) / dk * (delk) + v2);
-    case vcdm: //>[150609SH: add]
-      v1 = m_tab_Tvk_cdm[n1];
-      v2 = m_tab_Tvk_cdm[n];
-      return pow(10.0, (v2 - v1) / dk * (delk) + v2);
-    case vbaryon: //>[150609SH: add]
-      v1 = m_tab_Tvk_baryon[n1];
-      v2 = m_tab_Tvk_baryon[n];
-      if (m_linbaryoninterp)
-        return std::max((v2 - v1) / dk * (delk) + v2, tiny);
-      return pow(10.0, (v2 - v1) / dk * (delk) + v2);
-    case total:
-      v1 = m_tab_Tk_tot[n1];
-      v2 = m_tab_Tk_tot[n];
-      return pow(10.0, (v2 - v1) / dk * (delk) + v2);
+
     case deltabc:
       v1 = m_tab_Tk_cdm[n1];
       v2 = m_tab_Tk_cdm[n];
@@ -290,7 +282,28 @@ public:
       v1 = m_tab_Tk_baryon[n1];
       v2 = m_tab_Tk_baryon[n];
       db = pow(10.0, (v2 - v1) / dk * (delk) + v2);
-      return db-dc;
+      return db - dc;
+
+    case vtotal0:
+    case vtotal: 
+      v1 = m_tab_Tvk_tot[n1];
+      v2 = m_tab_Tvk_tot[n];
+      return pow(10.0, (v2 - v1) / dk * (delk) + v2);
+
+    case vcdm0:
+    case vcdm: 
+      v1 = m_tab_Tvk_cdm[n1];
+      v2 = m_tab_Tvk_cdm[n];
+      return pow(10.0, (v2 - v1) / dk * (delk) + v2);
+
+    case vbaryon0:
+    case vbaryon: 
+      v1 = m_tab_Tvk_baryon[n1];
+      v2 = m_tab_Tvk_baryon[n];
+      if (m_linbaryoninterp)
+        return std::max((v2 - v1) / dk * (delk) + v2, tiny);
+      return pow(10.0, (v2 - v1) / dk * (delk) + v2);
+    
     default:
       throw std::runtime_error(
           "Invalid type requested in transfer function evaluation");
@@ -306,22 +319,37 @@ public:
     {
       switch (type)
       {
+      case total0:
+      case total:
+        return pow(10.0, m_tab_Tk_tot[0]);
+
+      case cdm0:
       case cdm:
         return pow(10.0, m_tab_Tk_cdm[0]);
+
+      case baryon0:
       case baryon:
         if (m_linbaryoninterp)
           return m_tab_Tk_baryon[0];
         return pow(10.0, m_tab_Tk_baryon[0]);
+
+      case deltabc:
+        return pow(10.0, m_tab_Tk_baryon[0]) - pow(10.0, m_tab_Tk_cdm[0]);
+
+      case vtotal0:
       case vtotal:
         return pow(10.0, m_tab_Tvk_tot[0]);
+
+      case vcdm0:
       case vcdm:
         return pow(10.0, m_tab_Tvk_cdm[0]);
+
+      case vbaryon0:
       case vbaryon:
         if (m_linbaryoninterp)
           return m_tab_Tvk_baryon[0];
         return pow(10.0, m_tab_Tvk_baryon[0]);
-      case total:
-        return pow(10.0, m_tab_Tk_tot[0]);
+
       default:
         throw std::runtime_error(
             "Invalid type requested in transfer function evaluation");
@@ -334,22 +362,37 @@ public:
     double lk = log10(k);
     switch (type)
     {
+    case total0:
+    case total:
+      return pow(10.0, gsl_spline_eval(spline_tot, lk, acc_tot));
+
+    case cdm0:
     case cdm:
       return pow(10.0, gsl_spline_eval(spline_cdm, lk, acc_cdm));
+
+    case baryon0:
     case baryon:
       if (m_linbaryoninterp)
         return gsl_spline_eval(spline_baryon, lk, acc_baryon);
       return pow(10.0, gsl_spline_eval(spline_baryon, lk, acc_baryon));
+
+    case deltabc:
+      return pow(10.0, gsl_spline_eval(spline_baryon, lk, acc_baryon)) - pow(10.0, gsl_spline_eval(spline_cdm, lk, acc_cdm));
+
+    case vtotal0:
     case vtotal:
       return pow(10.0, gsl_spline_eval(spline_vtot, lk, acc_vtot)); //MvD
+
+    case vcdm0:
     case vcdm:
       return pow(10.0, gsl_spline_eval(spline_vcdm, lk, acc_vcdm));
+
+    case vbaryon0:
     case vbaryon:
       if (m_linbaryoninterp)
         return gsl_spline_eval(spline_vbaryon, lk, acc_vbaryon);
       return pow(10.0, gsl_spline_eval(spline_vbaryon, lk, acc_vbaryon));
-    case total:
-      return pow(10.0, gsl_spline_eval(spline_tot, lk, acc_tot));
+
     default:
       throw std::runtime_error(
           "Invalid type requested in transfer function evaluation");
@@ -363,5 +406,5 @@ public:
 
 namespace
 {
-TransferFunction_plugin_creator_concrete<transfer_CAMB_file_plugin> creator("CAMB_file");
+  TransferFunction_plugin_creator_concrete<transfer_CAMB_file_plugin> creator("CAMB_file");
 }
