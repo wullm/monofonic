@@ -20,7 +20,7 @@
 
 #include <vector>
 
-#include "transfer_function_plugin.hh"
+#include <transfer_function_plugin.hh>
 
 const double tiny = 1e-30;
 
@@ -28,6 +28,9 @@ class transfer_CAMB_file_plugin : public TransferFunction_plugin
 {
 
 private:
+
+  using TransferFunction_plugin::cosmo_params_;
+
   std::string m_filename_Pk, m_filename_Tk;
   std::vector<double> m_tab_k, m_tab_Tk_tot, m_tab_Tk_cdm, m_tab_Tk_baryon;
   std::vector<double> m_tab_Tvk_tot, m_tab_Tvk_cdm, m_tab_Tvk_baryon;
@@ -36,7 +39,7 @@ private:
   gsl_spline *spline_tot, *spline_cdm, *spline_baryon;
   gsl_spline *spline_vtot, *spline_vcdm, *spline_vbaryon;
 
-  double m_kmin, m_kmax, m_Omega_b, m_Omega_m, m_zstart;
+  double m_kmin, m_kmax;
   unsigned m_nlines;
 
   bool m_linbaryoninterp;
@@ -105,10 +108,10 @@ private:
           throw std::runtime_error("error reading transfer function file \'" + m_filename_Tk + "\'");
         }
 
-        if (m_Omega_b < 1e-6)
+        if (cosmo_params_["Omega_b"] < 1e-6)
           Tkvtot = Tktot;
         else
-          Tkvtot = ((m_Omega_m - m_Omega_b) * Tkvc + m_Omega_b * Tkvb) / m_Omega_m; 
+          Tkvtot = cosmo_params_["f_c"] * Tkvc + cosmo_params_["f_b"]* Tkvb; 
 
         m_linbaryoninterp |= Tkb < 0.0 || Tkvb < 0.0;
 
@@ -180,15 +183,12 @@ private:
   }
 
 public:
-  transfer_CAMB_file_plugin(config_file &cf)
-      : TransferFunction_plugin(cf)
+  transfer_CAMB_file_plugin(config_file &cf, const cosmology::parameters& cosmo_params)
+      : TransferFunction_plugin(cf, cosmo_params)
   {
     music::wlog << "The CAMB file plugin is not well tested! Proceed with checks of correctness of output before running a simulation!" << std::endl;
 
     m_filename_Tk = pcf_->get_value<std::string>("cosmology", "transfer_file");
-    m_Omega_m = cf.get_value<double>("cosmology", "Omega_m"); //MvD
-    m_Omega_b = cf.get_value<double>("cosmology", "Omega_b"); //MvD
-    m_zstart = cf.get_value<double>("setup", "zstart");       //MvD
 
     read_table();
 
@@ -381,7 +381,7 @@ public:
 
     case vtotal0:
     case vtotal:
-      return pow(10.0, gsl_spline_eval(spline_vtot, lk, acc_vtot)); //MvD
+      return pow(10.0, gsl_spline_eval(spline_vtot, lk, acc_vtot)); 
 
     case vcdm0:
     case vcdm:

@@ -208,6 +208,8 @@ struct eisenstein_transfer
  */
 class transfer_eisenstein_plugin : public TransferFunction_plugin
 {
+  using TransferFunction_plugin::cosmo_params_;
+
 protected:
   eisenstein_transfer etf_;
 
@@ -218,13 +220,13 @@ public:
 	 \param Tcmb mean temperature of the CMB fluctuations (defaults to
 	 Tcmb = 2.726 if not specified)
 	 */
-  transfer_eisenstein_plugin(config_file &cf)
-      : TransferFunction_plugin(cf)
+  transfer_eisenstein_plugin(config_file &cf, const cosmology::parameters& cp)
+      : TransferFunction_plugin(cf, cp)
   {
-    double Tcmb = pcf_->get_value_safe<double>("cosmology", "Tcmb", 2.726);
-    double H0 = pcf_->get_value<double>("cosmology", "H0");
-    double Omega_m = pcf_->get_value<double>("cosmology", "Omega_m");
-    double Omega_b = pcf_->get_value<double>("cosmology", "Omega_b");
+    double Tcmb = cosmo_params_["Tcmb"];
+    double H0 = cosmo_params_["H0"];
+    double Omega_m = cosmo_params_["Omega_m"];
+    double Omega_b = cosmo_params_["Omega_b"];
 
     etf_.set_parameters(H0, Omega_m, Omega_b, Tcmb);
     
@@ -252,6 +254,8 @@ public:
 #include <map>
 class transfer_eisenstein_wdm_plugin : public TransferFunction_plugin
 {
+  using TransferFunction_plugin::cosmo_params_;
+
 protected:
   real_t m_WDMalpha, m_h0;
   double omegam_, wdmm_, wdmgx_, wdmnu_, H0_, omegab_;
@@ -268,13 +272,13 @@ protected:
   };
 
 public:
-  transfer_eisenstein_wdm_plugin(config_file &cf)
-      : TransferFunction_plugin(cf)
+  transfer_eisenstein_wdm_plugin(config_file &cf, const cosmology::parameters& cp)
+      : TransferFunction_plugin(cf, cp)
   {
-    double Tcmb = pcf_->get_value_safe("cosmology", "Tcmb", 2.726);
-    omegam_ = pcf_->get_value<double>("cosmology", "Omega_m");
-    omegab_ = pcf_->get_value<double>("cosmology", "Omega_b");
-    H0_ = pcf_->get_value<double>("cosmology", "H0");
+    double Tcmb = cosmo_params_["Tcmb"];
+    H0_ = cosmo_params_["H0"];
+    omegam_ = cosmo_params_["Omega_m"];
+    omegab_ = cosmo_params_["Omega_b"];
     m_h0 = H0_ / 100.0;
     wdmm_ = pcf_->get_value<double>("cosmology", "WDMmass");
 
@@ -345,20 +349,22 @@ public:
 // CDM Bino type WIMP small-scale damped spectrum from Green, Hofmann & Schwarz (2004)
 class transfer_eisenstein_cdmbino_plugin : public TransferFunction_plugin
 {
+  using TransferFunction_plugin::cosmo_params_;
+
 protected:
+  
   real_t m_h0;
   double omegam_, H0_, omegab_, mcdm_, Tkd_, kfs_, kd_;
   eisenstein_transfer etf_;
 
 public:
-  transfer_eisenstein_cdmbino_plugin(config_file &cf)
-      : TransferFunction_plugin(cf)
+  transfer_eisenstein_cdmbino_plugin(config_file &cf, const cosmology::parameters& cp)
+      : TransferFunction_plugin(cf, cp)
   { 
-    double Tcmb = pcf_->get_value_safe("cosmology", "Tcmb", 2.726);
-
-    omegam_ = pcf_->get_value<double>("cosmology", "Omega_m");
-    omegab_ = pcf_->get_value<double>("cosmology", "Omega_b");
-    H0_ = pcf_->get_value<double>("cosmology", "H0");
+    double Tcmb = cosmo_params_["Tcmb"];
+    H0_ = cosmo_params_["H0"];
+    omegam_ = cosmo_params_["Omega_m"];
+    omegab_ = cosmo_params_["Omega_b"];
     m_h0 = H0_ / 100.0;
 
     etf_.set_parameters(H0_, omegam_, omegab_, Tcmb);
@@ -397,53 +403,10 @@ public:
   }
 };
 
-class transfer_eisenstein_cutoff_plugin : public TransferFunction_plugin
-{
-protected:
-  real_t m_h0;
-  double omegam_, H0_, omegab_, mcdm_, Tkd_, kfs_, kd_;
-  double Rcut_;
-  eisenstein_transfer etf_;
-
-public:
-  transfer_eisenstein_cutoff_plugin(config_file &cf)
-      : TransferFunction_plugin(cf)
-  { 
-    double Tcmb = pcf_->get_value_safe("cosmology", "Tcmb", 2.726);
-
-    omegam_ = pcf_->get_value<double>("cosmology", "Omega_m");
-    omegab_ = pcf_->get_value<double>("cosmology", "Omega_b");
-    H0_ = pcf_->get_value<double>("cosmology", "H0");
-    m_h0 = H0_ / 100.0;
-
-    etf_.set_parameters(H0_, omegam_, omegab_, Tcmb);
-
-    Rcut_ = pcf_->get_value_safe<double>("cosmology", "Rcut", 1.0);
-  }
-
-  inline double compute(double k, tf_type type) const
-  {
-    //std::cerr << k << " " << Rcut_ << " " << std::exp(-k*k*Rcut_*Rcut_) << std::endl;
-    double cut = std::exp(-k*k*Rcut_*Rcut_);
-    // std::cerr << k << " " << cut << ", " << std::endl;
-    return etf_.at_k(k) * cut;
-  }
-
-  inline double get_kmin(void) const
-  {
-    return 1e-4;
-  }
-
-  inline double get_kmax(void) const
-  {
-    return 1.e4;
-  }
-};
 
 namespace
 {
 TransferFunction_plugin_creator_concrete<transfer_eisenstein_plugin> creator("eisenstein");
 TransferFunction_plugin_creator_concrete<transfer_eisenstein_wdm_plugin> creator2("eisenstein_wdm");
 TransferFunction_plugin_creator_concrete<transfer_eisenstein_cdmbino_plugin> creator3("eisenstein_cdmbino");
-// TransferFunction_plugin_creator_concrete<transfer_eisenstein_cutoff_plugin> creator4("eisenstein_cutoff");
 } // namespace

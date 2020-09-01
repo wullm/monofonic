@@ -490,7 +490,7 @@ int run( config_file& the_config )
         music::ilog << std::endl
                     << ">>> Computing ICs for species \'" << cosmo_species_name[this_species] << "\' <<<\n" << std::endl;
 
-        const real_t C_species = (this_species == cosmo_species::baryon)? (1.0-the_cosmo_calc->cosmo_param_.f_b) : -the_cosmo_calc->cosmo_param_.f_b;
+        const real_t C_species = (this_species == cosmo_species::baryon)? (1.0-the_cosmo_calc->cosmo_param_["f_b"]) : -the_cosmo_calc->cosmo_param_["f_b"];
 
         // main loop block
         {

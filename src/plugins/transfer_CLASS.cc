@@ -28,12 +28,16 @@
 #include <general.hh>
 #include <config_file.hh>
 #include <transfer_function_plugin.hh>
+#include <ic_generator.hh>
+
 #include <math/interpolate.hh>
 
 class transfer_CLASS_plugin : public TransferFunction_plugin
 {
-
 private:
+  
+  using TransferFunction_plugin::cosmo_params_;
+
   interpolated_function_1d<true, true, false> delta_c_, delta_b_, delta_n_, delta_m_, theta_c_, theta_b_, theta_n_, theta_m_;
   interpolated_function_1d<true, true, false> delta_c0_, delta_b0_, delta_n0_, delta_m0_, theta_c0_, theta_b0_, theta_n0_, theta_m0_;
 
@@ -42,7 +46,8 @@ private:
   // gsl_spline *gsl_sp_Cplus_, *gsl_sp_Cminus_;
   // std::vector<double> tab_Cplus_, tab_Cminus_;
 
-  double Omega_m_, Omega_b_, N_ur_, zstart_, ztarget_, kmax_, kmin_, h_, astart_, atarget_, A_s_, n_s_, sigma8_, Tcmb_, tnorm_;
+  //double Omega_m_, Omega_b_, N_ur_, zstart_, ztarget_, kmax_, kmin_, h_, astart_, atarget_, A_s_, n_s_, sigma8_, Tcmb_, tnorm_;
+  double zstart_, ztarget_, astart_, atarget_, kmax_, kmin_, h_, tnorm_;
 
   ClassParams pars_;
   std::unique_ptr<ClassEngine> the_ClassEngine_;
@@ -70,11 +75,11 @@ private:
     add_class_parameter("gauge", "synchronous");
 
     //--- cosmological parameters, densities --------------------------
-    add_class_parameter("h", h_);
+    add_class_parameter("h", cosmo_params_.get("h"));
 
-    add_class_parameter("Omega_b", Omega_b_);
-    add_class_parameter("Omega_cdm", Omega_m_ - Omega_b_);
-    add_class_parameter("Omega_k", 0.0);
+    add_class_parameter("Omega_b", cosmo_params_.get("Omega_b"));
+    add_class_parameter("Omega_cdm", cosmo_params_.get("Omega_c"));
+    add_class_parameter("Omega_k", cosmo_params_.get("Omega_k"));
     add_class_parameter("Omega_fld", 0.0);
     add_class_parameter("Omega_scf", 0.0);
 
@@ -88,7 +93,7 @@ private:
 #if 1
     //default off
     // add_class_parameter("Omega_ur",0.0);
-    add_class_parameter("N_eff", N_ur_);
+    add_class_parameter("N_eff", cosmo_params_.get("Neff"));
     add_class_parameter("N_ncdm", 0);
 
 #else
@@ -102,15 +107,15 @@ private:
     //--- cosmological parameters, primordial -------------------------
     add_class_parameter("P_k_ini type", "analytic_Pk");
 
-    if( A_s_ > 0.0 ){
-      add_class_parameter("A_s", A_s_);
+    if( cosmo_params_.get("A_s") > 0.0 ){
+      add_class_parameter("A_s", cosmo_params_.get("A_s"));
     }else{
-      add_class_parameter("sigma8", sigma8_);
+      add_class_parameter("sigma8", cosmo_params_.get("sigma_8"));
     }
-    add_class_parameter("n_s", n_s_);
+    add_class_parameter("n_s", cosmo_params_.get("n_s"));
     add_class_parameter("alpha_s", 0.0);
-    add_class_parameter("T_cmb", Tcmb_);
-    add_class_parameter("YHe", 0.248);
+    add_class_parameter("T_cmb", cosmo_params_.get("Tcmb"));
+    add_class_parameter("YHe", cosmo_params_.get("YHe"));
 
     // additional parameters
     add_class_parameter("reio_parametrization", "reio_none");
@@ -170,14 +175,15 @@ private:
     
     the_ClassEngine_->getTk(z, k, dc, db, dn, dm, tc, tb, tn, tm);
 
-    real_t fc = (Omega_m_ - Omega_b_) / Omega_m_;
-    real_t fb = Omega_b_ / Omega_m_;
+    double h  = cosmo_params_.get("h");
+    double fc = cosmo_params_.get("f_c");
+    double fb = cosmo_params_.get("f_b");
 
     for (size_t i = 0; i < k.size(); ++i)
     {
       // convert to 'CAMB' format, since we interpolate loglog and
       // don't want negative numbers...
-      auto ik2 = 1.0 / (k[i] * k[i]) * h_ * h_;
+      auto ik2 = 1.0 / (k[i] * k[i]) * h * h;
       dc[i] = -dc[i] * ik2;
       db[i] = -db[i] * ik2;
       dn[i] = -dn[i] * ik2;
@@ -190,33 +196,30 @@ private:
   }
 
 public:
-  explicit transfer_CLASS_plugin(config_file &cf)
-      : TransferFunction_plugin(cf)
+  explicit transfer_CLASS_plugin(config_file &cf, const cosmology::parameters& cosmo_params)
+      : TransferFunction_plugin(cf,cosmo_params)
   {
     this->tf_isnormalised_ = true;
 
     ofs_class_input_.open("input_class_parameters.ini", std::ios::trunc);
 
-    h_ = pcf_->get_value<double>("cosmology", "H0") / 100.0;
-    Omega_m_ = pcf_->get_value<double>("cosmology", "Omega_m");
-    Omega_b_ = pcf_->get_value<double>("cosmology", "Omega_b");
-    N_ur_ = pcf_->get_value_safe<double>("cosmology", "Neff", 3.046);
+    // all cosmological parameters need to be passed through the_cosmo_calc
+    
     ztarget_ = pcf_->get_value_safe<double>("cosmology", "ztarget", 0.0);
     atarget_ = 1.0 / (1.0 + ztarget_);
     zstart_ = pcf_->get_value<double>("setup", "zstart");
     astart_ = 1.0 / (1.0 + zstart_);
-    A_s_ = pcf_->get_value_safe<double>("cosmology", "A_s", -1.0);
-    n_s_ = pcf_->get_value<double>("cosmology", "nspec");
-    Tcmb_ = cf.get_value_safe<double>("cosmology", "Tcmb", 2.7255);
 
-    if (A_s_ > 0) {
-      music::ilog << "CLASS: Using A_s=" << A_s_<< " to normalise the transfer function." << std::endl;
+    h_ = cosmo_params_["h"];
+    
+    if (cosmo_params_["A_s"] > 0.0) {
+      music::ilog << "CLASS: Using A_s=" << cosmo_params_["A_s"] << " to normalise the transfer function." << std::endl;
     }else{
-      sigma8_ = pcf_->get_value_safe<double>("cosmology", "sigma_8", -1.0);
-      if( sigma8_ < 0 ){
+      double sigma8 = cosmo_params_["sigma_8"];
+      if( sigma8 < 0 ){
         throw std::runtime_error("Need to specify either A_s or sigma_8 for CLASS plugin...");
       }
-      music::ilog << "CLASS: Using sigma8_ =" << sigma8_<< " to normalise the transfer function." << std::endl;
+      music::ilog << "CLASS: Using sigma8_ =" << sigma8<< " to normalise the transfer function." << std::endl;
     }
 
     // determine highest k we will need for the resolution selected
@@ -226,11 +229,11 @@ public:
 
     // initialise CLASS and get the normalisation
     this->init_ClassEngine();
-    A_s_ = the_ClassEngine_->get_A_s(); // this either the input one, or the one computed from sigma8
+    double A_s_ = the_ClassEngine_->get_A_s(); // this either the input one, or the one computed from sigma8
     
     // compute the normalisation to interface with MUSIC
     double k_p = pcf_->get_value_safe<double>("cosmology", "k_p", 0.05);
-    tnorm_ = std::sqrt(2.0 * M_PI * M_PI * A_s_ * std::pow(1.0 / k_p * h_, n_s_ - 1) / std::pow(2.0 * M_PI, 3.0));
+    tnorm_ = std::sqrt(2.0 * M_PI * M_PI * A_s_ * std::pow(1.0 / k_p * cosmo_params["h"], cosmo_params["n_s"] - 1) / std::pow(2.0 * M_PI, 3.0));
 
     // compute the transfer function at z=0 using CLASS engine
     std::vector<double> k, dc, tc, db, tb, dn, tn, dm, tm;

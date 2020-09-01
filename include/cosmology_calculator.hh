@@ -98,6 +98,8 @@ private:
         double t = t0;
         const double eps = 1e-10;
 
+        const double Omega_m( cosmo_param_["Omega_m"] ), H0( cosmo_param_["H0"] );
+
         while (yy[0] < amax)
         {
             // RHS of ODEs
@@ -111,7 +113,7 @@ private:
                 // d D/dtau
                 dy[1] = Dprime;
                 // d^2 D / dtau^2
-                dy[2] = -a * H_of_a(a) * Dprime + 3.0 / 2.0 * cosmo_param_.Omega_m * std::pow(cosmo_param_.H0, 2) * D / a;
+                dy[2] = -a * H_of_a(a) * Dprime + 3.0 / 2.0 * Omega_m * std::pow(H0, 2) * D / a;
                 return dy;
             };
 
@@ -166,16 +168,16 @@ public:
         music::ilog << "Linear growth factors: D+_target = " << Dplus_target_ << ", D+_start = " << Dplus_start_ << std::endl;
 
         // set up transfer functions and compute normalisation
-        transfer_function_ = std::move(select_TransferFunction_plugin(cf));
+        transfer_function_ = std::move(select_TransferFunction_plugin(cf, cosmo_param_));
         transfer_function_->intialise();
         if( !transfer_function_->tf_isnormalised_ )
-            cosmo_param_.pnorm = this->compute_pnorm_from_sigma8();
+            cosmo_param_.set("pnorm", this->compute_pnorm_from_sigma8() );
         else{
-            cosmo_param_.pnorm = 1.0/Dplus_target_/Dplus_target_;
+            cosmo_param_.set("pnorm", 1.0/Dplus_target_/Dplus_target_);
             auto sigma8 = this->compute_sigma8();
             music::ilog << "Measured sigma_8 for given PS normalisation is " <<  sigma8 << std::endl;
         }
-        cosmo_param_.sqrtpnorm = std::sqrt(cosmo_param_.pnorm);
+        cosmo_param_.set("sqrtpnorm", std::sqrt(cosmo_param_["pnorm"]));
 
         music::ilog << std::setw(32) << std::left << "TF supports distinct CDM+baryons"
                     << " : " << (transfer_function_->tf_is_distinct() ? "yes" : "no") << std::endl;
@@ -252,7 +254,7 @@ public:
                 << std::setw(20) << ("delta_m(k,a=ap)")
                 << std::setw(20) << ("delta_bc(k,a=ap)")
                 << std::endl;
-            double fb = cosmo_param_.Omega_b / cosmo_param_.Omega_m, fc = 1.0-fb;
+            double fb = cosmo_param_["f_b"], fc = cosmo_param_["f_c"];
             for (double k = kmin; k < transfer_function_->get_kmax(); k *= 1.05)
             {
                 double dm  = this->get_amplitude(k, total) * Dplus_start_ / Dplus_target_;
@@ -279,11 +281,11 @@ public:
     inline double H_of_a(double a) const noexcept
     {
         double HH2 = 0.0;
-        HH2 += cosmo_param_.Omega_r / (a * a * a * a);
-        HH2 += cosmo_param_.Omega_m / (a * a * a);
-        HH2 += cosmo_param_.Omega_k / (a * a);
-        HH2 += cosmo_param_.Omega_DE * std::pow(a, -3. * (1. + cosmo_param_.w_0 + cosmo_param_.w_a)) * exp(-3. * (1.0 - a) * cosmo_param_.w_a);
-        return cosmo_param_.H0 * std::sqrt(HH2);
+        HH2 += cosmo_param_["Omega_r"] / (a * a * a * a);
+        HH2 += cosmo_param_["Omega_m"] / (a * a * a);
+        HH2 += cosmo_param_["Omega_k"] / (a * a);
+        HH2 += cosmo_param_["Omega_DE"] * std::pow(a, -3. * (1. + cosmo_param_["w_0"] + cosmo_param_["w_a"])) * exp(-3. * (1.0 - a) * cosmo_param_["w_a"]);
+        return cosmo_param_["H0"] * std::sqrt(HH2);
     }
 
     //! Computes the linear theory growth factor D+, normalised to D+(a=1)=1
@@ -313,7 +315,7 @@ public:
      */
     real_t get_vfact(real_t a) const noexcept
     {
-        return f_of_a_(a) * a * H_of_a(a) / cosmo_param_.h;
+        return f_of_a_(a) * a * H_of_a(a) / cosmo_param_["h"];
     }
 
     //! Integrand for the sigma_8 normalization of the power spectrum
@@ -328,7 +330,7 @@ public:
 
         double x = k * 8.0;
         double w = 3.0 * (sin(x) - x * cos(x)) / (x * x * x);
-        static double nspect = (double)pcc->cosmo_param_.nspect;
+        static double nspect = (double)pcc->cosmo_param_["n_s"];
         double tf = pcc->transfer_function_->compute(k, total);
 
         //... no growth factor since we compute at z=0 and normalize so that D+(z=0)=1
@@ -347,7 +349,7 @@ public:
 
         double x = k * 8.0;
         double w = 3.0 * (std::sin(x) - x * std::cos(x)) / (x * x * x);
-        static double nspect = static_cast<double>(pcc->cosmo_param_.nspect);
+        static double nspect = static_cast<double>(pcc->cosmo_param_["n_s"]);
         double tf = pcc->transfer_function_->compute(k, total0);
 
         //... no growth factor since we compute at z=0 and normalize so that D+(z=0)=1
@@ -375,18 +377,18 @@ public:
 	 */
     inline real_t get_amplitude( const real_t k, const tf_type type) const
     {
-        return std::pow(k, 0.5 * cosmo_param_.nspect) * transfer_function_->compute(k, type) * cosmo_param_.sqrtpnorm;// * ((type!=deltabc)?  1.0 : 1.0/Dplus_target_);
+        return std::pow(k, 0.5 * cosmo_param_["n_s"]) * transfer_function_->compute(k, type) * cosmo_param_["sqrtpnorm"];// * ((type!=deltabc)?  1.0 : 1.0/Dplus_target_);
     }
 
     inline real_t get_amplitude_phibc( const real_t k ) const
     {
         // need to multiply with Dplus_target since sqrtpnorm rescales like that
-        return -std::pow(k, 0.5 * cosmo_param_.nspect-2.0) * transfer_function_->compute(k, deltabc) * cosmo_param_.sqrtpnorm * Dplus_target_;
+        return -std::pow(k, 0.5 * cosmo_param_["n_s"]-2.0) * transfer_function_->compute(k, deltabc) * cosmo_param_["sqrtpnorm"] * Dplus_target_;
     }
     inline real_t get_amplitude_rhobc( const real_t k ) const
     {
         // need to multiply with Dplus_target since sqrtpnorm rescales like that
-        return std::pow(k, 0.5 * cosmo_param_.nspect) * transfer_function_->compute(k, deltabc) * cosmo_param_.sqrtpnorm * Dplus_target_;
+        return std::pow(k, 0.5 * cosmo_param_["n_s"]) * transfer_function_->compute(k, deltabc) * cosmo_param_["sqrtpnorm"] * Dplus_target_;
     }
 
     //! Computes the normalization for the power spectrum
@@ -430,7 +432,7 @@ public:
     real_t compute_pnorm_from_sigma8(void)
     {
         auto measured_sigma8 = this->compute_sigma8();
-        return cosmo_param_.sigma8 * cosmo_param_.sigma8 / (measured_sigma8  * measured_sigma8);
+        return cosmo_param_["sigma_8"] * cosmo_param_["sigma_8"] / (measured_sigma8  * measured_sigma8);
     }
 };
 
@@ -441,10 +443,10 @@ public:
  *  @param mass mass scale
  *  @returns jeans sound speed
  */
-inline double jeans_sound_speed(double rho, double mass)
-{
-    const double G = 6.67e-8;
-    return pow(6.0 * mass / M_PI * std::sqrt(rho) * std::pow(G, 1.5), 1.0 / 3.0);
-}
+// inline double jeans_sound_speed(double rho, double mass)
+// {
+//     const double G = 6.67e-8;
+//     return pow(6.0 * mass / M_PI * std::sqrt(rho) * std::pow(G, 1.5), 1.0 / 3.0);
+// }
 
 } // namespace cosmology
