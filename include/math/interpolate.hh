@@ -29,6 +29,7 @@ public:
   interpolated_function_1d(const std::vector<double> &data_x, const std::vector<double> &data_y)
   : isinit_(false)
   {
+    static_assert(!(logx & periodic),"Class \'interpolated_function_1d\' cannot both be periodic and logarithmic in x!");
     this->set_data( data_x, data_y );
   }
 
@@ -44,7 +45,6 @@ public:
     
     assert(data_x_.size() == data_y_.size());
     assert(data_x_.size() > 5);
-    assert(!(logx & periodic));
 
     if (logx) for (auto &d : data_x_) d = std::log(d);
     if (logy) for (auto &d : data_y_) d = std::log(d);
@@ -61,8 +61,8 @@ public:
   double operator()(double x) const noexcept
   {
     assert( isinit_ && !(logx&&x<=0.0) );
-    double xa = logx ? std::log(x) : x;
-    double y(gsl_spline_eval(gsl_sp_, xa, gsl_ia_));
+    const double xa = logx ? std::log(x) : x;
+    const double y(gsl_spline_eval(gsl_sp_, xa, gsl_ia_));
     return logy ? std::exp(y) : y;
   }
 };

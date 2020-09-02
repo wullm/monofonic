@@ -41,12 +41,6 @@ private:
   interpolated_function_1d<true, true, false> delta_c_, delta_b_, delta_n_, delta_m_, theta_c_, theta_b_, theta_n_, theta_m_;
   interpolated_function_1d<true, true, false> delta_c0_, delta_b0_, delta_n0_, delta_m0_, theta_c0_, theta_b0_, theta_n0_, theta_m0_;
 
-  // single fluid growing/decaying mode decomposition
-  // gsl_interp_accel *gsl_ia_Cplus_, *gsl_ia_Cminus_;
-  // gsl_spline *gsl_sp_Cplus_, *gsl_sp_Cminus_;
-  // std::vector<double> tab_Cplus_, tab_Cminus_;
-
-  //double Omega_m_, Omega_b_, N_ur_, zstart_, ztarget_, kmax_, kmin_, h_, astart_, atarget_, A_s_, n_s_, sigma8_, Tcmb_, tnorm_;
   double zstart_, ztarget_, astart_, atarget_, kmax_, kmin_, h_, tnorm_;
 
   ClassParams pars_;
@@ -175,9 +169,9 @@ private:
     
     the_ClassEngine_->getTk(z, k, dc, db, dn, dm, tc, tb, tn, tm);
 
-    double h  = cosmo_params_.get("h");
-    double fc = cosmo_params_.get("f_c");
-    double fb = cosmo_params_.get("f_b");
+    const double h  = cosmo_params_.get("h");
+    const double fc = cosmo_params_.get("f_c");
+    const double fb = cosmo_params_.get("f_b");
 
     for (size_t i = 0; i < k.size(); ++i)
     {
