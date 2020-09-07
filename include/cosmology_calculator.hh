@@ -152,7 +152,7 @@ public:
 	 */
     explicit calculator(config_file &cf)
         : cosmo_param_(cf), astart_( 1.0/(1.0+cf.get_value<double>("setup","zstart")) ),
-            atarget_( 1.0/(1.0+cf.get_value_safe<double>("cosmology","ztarget",1./astart_-1.)))
+            atarget_( 1.0/(1.0+cf.get_value_safe<double>("cosmology","ztarget",0.0)) )
     {
         // pre-compute growth factors and store for interpolation
         std::vector<double> tab_a, tab_D, tab_f;
@@ -170,9 +170,9 @@ public:
         // set up transfer functions and compute normalisation
         transfer_function_ = std::move(select_TransferFunction_plugin(cf, cosmo_param_));
         transfer_function_->intialise();
-        if( !transfer_function_->tf_isnormalised_ )
+        if( !transfer_function_->tf_isnormalised_ ){
             cosmo_param_.set("pnorm", this->compute_pnorm_from_sigma8() );
-        else{
+        }else{
             cosmo_param_.set("pnorm", 1.0/Dplus_target_/Dplus_target_);
             auto sigma8 = this->compute_sigma8();
             music::ilog << "Measured sigma_8 for given PS normalisation is " <<  sigma8 << std::endl;
@@ -323,13 +323,11 @@ public:
      the transfer function and the window function of 8 Mpc/h at wave number k */
     static double dSigma8(double k, void *pParams)
     {
-        if (k <= 0.0)
-            return 0.0f;
-
         cosmology::calculator *pcc = reinterpret_cast<cosmology::calculator *>(pParams);
 
-        double x = k * 8.0;
-        double w = 3.0 * (sin(x) - x * cos(x)) / (x * x * x);
+        const double x = k * 8.0;
+        const double w = (x < 0.01)? 1.0-0.1*x*x : 3.0 * (std::sin(x) - x * std::cos(x)) / (x * x * x);
+
         static double nspect = (double)pcc->cosmo_param_["n_s"];
         double tf = pcc->transfer_function_->compute(k, total);
 
@@ -342,13 +340,11 @@ public:
 	 the transfer function and the window function of 8 Mpc/h at wave number k */
     static double dSigma8_0(double k, void *pParams)
     {
-        if (k <= 0.0)
-            return 0.0f;
-
         cosmology::calculator *pcc = reinterpret_cast<cosmology::calculator *>(pParams);
 
-        double x = k * 8.0;
-        double w = 3.0 * (std::sin(x) - x * std::cos(x)) / (x * x * x);
+        const double x = k * 8.0;
+        const double w = (x < 0.01)? 1.0-0.1*x*x : 3.0 * (std::sin(x) - x * std::cos(x)) / (x * x * x);
+
         static double nspect = static_cast<double>(pcc->cosmo_param_["n_s"]);
         double tf = pcc->transfer_function_->compute(k, total0);
 

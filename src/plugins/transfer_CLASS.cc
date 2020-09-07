@@ -59,7 +59,7 @@ private:
   {
     //--- general parameters ------------------------------------------
     add_class_parameter("z_max_pk", std::max(std::max(zstart_, ztarget_),199.0)); // use 1.2 as safety
-    add_class_parameter("P_k_max_h/Mpc", kmax_);
+    add_class_parameter("P_k_max_h/Mpc", std::max(2.0,kmax_));
     add_class_parameter("output", "dTk,vTk");
     add_class_parameter("extra metric transfer functions","yes");
     // add_class_parameter("lensing", "no");
@@ -84,18 +84,26 @@ private:
     // add_class_parameter("cs2_fld", 1);
 
     //--- massive neutrinos -------------------------------------------
-#if 1
+#if 0
     //default off
     // add_class_parameter("Omega_ur",0.0);
-    add_class_parameter("N_eff", cosmo_params_.get("Neff"));
+    add_class_parameter("N_ur", cosmo_params_.get("N_ur"));
     add_class_parameter("N_ncdm", 0);
 
 #else
+    
+    add_class_parameter("N_ur", cosmo_params_.get("N_ur"));
+    add_class_parameter("N_ncdm", cosmo_params_.get("N_nu_massive"));
+    std::stringstream sstr;
+    if( cosmo_params_.get("m_nu1") > 1e-9 ) sstr << cosmo_params_.get("m_nu1");
+    if( cosmo_params_.get("m_nu2") > 1e-9 ) sstr << ", " << cosmo_params_.get("m_nu2");
+    if( cosmo_params_.get("m_nu3") > 1e-9 ) sstr << ", " << cosmo_params_.get("m_nu3");
+    add_class_parameter("m_ncdm", sstr.str().c_str());
+    
     // change above to enable
-    add_class_parameter("N_ur", 0);
-    add_class_parameter("N_ncdm", 1);
-    add_class_parameter("m_ncdm", "0.4");
-    add_class_parameter("T_ncdm", 0.71611);
+    //add_class_parameter("omega_ncdm", 0.0006451439);
+    //add_class_parameter("m_ncdm", "0.4");
+    //add_class_parameter("T_ncdm", 0.71611);
 #endif
 
     //--- cosmological parameters, primordial -------------------------
