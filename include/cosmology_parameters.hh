@@ -27,34 +27,11 @@ namespace cosmology
     //! singleton structure for cosmological parameters
     class parameters
     {
-        /*double
-        Omega_m,  //!< baryon+dark matter density
-        Omega_b,  //!< baryon matter density
-        Omega_DE, //!< dark energy density (cosmological constant or parameterised)
-        Omega_r,  //!< photon + relativistic particle density
-        Omega_k,  //!< curvature density
-        f_b,      //!< baryon fraction
-        H0,       //!< Hubble constant in km/s/Mpc
-        h,        //!< hubble parameter
-        nspect,   //!< long-wave spectral index (scale free is nspect=1)
-        sigma8,   //!< power spectrum normalization
-        Tcmb,     //!< CMB temperature (used to set Omega_r)
-        YHe,      //!< Helium fraction
-        Neff,     //!< effective number of neutrino species (used to set Omega_r)
-        w_0,      //!< dark energy equation of state parameter 1: w = w0 + a * wa
-        w_a,      //!< dark energy equation of state parameter 2: w = w0 + a * wa
-
-        // below are helpers to store additional information
-        dplus,     //!< linear perturbation growth factor
-        f,         //!< growth factor logarithmic derivative
-        pnorm,     //!< actual power spectrum normalisation factor
-        sqrtpnorm, //!< sqrt of power spectrum normalisation factor
-        vfact;     //!< velocity<->displacement conversion factor in Zel'dovich approx.
-*/
     private:
-        std::map<std::string, double> pmap_;
+        std::map<std::string, double> pmap_;  //!< All parameters are stored here as key-value pairs
 
     public:
+        //!< get routine for cosmological parameter key-value pairs
         double get(const std::string &key) const
         {
             auto it = pmap_.find(key);
@@ -67,6 +44,7 @@ namespace cosmology
             return it->second;
         }
 
+        //!< set routine for cosmological parameter key-value pairs
         void set(const std::string &key, const double value)
         {
             auto it = pmap_.find(key);
@@ -82,13 +60,17 @@ namespace cosmology
             }
         }
 
+        //!< shortcut get routine for cosmological parameter key-value pairs through bracket operator
         inline double operator[](const std::string &key) const { return this->get(key); }
 
+        //!< no default constructor
         parameters() = delete;
 
+        //!< default copy constructor
         parameters(const parameters &) = default;
 
-        explicit parameters(config_file &cf)
+        //!< main constructor for explicit construction from input config file
+        explicit parameters( config_file &cf )
         {
             // CMB
             pmap_["Tcmb"] = cf.get_value_safe<double>("cosmology", "Tcmb", 2.7255);
@@ -104,8 +86,10 @@ namespace cosmology
                 pmap_["n_s"] = cf.get_value<double>("cosmology", "nspec");
             else
                 pmap_["n_s"] = cf.get_value<double>("cosmology", "n_s");
+
             pmap_["A_s"] = cf.get_value_safe<double>("cosmology", "A_s", -1.0);
             pmap_["k_p"] = cf.get_value_safe<double>("cosmology", "k_p", 0.05);
+
             pmap_["sigma_8"] = cf.get_value_safe<double>("cosmology", "sigma_8", -1.0);
             
             // baryon and non-relativistic matter content
@@ -174,7 +158,7 @@ namespace cosmology
             music::ilog << " Omega_c  = " << std::setw(16) << this->get("Omega_c")  << "Omega_b  = " << std::setw(16) << this->get("Omega_b") << "Omega_m = " << std::setw(16) << this->get("Omega_m") << std::endl;
             music::ilog << " Omega_r  = " << std::setw(16) << this->get("Omega_r")  << "Omega_nu = " << std::setw(16) << this->get("Omega_nu_massive") << "∑m_nu   = " << std::setw(11) << sum_m_nu << "eV" << std::endl;
             music::ilog << " Omega_DE = " << std::setw(16) << this->get("Omega_DE") << "w_0      = " << std::setw(16) << this->get("w_0")      << "w_a     = " << std::setw(16) << this->get("w_a") << std::endl;
-
+            //music::ilog << " Omega_k  = " << 1.0 - this->get("Omega_m") - this->get("Omega_r") - this->get("Omega_DE") << std::endl;
             if (this->get("Omega_r") > 0.0)
             {
                 music::wlog << " Radiation enabled, using Omega_r=" << this->get("Omega_r") << " internally for backscaling." << std::endl;

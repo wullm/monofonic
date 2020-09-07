@@ -234,8 +234,8 @@ public:
     double A_s_ = the_ClassEngine_->get_A_s(); // this either the input one, or the one computed from sigma8
     
     // compute the normalisation to interface with MUSIC
-    double k_p = pcf_->get_value_safe<double>("cosmology", "k_p", 0.05);
-    tnorm_ = std::sqrt(2.0 * M_PI * M_PI * A_s_ * std::pow(1.0 / k_p * cosmo_params["h"], cosmo_params["n_s"] - 1) / std::pow(2.0 * M_PI, 3.0));
+    double k_p = cosmo_params["k_p"] / cosmo_params["h"];
+    tnorm_ = std::sqrt(2.0 * M_PI * M_PI * A_s_ * std::pow(1.0 / k_p, cosmo_params["n_s"] - 1) / std::pow(2.0 * M_PI, 3.0));
 
     // compute the transfer function at z=0 using CLASS engine
     std::vector<double> k, dc, tc, db, tb, dn, tn, dm, tm;
