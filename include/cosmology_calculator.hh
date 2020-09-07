@@ -215,7 +215,7 @@ public:
                 << std::setw(20) << ("P_tbar(k,a=1)")
                 << std::setw(20) << ("P_dtot(K,a=1)")
                 << std::endl;
-            for (double k = kmin; k < transfer_function_->get_kmax(); k *= 1.05)
+            for (double k = kmin; k < transfer_function_->get_kmax(); k *= 1.01)
             {
                 ofs << std::setw(20) << std::setprecision(10) << k
                     << std::setw(20) << std::setprecision(10) << std::pow(this->get_amplitude(k, total)*Dplus_start_, 2.0)
@@ -255,7 +255,7 @@ public:
                 << std::setw(20) << ("delta_bc(k,a=ap)")
                 << std::endl;
             double fb = cosmo_param_["f_b"], fc = cosmo_param_["f_c"];
-            for (double k = kmin; k < transfer_function_->get_kmax(); k *= 1.05)
+            for (double k = kmin; k < transfer_function_->get_kmax(); k *= 1.01)
             {
                 double dm  = this->get_amplitude(k, total) * Dplus_start_ / Dplus_target_;
                 double dbc = this->get_amplitude(k, baryon) - this->get_amplitude(k, cdm);
@@ -326,7 +326,7 @@ public:
         cosmology::calculator *pcc = reinterpret_cast<cosmology::calculator *>(pParams);
 
         const double x = k * 8.0;
-        const double w = (x < 0.01)? 1.0-0.1*x*x : 3.0 * (std::sin(x) - x * std::cos(x)) / (x * x * x);
+        const double w = (x < 0.001)? 1.0-0.1*x*x : 3.0 * (std::sin(x) - x * std::cos(x)) / (x * x * x);
 
         static double nspect = (double)pcc->cosmo_param_["n_s"];
         double tf = pcc->transfer_function_->compute(k, total);
@@ -343,7 +343,7 @@ public:
         cosmology::calculator *pcc = reinterpret_cast<cosmology::calculator *>(pParams);
 
         const double x = k * 8.0;
-        const double w = (x < 0.01)? 1.0-0.1*x*x : 3.0 * (std::sin(x) - x * std::cos(x)) / (x * x * x);
+        const double w = (x < 0.001)? 1.0-0.1*x*x : 3.0 * (std::sin(x) - x * std::cos(x)) / (x * x * x);
 
         static double nspect = static_cast<double>(pcc->cosmo_param_["n_s"]);
         double tf = pcc->transfer_function_->compute(k, total0);

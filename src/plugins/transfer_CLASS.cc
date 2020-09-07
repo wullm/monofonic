@@ -189,11 +189,11 @@ private:
       dc[i] = -dc[i] * ik2;
       db[i] = -db[i] * ik2;
       dn[i] = -dn[i] * ik2;
-      dm[i] = fc * dc[i] + fb * db[i];
+      dm[i] = -dm[i] * ik2;
       tc[i] = -tc[i] * ik2;
       tb[i] = -tb[i] * ik2;
       tn[i] = -tn[i] * ik2;
-      tm[i] = fc * tc[i] + fb * tb[i];
+      tm[i] = -tm[i] * ik2;
     }
   }
 
