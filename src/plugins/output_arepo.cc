@@ -73,8 +73,8 @@ protected:
 
 public:
   //! constructor
-  explicit gadget_hdf5_output_plugin(config_file &cf)
-      : output_plugin(cf, "GADGET-HDF5")
+  explicit gadget_hdf5_output_plugin(config_file &cf, std::unique_ptr<cosmology::calculator>& pcc)
+      : output_plugin(cf, pcc, "AREPO-HDF5")
   {
     num_files_ = 1;
 #ifdef USE_MPI
@@ -106,18 +106,18 @@ public:
     header_.flag_cooling = 0;
     header_.num_files = num_files_;
     header_.BoxSize = lunit_;
-    header_.Omega0 = cf_.get_value<double>("cosmology", "Omega_m");
-    header_.OmegaLambda = cf_.get_value<double>("cosmology", "Omega_L");
-    header_.OmegaBaryon = cf_.get_value<double>("cosmology", "Omega_b");
-    header_.HubbleParam = cf_.get_value<double>("cosmology", "H0") / 100.0;
+    header_.Omega0 = pcc->cosmo_param_["Omega_m"];
+    header_.OmegaLambda = pcc->cosmo_param_["Omega_DE"];
+    header_.OmegaBaryon = pcc->cosmo_param_["Omega_b"];
+    header_.HubbleParam = pcc->cosmo_param_["h"];
     header_.flag_stellarage = 0;
     header_.flag_metals = 0;
     header_.flag_entropy_instead_u = 0;
     header_.flag_doubleprecision = (typeid(write_real_t) == typeid(double)) ? true : false;
 
     // initial gas temperature
-    double Tcmb0 = 2.726;
-    double Omegab = cf_.get_value<double>("cosmology", "Omega_b");
+    double Tcmb0 = pcc->cosmo_param_["Tcmb"];
+    double Omegab = pcc->cosmo_param_["Omega_b"];
     double h = cf_.get_value<double>("cosmology", "H0") / 100.0, h2 = h*h;
     double adec = 1.0 / (160.0 * pow(Omegab * h2 / 0.022, 2.0 / 5.0));
     Tini_ = astart < adec ? Tcmb0 / astart : Tcmb0 / astart / astart * adec;
@@ -179,7 +179,7 @@ public:
     HDFWriteGroupAttribute(this_fname_, "Header", "suggested_highressoft", from_value<double>(softening_));
     HDFWriteGroupAttribute(this_fname_, "Header", "suggested_gas_Tinit", from_value<double>(Tini_));
 
-    music::ilog << "Wrote" << std::endl;
+    music::ilog << this->interface_name_ << " output plugin wrote to \'" << this_fname_ << "\'" << std::endl;
   }
 
   output_type write_species_as(const cosmo_species &) const { return output_type::particles; }

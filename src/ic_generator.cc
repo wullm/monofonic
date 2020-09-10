@@ -43,8 +43,8 @@ std::unique_ptr<cosmology::calculator>  the_cosmo_calc;
 int initialise( config_file& the_config )
 {
     the_random_number_generator = std::move(select_RNG_plugin(the_config));
-    the_output_plugin           = std::move(select_output_plugin(the_config));
     the_cosmo_calc              = std::make_unique<cosmology::calculator>(the_config);
+    the_output_plugin           = std::move(select_output_plugin(the_config, the_cosmo_calc));
 
     return 0;
 }

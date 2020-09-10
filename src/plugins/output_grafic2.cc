@@ -48,7 +48,7 @@ private:
 
 protected:
     header header_;
-    real_t lunit_, vunit_, munit_;
+    real_t lunit_, vunit_, munit_, omegab_;
     uint32_t levelmin_;
     bool bhavebaryons_;
     std::vector<float> data_buf_;
@@ -57,19 +57,22 @@ protected:
 
 public:
     //! constructor
-    explicit grafic2_output_plugin(config_file &cf)
-        : output_plugin(cf, "GRAFIC2/RAMSES")
+    explicit grafic2_output_plugin(config_file &cf, std::unique_ptr<cosmology::calculator> &pcc)
+        : output_plugin(cf, pcc, "GRAFIC2/RAMSES")
     {
         lunit_ = 1.0;
         vunit_ = 1.0;
 
         double
             boxlength = cf_.get_value<double>("setup", "BoxLength"),
-            H0 = cf_.get_value<double>("cosmology", "H0"),
             zstart = cf_.get_value<double>("setup", "zstart"),
             astart = 1.0 / (1.0 + zstart),
-            omegam = cf_.get_value<double>("cosmology", "Omega_m"),
-            omegaL = cf_.get_value<double>("cosmology", "Omega_L");
+            H0     = pcc->cosmo_param_["H0"],
+            omegam = pcc->cosmo_param_["Omega_m"],
+            omegaL = pcc->cosmo_param_["Omega_DE"];
+
+        omegab_ = pcc->cosmo_param_["Omega_b"];
+        
         uint32_t ngrid = cf_.get_value<int>("setup", "GridRes");
 
         bUseSPT_ = cf_.get_value_safe<bool>("output", "grafic_use_SPT", false);
@@ -286,6 +289,7 @@ void grafic2_output_plugin::write_ramses_namelist(void) const
     ofst
         << "&INIT_PARAMS\n"
         << "filetype=\'grafic\'\n"
+        << "omega_b=" << omegab_ << "\n"
         << "initfile(1)=\'" << dirname_ << "\'\n"
         << "/\n\n";
 

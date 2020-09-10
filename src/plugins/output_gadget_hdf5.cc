@@ -66,8 +66,8 @@ protected:
 
 public:
   //! constructor
-  explicit gadget_hdf5_output_plugin(config_file &cf)
-      : output_plugin(cf, "GADGET-HDF5")
+  explicit gadget_hdf5_output_plugin(config_file &cf, std::unique_ptr<cosmology::calculator> &pcc)
+      : output_plugin(cf, pcc, "GADGET-HDF5")
   {
     num_files_ = 1;
 #ifdef USE_MPI
@@ -99,9 +99,9 @@ public:
     header_.flag_cooling = 0;
     header_.num_files = num_files_;
     header_.BoxSize = lunit_;
-    header_.Omega0 = cf_.get_value<double>("cosmology", "Omega_m");
-    header_.OmegaLambda = cf_.get_value<double>("cosmology", "Omega_L");
-    header_.HubbleParam = cf_.get_value<double>("cosmology", "H0") / 100.0;
+    header_.Omega0 = pcc->cosmo_param_["Omega_m"];
+    header_.OmegaLambda = pcc->cosmo_param_["Omega_DE"];
+    header_.HubbleParam = pcc->cosmo_param_["h"];
     header_.flag_stellarage = 0;
     header_.flag_metals = 0;
     header_.flag_entropy_instead_u = 0;

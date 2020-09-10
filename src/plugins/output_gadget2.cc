@@ -54,8 +54,8 @@ protected:
 
 public:
 	//! constructor
-	explicit gadget2_output_plugin(config_file &cf)
-			: output_plugin(cf, "GADGET-2")
+	explicit gadget2_output_plugin(config_file &cf, std::unique_ptr<cosmology::calculator> &pcc)
+			: output_plugin(cf, pcc, "GADGET-2")
 	{
 		num_files_ = 1;
 #ifdef USE_MPI
@@ -121,9 +121,9 @@ public:
 		//...
 		this_header_.num_files = num_files_; //1;
 		this_header_.BoxSize = cf_.get_value<double>("setup", "BoxLength");
-		this_header_.Omega0 = cf_.get_value<double>("cosmology", "Omega_m");
-		this_header_.OmegaLambda = cf_.get_value<double>("cosmology", "Omega_L");
-		this_header_.HubbleParam = cf_.get_value<double>("cosmology", "H0") / 100.0;
+		this_header_.Omega0 = pcc_->cosmo_param_["Omega_m"];
+		this_header_.OmegaLambda = pcc_->cosmo_param_["Omega_DE"];
+		this_header_.HubbleParam = pcc_->cosmo_param_["h"];
 
 		this_header_.flag_stellarage = 0;
 		this_header_.flag_metals = 0;

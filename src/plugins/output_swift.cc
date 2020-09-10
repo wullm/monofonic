@@ -51,8 +51,8 @@ protected:
 
 public:
   //! constructor
-  explicit swift_output_plugin(config_file &cf)
-      : output_plugin(cf, "SWIFT")
+  explicit swift_output_plugin(config_file &cf, std::unique_ptr<cosmology::calculator> &pcc)
+      : output_plugin(cf, pcc, "SWIFT")
   {
     num_files_ = 1;
 #ifdef USE_MPI
@@ -62,7 +62,7 @@ public:
     real_t astart = 1.0 / (1.0 + cf_.get_value<double>("setup", "zstart"));
     const double rhoc = 27.7519737; // in h^2 1e10 M_sol / Mpc^3
 
-    hubble_param_ = cf_.get_value<double>("cosmology", "H0") / 100.;
+    hubble_param_ = pcc->cosmo_param_["h"];
     astart_ = 1.0/(1.0+cf_.get_value<double>("setup","zstart"));
     boxsize_ = cf_.get_value<double>("setup", "BoxLength");
 
@@ -133,10 +133,10 @@ public:
       if( bdobaryons_ )
       {
         const double gamma  = cf_.get_value_safe<double>("cosmology", "gamma", 5.0 / 3.0);
-        const double YHe    = cf_.get_value_safe<double>("cosmology", "YHe", 0.248);
+        const double YHe    = pcc_->cosmo_param_["YHe"];
         //const double Omega0 = cf_.get_value<double>("cosmology", "Omega_m");
-        const double omegab = cf_.get_value<double>("cosmology", "Omega_b");
-        const double Tcmb0  = cf_.get_value_safe<double>("cosmology", "Tcmb", 2.7255);
+        const double omegab = pcc_->cosmo_param_["Omega_b"];
+        const double Tcmb0  = pcc_->cosmo_param_["Tcmb"];
         
 
         // compute gas internal energy
