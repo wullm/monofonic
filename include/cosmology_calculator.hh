@@ -55,6 +55,8 @@ private:
     interpolated_function_1d<true,true,false> D_of_a_, f_of_a_, a_of_D_;
     double Dnow_, Dplus_start_, Dplus_target_, astart_, atarget_;
 
+    double m_n_s_, m_sqrtpnorm_;
+
     //! wrapper for GSL adaptive integration routine, do not use if many integrations need to be done as it allocates and deallocates memory
     //! set to 61-point Gauss-Kronrod and large workspace, used for sigma_8 normalisation
     real_t integrate(double (*func)(double x, void *params), double a, double b, void *params) const
@@ -192,6 +194,9 @@ public:
                     << " : " << (transfer_function_->tf_is_distinct() ? "yes" : "no") << std::endl;
         music::ilog << std::setw(32) << std::left << "TF maximum wave number"
                     << " : " << transfer_function_->get_kmax() << " h/Mpc" << std::endl;
+
+        m_n_s_ = cosmo_param_["n_s"];
+        m_sqrtpnorm_ = cosmo_param_["sqrtpnorm"];
     }
 
     ~calculator() { }
@@ -377,7 +382,7 @@ public:
 	 */
     inline real_t get_amplitude( const real_t k, const tf_type type) const
     {
-        return std::pow(k, 0.5 * cosmo_param_["n_s"]) * transfer_function_->compute(k, type) * cosmo_param_["sqrtpnorm"];
+        return std::pow(k, 0.5 * m_n_s_) * transfer_function_->compute(k, type) * m_sqrtpnorm_;
     }
 
     //! Compute amplitude of the back-scaled delta_bc mode, with decaying velocity v_bc included or not (in which case delta_bc=const)
@@ -386,7 +391,7 @@ public:
         const real_t Dratio = Dplus_target_ / Dplus_start_;
         const real_t dbc = transfer_function_->compute(k, delta_bc) + (withvbc? 2 * transfer_function_->compute(k, theta_bc) * (std::sqrt(Dratio) - 1.0) : 0.0);
         // need to multiply with Dplus_target since sqrtpnorm rescales like that
-        return std::pow(k, 0.5 * cosmo_param_["n_s"]) * dbc * (cosmo_param_["sqrtpnorm"] * Dplus_target_);
+        return std::pow(k, 0.5 * m_n_s_) * dbc * (m_sqrtpnorm_ * Dplus_target_);
     }
 
     //! Compute amplitude of the back-scaled relative velocity theta_bc mode if withvbc==true, otherwise return zero
@@ -395,7 +400,7 @@ public:
         const real_t Dratio = Dplus_target_ / Dplus_start_;
         const real_t tbc = transfer_function_->compute(k, theta_bc) * std::sqrt(Dratio);
         // need to multiply with Dplus_target since sqrtpnorm rescales like that
-        return withvbc ? std::pow(k, 0.5 * cosmo_param_["n_s"]) * tbc * (cosmo_param_["sqrtpnorm"] * Dplus_target_) : 0.0;
+        return withvbc ? std::pow(k, 0.5 * m_n_s_) * tbc * (m_sqrtpnorm_ * Dplus_target_) : 0.0;
     }
 
 
