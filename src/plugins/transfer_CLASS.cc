@@ -178,8 +178,6 @@ private:
     the_ClassEngine_->getTk(z, k, dc, db, dn, dm, tc, tb, tn, tm);
 
     const double h  = cosmo_params_.get("h");
-    const double fc = cosmo_params_.get("f_c");
-    const double fb = cosmo_params_.get("f_b");
 
     for (size_t i = 0; i < k.size(); ++i)
     {
@@ -288,33 +286,35 @@ public:
     switch (type)
     {
       // values at ztarget:
-    case total:
+    case delta_matter:
       val = delta_m_(k); break;
-    case cdm:
+    case delta_cdm:
       val = delta_c_(k); break;
-    case baryon:
+    case delta_baryon:
       val = delta_b_(k); break;
-    case vtotal:
+    case theta_matter:
       val = theta_m_(k); break;
-    case vcdm:
+    case theta_cdm:
       val = theta_c_(k); break;
-    case vbaryon:
+    case theta_baryon:
       val = theta_b_(k); break;
-    case deltabc:
+    case delta_bc:
       val = delta_b_(k)-delta_c_(k); break;
+    case theta_bc:
+      val = theta_b_(k)-theta_c_(k); break;
 
       // values at zstart:
-    case total0:
+    case delta_matter0:
       val = delta_m0_(k); break;
-    case cdm0:
+    case delta_cdm0:
       val = delta_c0_(k); break;
-    case baryon0:
+    case delta_baryon0:
       val = delta_b0_(k); break;
-    case vtotal0:
+    case theta_matter0:
       val = theta_m0_(k); break;
-    case vcdm0:
+    case theta_cdm0:
       val = theta_c0_(k); break;
-    case vbaryon0:
+    case theta_baryon0:
       val = theta_b0_(k); break;
     default:
       throw std::runtime_error("Invalid type requested in transfer function evaluation");

@@ -31,7 +31,7 @@ namespace cosmology
         std::map<std::string, double> pmap_;  //!< All parameters are stored here as key-value pairs
 
     public:
-        //!< get routine for cosmological parameter key-value pairs
+        //! get routine for cosmological parameter key-value pairs
         double get(const std::string &key) const
         {
             auto it = pmap_.find(key);
@@ -44,7 +44,7 @@ namespace cosmology
             return it->second;
         }
 
-        //!< set routine for cosmological parameter key-value pairs
+        //! set routine for cosmological parameter key-value pairs
         void set(const std::string &key, const double value)
         {
             auto it = pmap_.find(key);
@@ -60,16 +60,16 @@ namespace cosmology
             }
         }
 
-        //!< shortcut get routine for cosmological parameter key-value pairs through bracket operator
+        //! shortcut get routine for cosmological parameter key-value pairs through bracket operator
         inline double operator[](const std::string &key) const { return this->get(key); }
 
-        //!< no default constructor
+        //! no default constructor
         parameters() = delete;
 
-        //!< default copy constructor
+        //! default copy constructor
         parameters(const parameters &) = default;
 
-        //!< main constructor for explicit construction from input config file
+        //! main constructor for explicit construction from input config file
         explicit parameters( config_file &cf )
         {
             // CMB
@@ -154,7 +154,7 @@ namespace cosmology
               music::ilog << "A_s      = " << std::setw(16) << this->get("A_s");
             else
               music::ilog << "sigma_8  = " << std::setw(16) << this->get("sigma_8");
-            music::ilog << "nspec   = " << std::setw(16) << this->get("n_s") << std::endl;
+            music::ilog << "n_s     = " << std::setw(16) << this->get("n_s") << std::endl;
             music::ilog << " Omega_c  = " << std::setw(16) << this->get("Omega_c")  << "Omega_b  = " << std::setw(16) << this->get("Omega_b") << "Omega_m = " << std::setw(16) << this->get("Omega_m") << std::endl;
             music::ilog << " Omega_r  = " << std::setw(16) << this->get("Omega_r")  << "Omega_nu = " << std::setw(16) << this->get("Omega_nu_massive") << "∑m_nu   = " << std::setw(11) << sum_m_nu << "eV" << std::endl;
             music::ilog << " Omega_DE = " << std::setw(16) << this->get("Omega_DE") << "w_0      = " << std::setw(16) << this->get("w_0")      << "w_a     = " << std::setw(16) << this->get("w_a") << std::endl;

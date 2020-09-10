@@ -45,7 +45,7 @@ int initialise( config_file& the_config )
     the_random_number_generator = std::move(select_RNG_plugin(the_config));
     the_cosmo_calc              = std::make_unique<cosmology::calculator>(the_config);
     the_output_plugin           = std::move(select_output_plugin(the_config, the_cosmo_calc));
-
+    
     return 0;
 }
 
@@ -96,6 +96,9 @@ int run( config_file& the_config )
     //--------------------------------------------------------------------------------------------------------
     //! do baryon ICs?
     const bool bDoBaryons = the_config.get_value_safe<bool>("setup", "DoBaryons", false );
+    //! enable also back-scaled decaying relative velocity mode? only first order!
+    const bool bDoLinearBCcorr = the_config.get_value_safe<bool>("cosmology", "DoBaryonVrel", false);
+    // compute mass fractions 
     std::map< cosmo_species, double > Omega;
     if( bDoBaryons ){
         double Om = the_config.get_value<double>("cosmology", "Omega_m");
@@ -164,8 +167,6 @@ int run( config_file& the_config )
     const double g1  = -Dplus0;
     const double g2  = ((LPTorder>1)? -3.0/7.0*Dplus0*Dplus0 : 0.0);
     const double g3  = ((LPTorder>2)? 1.0/3.0*Dplus0*Dplus0*Dplus0 : 0.0);
-    // const double g3a = ((LPTorder>2)? 1.0/3.0*Dplus0*Dplus0*Dplus0 : 0.0);
-    // const double g3b = ((LPTorder>2)? -10.0/21.*Dplus0*Dplus0*Dplus0 : 0.0);
     const double g3c = ((LPTorder>2)? 1.0/7.0*Dplus0*Dplus0*Dplus0 : 0.0);
 
     // vfac = d log D+ / dt 
@@ -328,7 +329,7 @@ int run( config_file& the_config )
     phi.FourierTransformForward(false);
     phi.assign_function_of_grids_kdep([&](auto k, auto wn) {
         real_t kmod = k.norm();
-        ccomplex_t delta = wn * the_cosmo_calc->get_amplitude(kmod, total);
+        ccomplex_t delta = wn * the_cosmo_calc->get_amplitude(kmod, delta_matter);
         return -delta / (kmod * kmod);
     }, wnoise);
 
@@ -525,7 +526,7 @@ int run( config_file& the_config )
                 wnoise.FourierTransformForward();
                 rho.FourierTransformForward(false);
                 rho.assign_function_of_grids_kdep( [&]( auto k, auto wn ){
-                    return wn * the_cosmo_calc->get_amplitude_rhobc(k.norm());;
+                    return wn * the_cosmo_calc->get_amplitude_delta_bc(k.norm(),bDoLinearBCcorr);
                 }, wnoise );
                 rho.zero_DC_mode();
                 rho.FourierTransformBackward();
@@ -556,7 +557,7 @@ int run( config_file& the_config )
                 wnoise.FourierTransformForward();
                 rho.FourierTransformForward(false);
                 rho.assign_function_of_grids_kdep( [&]( auto k, auto wn ){
-                    return wn * the_cosmo_calc->get_amplitude_rhobc(k.norm());;
+                    return wn * the_cosmo_calc->get_amplitude_delta_bc(k.norm(), false);
                 }, wnoise );
                 rho.zero_DC_mode();
                 rho.FourierTransformBackward();
@@ -682,6 +683,7 @@ int run( config_file& the_config )
                     A3[1]->FourierTransformForward();
                     A3[2]->FourierTransformForward();
                 }
+                wnoise.FourierTransformForward();
             
                 // write out positions
                 for( int idim=0; idim<3; ++idim ){
@@ -767,6 +769,12 @@ int run( config_file& the_config )
                                 
                                 if( LPTorder > 2 ){
                                     tmp.kelem(idx) += vfac3 * (lg.gradient(idimp,tmp.get_k3(i,j,k)) * A3[idimpp]->kelem(idx) - lg.gradient(idimpp,tmp.get_k3(i,j,k)) * A3[idimp]->kelem(idx));
+                                }
+
+                                // if multi-species, then add vbc component backwards
+                                if( bDoBaryons & bDoLinearBCcorr ){
+                                    real_t knorm = wnoise.get_k<real_t>(i,j,k).norm();
+                                    tmp.kelem(idx) -= vfac1 * C_species * the_cosmo_calc->get_amplitude_theta_bc(knorm, bDoLinearBCcorr) * wnoise.kelem(i,j,k) * lg.gradient(idim,tmp.get_k3(i,j,k)) / (knorm*knorm);
                                 }
 
                                 // correct with interpolation kernel if we used interpolation to read out the positions (for glasses)

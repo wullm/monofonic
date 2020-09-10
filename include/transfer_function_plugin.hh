@@ -25,19 +25,20 @@
 
 enum tf_type
 {
-    total,
-    cdm,
-    baryon,
-    vtotal,
-    vcdm,
-    vbaryon,
-    deltabc,
-    total0,
-    cdm0,
-    baryon0,
-    vtotal0,
-    vcdm0,
-    vbaryon0,
+    delta_matter,
+    delta_cdm,
+    delta_baryon,
+    theta_matter,
+    theta_cdm,
+    theta_baryon,
+    delta_bc,
+    theta_bc,
+    delta_matter0,
+    delta_cdm0,
+    delta_baryon0,
+    theta_matter0,
+    theta_cdm0,
+    theta_baryon0,
 };
 
 class TransferFunction_plugin

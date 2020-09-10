@@ -44,7 +44,7 @@ private:
     {
       music::ilog << "Reading tabulated transfer function data from file:" << std::endl
                   << "  \'" << filename << "\'" << std::endl;
-                  
+
       std::string line;
       std::ifstream ifs(filename.c_str());
 
@@ -183,32 +183,35 @@ public:
 
     switch (type)
     {
-    case total0:
-    case total:  
+    case delta_matter0:
+    case delta_matter:  
       return delta_m_(k);
 
-    case cdm0:
-    case cdm:
+    case delta_cdm0:
+    case delta_cdm:
       return delta_c_(k);
 
-    case baryon0:
-    case baryon:
+    case delta_baryon0:
+    case delta_baryon:
       return delta_b_(k);
 
-    case vtotal0:
-    case vtotal:
+    case theta_matter0:
+    case theta_matter:
       return theta_m_(k);
 
-    case vcdm0:
-    case vcdm:
+    case theta_cdm0:
+    case theta_cdm:
       return theta_c_(k);
 
-    case vbaryon0:
-    case vbaryon:
+    case theta_baryon0:
+    case theta_baryon:
       return theta_b_(k);
 
-    case deltabc:
+    case delta_bc:
       return delta_b_(k)-delta_c_(k);
+    
+    case theta_bc:
+      return theta_b_(k)-theta_c_(k);
 
     default:
       throw std::runtime_error("Invalid type requested in transfer function evaluation");

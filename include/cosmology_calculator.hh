@@ -38,7 +38,8 @@ namespace cosmology
  * @brief provides functions to compute cosmological quantities
  *
  * This class provides member functions to compute cosmological quantities
- * related to the Friedmann equations and linear perturbation theory
+ * related to the Friedmann equations and linear perturbation theory, it also
+ * provides the functionality to work with back-scaled cosmological fields
  */
 class calculator
 {
@@ -54,34 +55,42 @@ private:
     interpolated_function_1d<true,true,false> D_of_a_, f_of_a_, a_of_D_;
     double Dnow_, Dplus_start_, Dplus_target_, astart_, atarget_;
 
+    //! wrapper for GSL adaptive integration routine, do not use if many integrations need to be done as it allocates and deallocates memory
+    //! set to 61-point Gauss-Kronrod and large workspace, used for sigma_8 normalisation
     real_t integrate(double (*func)(double x, void *params), double a, double b, void *params) const
     {
+        constexpr size_t wspace_size{100000};
+
+        double result{0.0};
+        double error{0.0};
+
         gsl_function F;
         F.function = func;
         F.params = params;
-
-        double result;
-        double error;
-
-        gsl_set_error_handler_off();
-        gsl_integration_workspace *w = gsl_integration_workspace_alloc(100000);
-        gsl_integration_qag(&F, a, b, 0, REL_PRECISION, 100000, 6, w, &result, &error);
-
-        gsl_integration_workspace_free(w);
-
-        gsl_set_error_handler(NULL);
+        
+        auto errh = gsl_set_error_handler_off();
+        gsl_integration_workspace *wspace = gsl_integration_workspace_alloc(wspace_size);
+        gsl_integration_qag(&F, a, b, 0, REL_PRECISION, wspace_size, GSL_INTEG_GAUSS61, wspace, &result, &error);
+        gsl_integration_workspace_free(wspace);
+        gsl_set_error_handler(errh);
 
         if (error / result > REL_PRECISION)
             music::wlog << "no convergence in function 'integrate', rel. error=" << error / result << std::endl;
 
-        return (real_t)result;
+        return static_cast<real_t>(result);
     }
 
+    //! compute the linear theory growth factor D+ by solving the single fluid ODE, returns tables D(a), f(a)
+    /*!
+	 * @param tab_a reference to STL vector for values of a at which table entries exist
+     * @param tab_D reference to STL vector for values D(a) with a from tab_a
+     * @param tab_f reference to STL vector for values f(a)=dlog D / dlog a with a from tab_a
+     */
     void compute_growth( std::vector<double>& tab_a, std::vector<double>& tab_D, std::vector<double>& tab_f )
     {
         using v_t = vec_t<3, double>;
 
-        // set ICs
+        // set ICs, very deep in radiation domination
         const double a0 = 1e-10;
         const double D0 = a0;
         const double Dprime0 = 2.0 * D0 * H_of_a(a0) / std::pow(phys_const::c_SI, 2);
@@ -125,7 +134,7 @@ private:
 
             tab_a.push_back(yy[0]);
             tab_D.push_back(yy[1]);
-            tab_f.push_back(yy[2]);
+            tab_f.push_back(yy[2]); // temporarily store D' in table
 
             dt = dtnext;
         }
@@ -162,7 +171,7 @@ public:
         a_of_D_.set_data(tab_D,tab_a);
         Dnow_ = D_of_a_(1.0);
 
-        Dplus_start_ = D_of_a_( astart_ ) / Dnow_;
+        Dplus_start_  = D_of_a_( astart_ ) / Dnow_;
         Dplus_target_ = D_of_a_( atarget_ ) / Dnow_;
 
         music::ilog << "Linear growth factors: D+_target = " << Dplus_target_ << ", D+_start = " << Dplus_start_ << std::endl;
@@ -185,9 +194,7 @@ public:
                     << " : " << transfer_function_->get_kmax() << " h/Mpc" << std::endl;
     }
 
-    ~calculator()
-    {
-    }
+    ~calculator() { }
 
     //! Write out a correctly scaled power spectrum at time a
     void write_powerspectrum(real_t a, std::string fname) const
@@ -213,22 +220,23 @@ public:
                 << std::setw(20) << ("P_dbar(k,a=1)")
                 << std::setw(20) << ("P_tcdm(k,a=1)")
                 << std::setw(20) << ("P_tbar(k,a=1)")
-                << std::setw(20) << ("P_dtot(K,a=1)")
                 << std::endl;
             for (double k = kmin; k < transfer_function_->get_kmax(); k *= 1.01)
             {
                 ofs << std::setw(20) << std::setprecision(10) << k
-                    << std::setw(20) << std::setprecision(10) << std::pow(this->get_amplitude(k, total)*Dplus_start_, 2.0)
-                    << std::setw(20) << std::setprecision(10) << std::pow(this->get_amplitude(k, cdm)*Dplus_start_, 2.0)
-                    << std::setw(20) << std::setprecision(10) << std::pow(this->get_amplitude(k, baryon)*Dplus_start_, 2.0)
-                    << std::setw(20) << std::setprecision(10) << std::pow(this->get_amplitude(k, vcdm)*Dplus_start_, 2.0)
-                    << std::setw(20) << std::setprecision(10) << std::pow(this->get_amplitude(k, vbaryon)*Dplus_start_, 2.0)
-                    << std::setw(20) << std::setprecision(10) << std::pow(this->get_amplitude(k, total0), 2.0)
-                    << std::setw(20) << std::setprecision(10) << std::pow(this->get_amplitude(k, cdm0), 2.0)
-                    << std::setw(20) << std::setprecision(10) << std::pow(this->get_amplitude(k, baryon0), 2.0)
-                    << std::setw(20) << std::setprecision(10) << std::pow(this->get_amplitude(k, vcdm0), 2.0)
-                    << std::setw(20) << std::setprecision(10) << std::pow(this->get_amplitude(k, vbaryon0), 2.0)
-                    << std::setw(20) << std::setprecision(10) << std::pow(this->get_amplitude(k, vtotal), 2.0)
+                    << std::setw(20) << std::setprecision(10) << std::pow(this->get_amplitude(k, delta_matter)*Dplus_start_, 2.0)
+                    << std::setw(20) << std::setprecision(10) << std::pow(this->get_amplitude(k, delta_cdm)*Dplus_start_, 2.0)
+                    << std::setw(20) << std::setprecision(10) << std::pow(this->get_amplitude(k, delta_baryon)*Dplus_start_, 2.0)
+                    // << std::setw(20) << std::setprecision(10) << std::pow(this->get_amplitude(k, delta_matter)*Dplus_start_, 2.0)
+                    // << std::setw(20) << std::setprecision(10) << std::pow(this->get_amplitude(k, delta_cdm)*Dplus_start_, 2.0)
+                    // << std::setw(20) << std::setprecision(10) << std::pow(this->get_amplitude(k, delta_baryon)*Dplus_start_, 2.0)
+                    // << std::setw(20) << std::setprecision(10) << std::pow(this->get_amplitude(k, theta_cdm)*Dplus_start_, 2.0)
+                    // << std::setw(20) << std::setprecision(10) << std::pow(this->get_amplitude(k, theta_baryon)*Dplus_start_, 2.0)
+                    // << std::setw(20) << std::setprecision(10) << std::pow(this->get_amplitude(k, delta_matter0)* Dplus_start_ / Dplus_target_, 2.0)
+                    // << std::setw(20) << std::setprecision(10) << std::pow(this->get_amplitude(k, delta_cdm0)* Dplus_start_ / Dplus_target_, 2.0)
+                    // << std::setw(20) << std::setprecision(10) << std::pow(this->get_amplitude(k, delta_baryon0)* Dplus_start_ / Dplus_target_, 2.0)
+                    // << std::setw(20) << std::setprecision(10) << std::pow(this->get_amplitude(k, theta_cdm0)* Dplus_start_ / Dplus_target_, 2.0)
+                    // << std::setw(20) << std::setprecision(10) << std::pow(this->get_amplitude(k, theta_baryon0)* Dplus_start_ / Dplus_target_, 2.0)
                     << std::endl;
             }
         }
@@ -257,15 +265,24 @@ public:
             double fb = cosmo_param_["f_b"], fc = cosmo_param_["f_c"];
             for (double k = kmin; k < transfer_function_->get_kmax(); k *= 1.01)
             {
-                double dm  = this->get_amplitude(k, total) * Dplus_start_ / Dplus_target_;
-                double dbc = this->get_amplitude(k, baryon) - this->get_amplitude(k, cdm);
-                double db  = dm + fc * dbc;
-                double dc  = dm - fb * dbc;
+                const double dm  = this->get_amplitude(k, delta_matter) * Dplus_start_ / Dplus_target_;
+                const double dbc = this->get_amplitude(k, delta_bc);
+                const double db  = dm + fc * dbc;
+                const double dc  = dm - fb * dbc;
+                const double tm  = this->get_amplitude(k, delta_matter) * Dplus_start_ / Dplus_target_;
+                const double tbc = this->get_amplitude(k, theta_bc);
+                const double tb  = dm + fc * dbc;
+                const double tc  = dm - fb * dbc;
+                
                 ofs << std::setw(20) << std::setprecision(10) << k
                     << std::setw(20) << std::setprecision(10) << dc
                     << std::setw(20) << std::setprecision(10) << db
                     << std::setw(20) << std::setprecision(10) << dm
-                    << std::setw(20) << std::setprecision(10) << dbc
+                    << std::setw(20) << std::setprecision(10) << dbc + 2 * tbc * (std::sqrt( Dplus_target_ / Dplus_start_ ) - 1.0)
+                    << std::setw(20) << std::setprecision(10) << tc / std::pow( Dplus_start_ / Dplus_target_, 0.5 )
+                    << std::setw(20) << std::setprecision(10) << tb / std::pow( Dplus_start_ / Dplus_target_, 0.5 )
+                    << std::setw(20) << std::setprecision(10) << tm / std::pow( Dplus_start_ / Dplus_target_, 0.5 )
+                    << std::setw(20) << std::setprecision(10) << tbc / std::pow( Dplus_start_ / Dplus_target_, 0.5 )
                     << std::endl;
             }
         }
@@ -327,9 +344,9 @@ public:
 
         const double x = k * 8.0;
         const double w = (x < 0.001)? 1.0-0.1*x*x : 3.0 * (std::sin(x) - x * std::cos(x)) / (x * x * x);
-
+            
         static double nspect = (double)pcc->cosmo_param_["n_s"];
-        double tf = pcc->transfer_function_->compute(k, total);
+        double tf = pcc->transfer_function_->compute(k, delta_matter);
 
         //... no growth factor since we compute at z=0 and normalize so that D+(z=0)=1
         return k * k * w * w * pow((double)k, (double)nspect) * tf * tf;
@@ -346,46 +363,41 @@ public:
         const double w = (x < 0.001)? 1.0-0.1*x*x : 3.0 * (std::sin(x) - x * std::cos(x)) / (x * x * x);
 
         static double nspect = static_cast<double>(pcc->cosmo_param_["n_s"]);
-        double tf = pcc->transfer_function_->compute(k, total0);
+        double tf = pcc->transfer_function_->compute(k, delta_matter0);
 
         //... no growth factor since we compute at z=0 and normalize so that D+(z=0)=1
         return k * k * w * w * std::pow(k, nspect) * tf * tf;
     }
 
-    // static double dSigma_bc(double k, void *pParams)
-    // {
-    //     if (k <= 0.0)
-    //         return 0.0f;
-
-    //     cosmology::calculator *pcc = reinterpret_cast<cosmology::calculator *>(pParams);
-
-    //     static double nspect = static_cast<double>(pcc->cosmo_param_.nspect);
-    //     double tf = pcc->transfer_function_->compute(k, deltabc);
-
-    //     //... no growth factor since we compute at z=0 and normalize so that D+(z=0)=1
-    //     return k * k * std::pow(k, nspect) * tf * tf; // * cosmo_param_.sqrtpnorm * Dplus_target_;
-    // }
-
     //! Computes the amplitude of a mode from the power spectrum
-    /*! Function evaluates the supplied transfer function ptransfer_fun_
-	 * and returns the amplitude of fluctuations at wave number k at z=0
+    /*! Function evaluates the supplied transfer function transfer_function_
+	 * and returns the amplitude of fluctuations at wave number k (in h/Mpc) back-scaled to z=z_start
 	 * @param k wave number at which to evaluate
+     * @param type one of the species: {delta,theta}_{matter,cdm,baryon,neutrino}
 	 */
     inline real_t get_amplitude( const real_t k, const tf_type type) const
     {
-        return std::pow(k, 0.5 * cosmo_param_["n_s"]) * transfer_function_->compute(k, type) * cosmo_param_["sqrtpnorm"];// * ((type!=deltabc)?  1.0 : 1.0/Dplus_target_);
+        return std::pow(k, 0.5 * cosmo_param_["n_s"]) * transfer_function_->compute(k, type) * cosmo_param_["sqrtpnorm"];
     }
 
-    inline real_t get_amplitude_phibc( const real_t k ) const
+    //! Compute amplitude of the back-scaled delta_bc mode, with decaying velocity v_bc included or not (in which case delta_bc=const)
+    inline real_t get_amplitude_delta_bc( const real_t k, bool withvbc ) const
     {
+        const real_t Dratio = Dplus_target_ / Dplus_start_;
+        const real_t dbc = transfer_function_->compute(k, delta_bc) + (withvbc? 2 * transfer_function_->compute(k, theta_bc) * (std::sqrt(Dratio) - 1.0) : 0.0);
         // need to multiply with Dplus_target since sqrtpnorm rescales like that
-        return -std::pow(k, 0.5 * cosmo_param_["n_s"]-2.0) * transfer_function_->compute(k, deltabc) * cosmo_param_["sqrtpnorm"] * Dplus_target_;
+        return std::pow(k, 0.5 * cosmo_param_["n_s"]) * dbc * (cosmo_param_["sqrtpnorm"] * Dplus_target_);
     }
-    inline real_t get_amplitude_rhobc( const real_t k ) const
+
+    //! Compute amplitude of the back-scaled relative velocity theta_bc mode if withvbc==true, otherwise return zero
+    inline real_t get_amplitude_theta_bc( const real_t k, bool withvbc ) const
     {
+        const real_t Dratio = Dplus_target_ / Dplus_start_;
+        const real_t tbc = transfer_function_->compute(k, theta_bc) * std::sqrt(Dratio);
         // need to multiply with Dplus_target since sqrtpnorm rescales like that
-        return std::pow(k, 0.5 * cosmo_param_["n_s"]) * transfer_function_->compute(k, deltabc) * cosmo_param_["sqrtpnorm"] * Dplus_target_;
+        return withvbc ? std::pow(k, 0.5 * cosmo_param_["n_s"]) * tbc * (cosmo_param_["sqrtpnorm"] * Dplus_target_) : 0.0;
     }
+
 
     //! Computes the normalization for the power spectrum
     /*!
@@ -406,19 +418,6 @@ public:
 
         return std::sqrt(sigma0);
     }
-
-    // real_t compute_sigma_bc( void )
-    // {
-    //     real_t sigma0, kmin, kmax;
-    //     kmax = 100.0; //transfer_function_->get_kmax();
-    //     kmin = transfer_function_->get_kmin();
-
-    //     sigma0 = 4.0 * M_PI * integrate(&dSigma_bc, static_cast<double>(kmin), static_cast<double>(kmax), this);
-    //     sigma0 = std::sqrt(sigma0);
-    //     sigma0 *= cosmo_param_.sqrtpnorm * Dplus_target_;
-    //     std::cout << "kmin = " << kmin << ", kmax = " << kmax << ", sigma_bc = " << sigma0 << std::endl;
-    //     return sigma0;
-    // }
 
     //! Computes the normalization for the power spectrum
     /*!
