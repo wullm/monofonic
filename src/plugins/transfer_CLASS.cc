@@ -94,11 +94,13 @@ private:
     
     add_class_parameter("N_ur", cosmo_params_.get("N_ur"));
     add_class_parameter("N_ncdm", cosmo_params_.get("N_nu_massive"));
-    std::stringstream sstr;
-    if( cosmo_params_.get("m_nu1") > 1e-9 ) sstr << cosmo_params_.get("m_nu1");
-    if( cosmo_params_.get("m_nu2") > 1e-9 ) sstr << ", " << cosmo_params_.get("m_nu2");
-    if( cosmo_params_.get("m_nu3") > 1e-9 ) sstr << ", " << cosmo_params_.get("m_nu3");
-    add_class_parameter("m_ncdm", sstr.str().c_str());
+    if( cosmo_params_.get("N_nu_massive") > 0 ){
+      std::stringstream sstr;
+      if( cosmo_params_.get("m_nu1") > 1e-9 ) sstr << cosmo_params_.get("m_nu1");
+      if( cosmo_params_.get("m_nu2") > 1e-9 ) sstr << ", " << cosmo_params_.get("m_nu2");
+      if( cosmo_params_.get("m_nu3") > 1e-9 ) sstr << ", " << cosmo_params_.get("m_nu3");
+      add_class_parameter("m_ncdm", sstr.str().c_str());
+    }
     
     // change above to enable
     //add_class_parameter("omega_ncdm", 0.0006451439);
