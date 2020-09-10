@@ -101,12 +101,12 @@ int run( config_file& the_config )
     // compute mass fractions 
     std::map< cosmo_species, double > Omega;
     if( bDoBaryons ){
-        double Om = the_config.get_value<double>("cosmology", "Omega_m");
-        double Ob = the_config.get_value<double>("cosmology", "Omega_b");
+        double Om = the_cosmo_calc->cosmo_param_["Omega_m"];
+        double Ob = the_cosmo_calc->cosmo_param_["Omega_b"];
         Omega[cosmo_species::dm] = Om-Ob;
         Omega[cosmo_species::baryon] = Ob;
     }else{
-        double Om = the_config.get_value<double>("cosmology", "Omega_m");
+        double Om = the_cosmo_calc->cosmo_param_["Omega_m"];
         Omega[cosmo_species::dm] = Om;
         Omega[cosmo_species::baryon] = 0.0;
     }

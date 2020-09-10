@@ -28,6 +28,7 @@
 
 #include <general.hh>
 #include <ic_generator.hh>
+#include <cosmology_parameters.hh>
 #include <particle_plt.hh>
 
 
@@ -123,6 +124,7 @@ int main( int argc, char** argv )
     if (argc != 2)
     {
         // print_region_generator_plugins();
+        cosmology::print_ParameterSets();
         print_TransferFunction_plugins();
         print_RNG_plugins();
         print_output_plugins();

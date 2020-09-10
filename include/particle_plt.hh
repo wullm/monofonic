@@ -51,7 +51,7 @@ class lattice_gradient{
 private:
     const real_t boxlen_, aini_;
     const size_t ngmapto_, ngrid_, ngrid32_;
-    const real_t mapratio_, XmL_;
+    const real_t mapratio_;//, XmL_;
     Grid_FFT<real_t,false> D_xx_, D_xy_, D_xz_, D_yy_, D_yz_, D_zz_;
     Grid_FFT<real_t,false> grad_x_, grad_y_, grad_z_;
     std::vector<vec3_t<real_t>> vectk_;
@@ -522,7 +522,7 @@ public:
       aini_ ( 1.0/(1.0+the_config.get_value<double>("setup", "zstart")) ),
       ngmapto_( the_config.get_value<size_t>("setup", "GridRes") ), 
       ngrid_( ngridself ), ngrid32_( std::pow(ngrid_, 1.5) ), mapratio_(real_t(ngrid_)/real_t(ngmapto_)),
-      XmL_ ( the_config.get_value<double>("cosmology", "Omega_L") / the_config.get_value<double>("cosmology", "Omega_m") ),
+      //XmL_ ( the_config.get_value<double>("cosmology", "Omega_L") / the_config.get_value<double>("cosmology", "Omega_m") ),
       D_xx_({ngrid_, ngrid_, ngrid_}, {1.0,1.0,1.0}), D_xy_({ngrid_, ngrid_, ngrid_}, {1.0,1.0,1.0}),
       D_xz_({ngrid_, ngrid_, ngrid_}, {1.0,1.0,1.0}), D_yy_({ngrid_, ngrid_, ngrid_}, {1.0,1.0,1.0}),
       D_yz_({ngrid_, ngrid_, ngrid_}, {1.0,1.0,1.0}), D_zz_({ngrid_, ngrid_, ngrid_}, {1.0,1.0,1.0}),

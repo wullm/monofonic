@@ -118,7 +118,7 @@ public:
     // initial gas temperature
     double Tcmb0 = pcc->cosmo_param_["Tcmb"];
     double Omegab = pcc->cosmo_param_["Omega_b"];
-    double h = cf_.get_value<double>("cosmology", "H0") / 100.0, h2 = h*h;
+    double h = pcc->cosmo_param_["h"], h2 = h*h;
     double adec = 1.0 / (160.0 * pow(Omegab * h2 / 0.022, 2.0 / 5.0));
     Tini_ = astart < adec ? Tcmb0 / astart : Tcmb0 / astart / astart * adec;
 
