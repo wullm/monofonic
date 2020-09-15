@@ -813,7 +813,7 @@ public:
     {
         FourierTransformForward();
         apply_function_k_dep([&](auto x, auto k) -> ccomplex_t {
-            real_t shift = s.x * k[0] * get_dx()[0] + s.y * k[1] * get_dx()[1] + s.z * k[2] * get_dx()[2];
+            real_t shift = s.x * k[0] * this->get_dx()[0] + s.y * k[1] * this->get_dx()[1] + s.z * k[2] * this->get_dx()[2];
             return x * std::exp(ccomplex_t(0.0, shift));
         });
         if( transform_back ){
