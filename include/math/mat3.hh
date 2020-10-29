@@ -27,6 +27,7 @@ template<typename T>
 class mat3_t{
 protected:
     std::array<T,9> data_;
+    std::array<double,9> data_double_;
     gsl_matrix_view m_;
     gsl_vector *eval_;
     gsl_matrix *evec_;
@@ -37,11 +38,19 @@ protected:
         // allocate memory for GSL operations if we haven't done so yet
         if( !bdid_alloc_gsl_ )
         {
-            m_ = gsl_matrix_view_array (&data_[0], 3, 3);
+            if( typeid(T)!=typeid(double) ){
+                m_ = gsl_matrix_view_array ( &data_double_[0], 3, 3);
+            }else{
+                m_ = gsl_matrix_view_array ( (double*)(&data_[0]), 3, 3); // this should only ever be called for T==double so cast is to avoid constexpr ifs from C++17
+            }
             eval_ = gsl_vector_alloc (3);
             evec_ = gsl_matrix_alloc (3, 3);
             wsp_ = gsl_eigen_symmv_alloc (3);
             bdid_alloc_gsl_ = true;
+        }
+
+        if( typeid(T)!=typeid(double) ){
+            for( int i=0; i<9; ++i ) data_double_[i] = double(data_[i]);
         }
     }
 

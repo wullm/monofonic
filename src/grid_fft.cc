@@ -29,7 +29,7 @@ void Grid_FFT<data_t, bdistributed>::allocate(void)
         music::dlog.Print("[FFT] Setting up a shared memory field %lux%lux%lu\n", n_[0], n_[1], n_[2]);
         if (typeid(data_t) == typeid(real_t))
         {
-            data_ = reinterpret_cast<data_t *>(fftw_malloc(ntot_ * sizeof(real_t)));
+            data_ = reinterpret_cast<data_t *>(FFTW_API(malloc)(ntot_ * sizeof(real_t)));
             cdata_ = reinterpret_cast<ccomplex_t *>(data_);
 
             plan_ = FFTW_API(plan_dft_r2c_3d)(n_[0], n_[1], n_[2], (real_t *)data_, (complex_t *)data_, FFTW_RUNMODE);
@@ -37,7 +37,7 @@ void Grid_FFT<data_t, bdistributed>::allocate(void)
         }
         else if (typeid(data_t) == typeid(ccomplex_t))
         {
-            data_ = reinterpret_cast<data_t *>(fftw_malloc(ntot_ * sizeof(ccomplex_t)));
+            data_ = reinterpret_cast<data_t *>(FFTW_API(malloc)(ntot_ * sizeof(ccomplex_t)));
             cdata_ = reinterpret_cast<ccomplex_t *>(data_);
 
             plan_ = FFTW_API(plan_dft_3d)(n_[0], n_[1], n_[2], (complex_t *)data_, (complex_t *)data_, FFTW_FORWARD, FFTW_RUNMODE);
@@ -102,7 +102,7 @@ void Grid_FFT<data_t, bdistributed>::allocate(void)
             cmplxsz = FFTW_API(mpi_local_size_3d_transposed)(n_[0], n_[1], n_[2] / 2 + 1, MPI_COMM_WORLD,
                                                              &local_0_size_, &local_0_start_, &local_1_size_, &local_1_start_);
             ntot_ = 2 * cmplxsz;
-            data_ = (data_t *)fftw_malloc(ntot_ * sizeof(real_t));
+            data_ = (data_t *)FFTW_API(malloc)(ntot_ * sizeof(real_t));
             cdata_ = reinterpret_cast<ccomplex_t *>(data_);
             plan_ = FFTW_API(mpi_plan_dft_r2c_3d)(n_[0], n_[1], n_[2], (real_t *)data_, (complex_t *)data_,
                                                   MPI_COMM_WORLD, FFTW_RUNMODE | FFTW_MPI_TRANSPOSED_OUT);
@@ -114,7 +114,7 @@ void Grid_FFT<data_t, bdistributed>::allocate(void)
             cmplxsz = FFTW_API(mpi_local_size_3d_transposed)(n_[0], n_[1], n_[2], MPI_COMM_WORLD,
                                                              &local_0_size_, &local_0_start_, &local_1_size_, &local_1_start_);
             ntot_ = cmplxsz;
-            data_ = (data_t *)fftw_malloc(ntot_ * sizeof(ccomplex_t));
+            data_ = (data_t *)FFTW_API(malloc)(ntot_ * sizeof(ccomplex_t));
             cdata_ = reinterpret_cast<ccomplex_t *>(data_);
             plan_ = FFTW_API(mpi_plan_dft_3d)(n_[0], n_[1], n_[2], (complex_t *)data_, (complex_t *)data_,
                                               MPI_COMM_WORLD, FFTW_FORWARD, FFTW_RUNMODE | FFTW_MPI_TRANSPOSED_OUT);

@@ -377,15 +377,15 @@ public:
             auto argy = 0.5 * M_PI * kvec[1] / g.kny_[1];
             auto argz = 0.5 * M_PI * kvec[2] / g.kny_[2];
 
-            auto fx = sinc(argx);
+            auto fx = real_t(sinc(argx));
             auto gx = ccomplex_t(0.0, dsinc(argx));
-            auto fy = sinc(argy);
+            auto fy = real_t(sinc(argy));
             auto gy = ccomplex_t(0.0, dsinc(argy));
-            auto fz = sinc(argz);
+            auto fz = real_t(sinc(argz));
             auto gz = ccomplex_t(0.0, dsinc(argz));
 
             auto temp = (fx + sqrt3 * gx) * (fy + sqrt3 * gy) * (fz + sqrt3 * gz);
-            auto magnitude = std::sqrt(1.0 - std::fabs(temp * temp));
+            auto magnitude = real_t(std::sqrt(1.0 - std::fabs(temp * temp)));
 
             auto y0(g0.kelem(i, j, k)), y1(g1.kelem(i, j, k)), y2(g2.kelem(i, j, k)), y3(g3.kelem(i, j, k)), y4(g4.kelem(i, j, k));
 
@@ -519,16 +519,16 @@ public:
             auto argy = 0.5 * M_PI * kvec[1] / g.kny_[1];
             auto argz = 0.5 * M_PI * kvec[2] / g.kny_[2];
 
-            auto fx = sinc(argx);
+            auto fx = real_t(sinc(argx));
             auto gx = ccomplex_t(0.0, dsinc(argx));
-            auto fy = sinc(argy);
+            auto fy = real_t(sinc(argy));
             auto gy = ccomplex_t(0.0, dsinc(argy));
-            auto fz = sinc(argz);
+            auto fz = real_t(sinc(argz));
             auto gz = ccomplex_t(0.0, dsinc(argz));
 
             auto y1(g1.kelem(i, j, k)), y2(g2.kelem(i, j, k)), y3(g3.kelem(i, j, k)), y4(g4.kelem(i, j, k));
 
-            g0.kelem(i, j, k) += 3.0 * (y1 * gx * gy * fz + y2 * fx * gy * gz + y3 * gx * fy * gz) + sqrt27 * y4 * gx * gy * gz;
+            g0.kelem(i, j, k) += real_t(3.0) * (y1 * gx * gy * fz + y2 * fx * gy * gz + y3 * gx * fy * gz) + sqrt27 * y4 * gx * gy * gz;
 
             // fix the overall minus w.r.t. the monofonic noise definition
             g0.kelem(i, j, k ) *= -1.0;

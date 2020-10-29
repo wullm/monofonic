@@ -300,21 +300,15 @@ music_wnoise_generator<T>::music_wnoise_generator(/*const*/ music_wnoise_generat
       *rfine = new real_t[(size_t)rc.res_ * (size_t)rc.res_ * 2 * ((size_t)rc.res_ / 2 + 1)],
       *rcoarse = new real_t[(size_t)res_ * (size_t)res_ * 2 * ((size_t)res_ / 2 + 1)];
 
-  fftw_complex
-      *ccoarse = reinterpret_cast<fftw_complex *>(rcoarse),
-      *cfine = reinterpret_cast<fftw_complex *>(rfine);
+  complex_t
+      *ccoarse = reinterpret_cast<complex_t *>(rcoarse),
+      *cfine = reinterpret_cast<complex_t *>(rfine);
 
   int nx(rc.res_), ny(rc.res_), nz(rc.res_), nxc(res_), nyc(res_), nzc(res_);
 
-#ifdef USE_SINGLEPRECISION
-  fftwf_plan
-      pf = fftwf_plan_dft_r2c_3d(nx, ny, nz, rfine, cfine, FFTW_ESTIMATE),
-      ipc = fftwf_plan_dft_c2r_3d(nxc, nyc, nzc, ccoarse, rcoarse, FFTW_ESTIMATE);
-#else
-  fftw_plan
-      pf = fftw_plan_dft_r2c_3d(nx, ny, nz, rfine, cfine, FFTW_ESTIMATE),
-      ipc = fftw_plan_dft_c2r_3d(nxc, nyc, nzc, ccoarse, rcoarse, FFTW_ESTIMATE);
-#endif
+  FFTW_API(plan)
+      pf = FFTW_API(plan_dft_r2c_3d)(nx, ny, nz, rfine, cfine, FFTW_ESTIMATE),
+      ipc = FFTW_API(plan_dft_c2r_3d)(nxc, nyc, nzc, ccoarse, rcoarse, FFTW_ESTIMATE);
 
 #pragma omp parallel for
   for (int i = 0; i < nx; i++)
@@ -429,19 +423,11 @@ music_wnoise_generator<T>::music_wnoise_generator(music_wnoise_generator<T> &rc,
            nxc = lx[0] / 2, nyc = lx[1] / 2, nzc = lx[2] / 2;
 
     real_t *rfine = new real_t[nx * ny * (nz + 2l)];
-    fftw_complex *cfine = reinterpret_cast<fftw_complex *>(rfine);
+    complex_t *cfine = reinterpret_cast<complex_t *>(rfine);
 
-
-#ifdef USE_SINGLEPRECISION
-    fftwf_plan
-        pf = fftwf_plan_dft_r2c_3d(nx, ny, nz, rfine, cfine, FFTW_ESTIMATE),
-        ipf = fftwf_plan_dft_c2r_3d(nx, ny, nz, cfine, rfine, FFTW_ESTIMATE);
-#else
-    fftw_plan
-        pf = fftw_plan_dft_r2c_3d(nx, ny, nz, rfine, cfine, FFTW_ESTIMATE),
-        ipf = fftw_plan_dft_c2r_3d(nx, ny, nz, cfine, rfine, FFTW_ESTIMATE);
-#endif
-
+    FFTW_API(plan)
+        pf = FFTW_API(plan_dft_r2c_3d)(nx, ny, nz, rfine, cfine, FFTW_ESTIMATE),
+        ipf = FFTW_API(plan_dft_c2r_3d)(nx, ny, nz, cfine, rfine, FFTW_ESTIMATE);
 
 #pragma omp parallel for
     for (int i = 0; i < (int)nx; i++)
@@ -454,14 +440,10 @@ music_wnoise_generator<T>::music_wnoise_generator(music_wnoise_generator<T> &rc,
     //this->free_all_mem();	// temporarily free memory, allocate again later
 
     real_t *rcoarse = new real_t[nxc * nyc * (nzc + 2)];
-    fftw_complex *ccoarse = reinterpret_cast<fftw_complex *>(rcoarse);
+    complex_t *ccoarse = reinterpret_cast<complex_t *>(rcoarse);
 
 
-#ifdef USE_SINGLEPRECISION
-    fftwf_plan pc = fftwf_plan_dft_r2c_3d(nxc, nyc, nzc, rcoarse, ccoarse, FFTW_ESTIMATE);
-#else
-    fftw_plan pc = fftw_plan_dft_r2c_3d(nxc, nyc, nzc, rcoarse, ccoarse, FFTW_ESTIMATE);
-#endif
+    FFTW_API(plan) pc = FFTW_API(plan_dft_r2c_3d)(nxc, nyc, nzc, rcoarse, ccoarse, FFTW_ESTIMATE);
 
 #pragma omp parallel for
     for (int i = 0; i < (int)nxc; i++)
@@ -824,5 +806,10 @@ void music_wnoise_generator<T>::print_allocated(void)
   music::ilog.Print(" -> %d of %d random number cubes currently allocated", ncount, ntot);
 }
 
+#if defined(USE_PRECISION_FLOAT)
 template class music_wnoise_generator<float>;
+#elif defined(USE_PRECISION_DOUBLE)
 template class music_wnoise_generator<double>;
+#elif defined(USE_PRECISION_LONGDOUBLE)
+template class music_wnoise_generator<long double>;
+#endif

@@ -84,9 +84,9 @@ public:
 
     void reset()
     {
-        if (data_ != nullptr) { fftw_free(data_); data_ = nullptr; }
-        if (plan_ != nullptr) { fftw_destroy_plan(plan_); plan_ = nullptr; }
-        if (iplan_ != nullptr) { fftw_destroy_plan(iplan_); iplan_ = nullptr; }
+        if (data_ != nullptr)  { FFTW_API(free)(data_); data_ = nullptr; }
+        if (plan_ != nullptr)  { FFTW_API(destroy_plan)(plan_); plan_ = nullptr; }
+        if (iplan_ != nullptr) { FFTW_API(destroy_plan)(iplan_); iplan_ = nullptr; }
         ballocated_ = false;
     }
 
@@ -305,9 +305,9 @@ public:
     data_t get_cic( const vec3_t<real_t>& v ) const noexcept
     {
         // warning! this doesn't work with MPI
-        vec3_t<real_t> x({std::fmod(v.x/length_[0]+1.0,1.0)*n_[0],
-                        std::fmod(v.y/length_[1]+1.0,1.0)*n_[1],
-                        std::fmod(v.z/length_[2]+1.0,1.0)*n_[2] });
+        vec3_t<real_t> x({real_t(std::fmod(v.x/length_[0]+1.0,1.0)*n_[0]),
+                          real_t(std::fmod(v.y/length_[1]+1.0,1.0)*n_[1]),
+                          real_t(std::fmod(v.z/length_[2]+1.0,1.0)*n_[2]) });
         size_t ix = static_cast<size_t>(x.x);
         size_t iy = static_cast<size_t>(x.y);
         size_t iz = static_cast<size_t>(x.z);

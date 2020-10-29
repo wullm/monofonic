@@ -76,14 +76,14 @@ private:
         //! === vectors, reciprocals and normals for the SC lattice ===
         const int charge_fac_sc = 1;
         const mat3_t<real_t> mat_bravais_sc{
-            1.0, 0.0, 0.0,
-            0.0, 1.0, 0.0,
-            0.0, 0.0, 1.0, 
+            real_t{1.0}, real_t{0.0}, real_t{0.0},
+            real_t{0.0}, real_t{1.0}, real_t{0.0},
+            real_t{0.0}, real_t{0.0}, real_t{1.0}, 
         };
         const mat3_t<real_t> mat_reciprocal_sc{
-            twopi, 0.0, 0.0,
-            0.0, twopi, 0.0,
-            0.0, 0.0, twopi,
+            twopi, real_t{0.0}, real_t{0.0},
+            real_t{0.0}, twopi, real_t{0.0},
+            real_t{0.0}, real_t{0.0}, twopi,
         };
         const mat3_t<int> mat_invrecip_sc{
             2, 0, 0,
@@ -91,22 +91,22 @@ private:
             0, 0, 2,
         };
         const std::vector<vec3_t<real_t>> normals_sc{
-            {pi,0.,0.},{-pi,0.,0.},
-            {0.,pi,0.},{0.,-pi,0.},
-            {0.,0.,pi},{0.,0.,-pi},
+            {pi,real_t{0.},real_t{0.}},{-pi,real_t{0.},real_t{0.}},
+            {real_t{0.},pi,real_t{0.}},{real_t{0.},-pi,real_t{0.}},
+            {real_t{0.},real_t{0.},pi},{real_t{0.},real_t{0.},-pi},
         };
         
 
         //! === vectors, reciprocals and normals for the BCC lattice ===
         const int charge_fac_bcc = 2;
         const mat3_t<real_t> mat_bravais_bcc{
-            1.0, 0.0, 0.5,
-            0.0, 1.0, 0.5,
-            0.0, 0.0, 0.5, 
+            real_t{1.0}, real_t{0.0}, real_t{0.5},
+            real_t{0.0}, real_t{1.0}, real_t{0.5},
+            real_t{0.0}, real_t{0.0}, real_t{0.5}, 
         };
         const mat3_t<real_t> mat_reciprocal_bcc{
-            twopi, 0.0, 0.0,
-            0.0, twopi, 0.0,
+            twopi, real_t{0.0}, real_t{0.0},
+            real_t{0.0}, twopi, real_t{0.0},
             -twopi, -twopi, fourpi,
         };
         const mat3_t<int> mat_invrecip_bcc{
@@ -115,23 +115,23 @@ private:
             1, 1, 1,
         };
         const std::vector<vec3_t<real_t>> normals_bcc{
-            {0.,pi,pi},{0.,-pi,pi},{0.,pi,-pi},{0.,-pi,-pi},
-            {pi,0.,pi},{-pi,0.,pi},{pi,0.,-pi},{-pi,0.,-pi},
-            {pi,pi,0.},{-pi,pi,0.},{pi,-pi,0.},{-pi,-pi,0.}
+            {real_t{0.0},pi,pi},{real_t{0.0},-pi,pi},{real_t{0.0},pi,-pi},{real_t{0.0},-pi,-pi},
+            {pi,real_t{0.0},pi},{-pi,real_t{0.0},pi},{pi,real_t{0.0},-pi},{-pi,real_t{0.0},-pi},
+            {pi,pi,real_t{0.0}},{-pi,pi,real_t{0.0}},{pi,-pi,real_t{0.0}},{-pi,-pi,real_t{0.0}}
         };
         
 
         //! === vectors, reciprocals and normals for the FCC lattice ===
         const int charge_fac_fcc = 4;
         const mat3_t<real_t> mat_bravais_fcc{
-            0.0, 0.5, 0.0,
-            0.5, 0.0, 1.0,
-            0.5, 0.5, 0.0, 
+            real_t{0.0}, real_t{0.5}, real_t{0.0},
+            real_t{0.5}, real_t{0.0}, real_t{1.0},
+            real_t{0.5}, real_t{0.5}, real_t{0.0}, 
         };
         const mat3_t<real_t> mat_reciprocal_fcc{
             -fourpi, fourpi, twopi,
-            0.0, 0.0, twopi,
-            fourpi, 0.0, -twopi,
+            real_t{0.0}, real_t{0.0}, twopi,
+            fourpi, real_t{0.0}, -twopi,
         };
         const mat3_t<int> mat_invrecip_fcc{
             0, 1, 1,
@@ -139,9 +139,9 @@ private:
             0, 2, 0,
         };
         const std::vector<vec3_t<real_t>> normals_fcc{
-            {twopi,0.,0.},{-twopi,0.,0.},
-            {0.,twopi,0.},{0.,-twopi,0.},
-            {0.,0.,twopi},{0.,0.,-twopi},
+            {twopi,real_t{0.0},real_t{0.0}},{-twopi,real_t{0.0},real_t{0.0}},
+            {real_t{0.0},twopi,real_t{0.0}},{real_t{0.0},-twopi,real_t{0.0}},
+            {real_t{0.0},real_t{0.0},twopi},{real_t{0.0},real_t{0.0},-twopi},
             {+pi,+pi,+pi},{+pi,+pi,-pi},
             {+pi,-pi,+pi},{+pi,-pi,-pi},
             {-pi,+pi,+pi},{-pi,+pi,-pi},
@@ -223,7 +223,7 @@ private:
         #pragma omp parallel 
         {
             //... temporary to hold values of the dynamical matrix 
-            mat3_t<real_t> matD(0.0);
+            mat3_t<real_t> matD(real_t(0.0));
 
             #pragma omp for
             for( ptrdiff_t i=0; i<nlattice; ++i ){
@@ -421,7 +421,7 @@ private:
                     
                     if( !is_in(i,j,k,mat_invrecip)  ){
                         auto average_lv = [&]( const auto& t1, const auto& t2, const auto& t3, vec3_t<real_t>& v, vec3_t<real_t>& l ) {
-                            v = 0.0; l = 0.0;
+                            v = real_t(0.0); l = real_t(0.0);
                             int count(0);
                             
                             auto add_lv = [&]( auto it ) -> void {
@@ -476,9 +476,9 @@ private:
                     // ///////////////////////////////////
                     // // project onto spherical coordinate vectors
                     
-                    real_t kr = kv.norm(), kphi = kr>0.0? std::atan2(kv.y,kv.x) : 0.0, ktheta = kr>0.0? std::acos( kv.z / kr ): 0.0;
+                    real_t kr = kv.norm(), kphi = kr>0.0? std::atan2(kv.y,kv.x) : real_t(0.0), ktheta = kr>0.0? std::acos( kv.z / kr ): real_t(0.0);
                     real_t st = std::sin(ktheta), ct = std::cos(ktheta), sp = std::sin(kphi), cp = std::cos(kphi);
-                    vec3_t<real_t> e_r( st*cp, st*sp, ct), e_theta( ct*cp, ct*sp, -st), e_phi( -sp, cp, 0.0 );
+                    vec3_t<real_t> e_r( st*cp, st*sp, ct), e_theta( ct*cp, ct*sp, -st), e_phi( -sp, cp, real_t(0.0) );
 
                     // re-normalise to that longitudinal amplitude is exact
                     double renorm = evec1.dot( e_r ); if( renorm < 0.01 ) renorm = 1.0;

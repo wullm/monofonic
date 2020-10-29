@@ -140,9 +140,9 @@ int run( config_file& the_config )
 
     // Anisotropy parameters for beyond box tidal field 
     const std::array<real_t,3> lss_aniso_lambda = {
-        the_config.get_value_safe<double>("cosmology", "LSS_aniso_lx", 0.0),
-        the_config.get_value_safe<double>("cosmology", "LSS_aniso_ly", 0.0),
-        the_config.get_value_safe<double>("cosmology", "LSS_aniso_lz", 0.0),
+        real_t(the_config.get_value_safe<double>("cosmology", "LSS_aniso_lx", 0.0)),
+        real_t(the_config.get_value_safe<double>("cosmology", "LSS_aniso_ly", 0.0)),
+        real_t(the_config.get_value_safe<double>("cosmology", "LSS_aniso_lz", 0.0)),
     };  
     
     const real_t lss_aniso_sum_lambda = lss_aniso_lambda[0]+lss_aniso_lambda[1]+lss_aniso_lambda[2];
@@ -164,24 +164,24 @@ int run( config_file& the_config )
     const real_t Dplus0 = the_cosmo_calc->get_growth_factor(astart);
     const real_t vfac   = the_cosmo_calc->get_vfact(astart);
 
-    const double g1  = -Dplus0;
-    const double g2  = ((LPTorder>1)? -3.0/7.0*Dplus0*Dplus0 : 0.0);
-    const double g3  = ((LPTorder>2)? 1.0/3.0*Dplus0*Dplus0*Dplus0 : 0.0);
-    const double g3c = ((LPTorder>2)? 1.0/7.0*Dplus0*Dplus0*Dplus0 : 0.0);
+    const real_t g1  = -Dplus0;
+    const real_t g2  = ((LPTorder>1)? -3.0/7.0*Dplus0*Dplus0 : 0.0);
+    const real_t g3  = ((LPTorder>2)? 1.0/3.0*Dplus0*Dplus0*Dplus0 : 0.0);
+    const real_t g3c = ((LPTorder>2)? 1.0/7.0*Dplus0*Dplus0*Dplus0 : 0.0);
 
     // vfac = d log D+ / dt 
     // d(D+^2)/dt = 2*D+ * d D+/dt = 2 * D+^2 * vfac
     // d(D+^3)/dt = 3*D+^2* d D+/dt = 3 * D+^3 * vfac
-    const double vfac1 =  vfac;
-    const double vfac2 =  2*vfac;
-    const double vfac3 =  3*vfac;
+    const real_t vfac1 =  vfac;
+    const real_t vfac2 =  2*vfac;
+    const real_t vfac3 =  3*vfac;
 
     // anisotropic velocity growth factor for external tides
     // cf. eq. (5) of Stuecker et al. 2020 (https://arxiv.org/abs/2003.06427)
     const std::array<real_t,3> lss_aniso_alpha = {
-        1.0 - Dplus0 * lss_aniso_lambda[0],
-        1.0 - Dplus0 * lss_aniso_lambda[1],
-        1.0 - Dplus0 * lss_aniso_lambda[2],
+        real_t(1.0) - Dplus0 * lss_aniso_lambda[0],
+        real_t(1.0) - Dplus0 * lss_aniso_lambda[1],
+        real_t(1.0) - Dplus0 * lss_aniso_lambda[2],
     };
 
     //--------------------------------------------------------------------
@@ -360,7 +360,7 @@ int run( config_file& the_config )
             phi2.assign_function_of_grids_kdep([&](vec3_t<real_t> kvec, ccomplex_t pphi, ccomplex_t pphi2) {
                 real_t k2 = kvec.norm_squared();
                 real_t fac_aniso = (kvec[0] * kvec[0] * lss_aniso_lambda[0] + kvec[1] * kvec[1] * lss_aniso_lambda[1] + kvec[2] * kvec[2] * lss_aniso_lambda[2]);
-                return pphi2 - (lss_aniso_sum_lambda * k2 + 4.0/3.0 * fac_aniso ) * pphi;
+                return pphi2 - (lss_aniso_sum_lambda * k2 + real_t(4.0/3.0) * fac_aniso ) * pphi;
             }, phi, phi2);
         }
 
@@ -651,7 +651,7 @@ int run( config_file& the_config )
                     
                     tmp.FourierTransformBackward(false);
                     tmp.assign_function_of_grids_r([&](auto ppsi, auto pgrad_psi, auto prho) {
-                            return vunit * std::real((std::conj(ppsi) * pgrad_psi - ppsi * std::conj(pgrad_psi)) / ccomplex_t(0.0, 2.0 / hbar)/(1.0+prho));
+                            return vunit * std::real((std::conj(ppsi) * pgrad_psi - ppsi * std::conj(pgrad_psi)) / ccomplex_t(0.0, 2.0 / hbar)/real_t(1.0+prho));
                         }, psi, grad_psi, rho);
 
                     fluid_component fc = (idim==0)? fluid_component::vx : ((idim==1)? fluid_component::vy : fluid_component::vz );

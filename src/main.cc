@@ -213,7 +213,7 @@ int main( int argc, char** argv )
     music::ilog << std::setw(32) << std::left << "OS/Kernel version" << " : " << kinfo.kernel << " version " << kinfo.major << "." << kinfo.minor << " build " << kinfo.build_number << std::endl;
 
     // FFTW related infos
-    music::ilog << std::setw(32) << std::left << "FFTW version" << " : " << fftw_version << std::endl;
+    music::ilog << std::setw(32) << std::left << "FFTW version" << " : " << FFTW_API(version) << std::endl;
     music::ilog << std::setw(32) << std::left << "FFTW supports multi-threading" << " : " << (CONFIG::FFTW_threads_ok? "yes" : "no") << std::endl;
     music::ilog << std::setw(32) << std::left << "FFTW mode" << " : ";
 #if defined(FFTW_MODE_PATIENT)
