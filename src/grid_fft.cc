@@ -340,7 +340,7 @@ void Grid_FFT<data_t, bdistributed>::FourierInterpolateCopyTo( grid_fft_t &grid_
     MPI_Allgather(&grid_to.local_1_start_, 1, MPI_LONG_LONG, &offsets_recv[0], 1,
                     MPI_LONG_LONG, MPI_COMM_WORLD);
 
-    MPI_Datatype datatype =
+    const MPI_Datatype datatype =
         (typeid(data_t) == typeid(float)) ? MPI_C_FLOAT_COMPLEX 
         : (typeid(data_t) == typeid(double)) ? MPI_C_DOUBLE_COMPLEX 
         : (typeid(data_t) == typeid(long double)) ? MPI_C_LONG_DOUBLE_COMPLEX
@@ -349,11 +349,11 @@ void Grid_FFT<data_t, bdistributed>::FourierInterpolateCopyTo( grid_fft_t &grid_
     const size_t slicesz = grid_from.size(1) * grid_from.size(3);
 
     // determine effective Nyquist modes representable by both fields and their locations in array
-    size_t fny0_left  = std::min(grid_from.n_[1] / 2, grid_to.n_[1] / 2);
-    size_t fny0_right = std::max(grid_from.n_[1] - grid_to.n_[1] / 2, grid_from.n_[1] / 2);
-    size_t fny1_left  = std::min(grid_from.n_[0] / 2, grid_to.n_[0] / 2);
-    size_t fny1_right = std::max(grid_from.n_[0] - grid_to.n_[0] / 2, grid_from.n_[0] / 2);
-    size_t fny2_left  = std::min(grid_from.n_[2] / 2, grid_to.n_[2] / 2);
+    const size_t fny0_left  = std::min(grid_from.n_[1] / 2, grid_to.n_[1] / 2);
+    const size_t fny0_right = std::max(grid_from.n_[1] - grid_to.n_[1] / 2, grid_from.n_[1] / 2);
+    const size_t fny1_left  = std::min(grid_from.n_[0] / 2, grid_to.n_[0] / 2);
+    const size_t fny1_right = std::max(grid_from.n_[0] - grid_to.n_[0] / 2, grid_from.n_[0] / 2);
+    const size_t fny2_left  = std::min(grid_from.n_[2] / 2, grid_to.n_[2] / 2);
     // size_t fny2_right = std::max(grid_from.n_[2] - grid_to.n_[2] / 2, grid_from.n_[2] / 2);
 
     const size_t fny0_left_recv  = fny0_left;
@@ -392,15 +392,17 @@ void Grid_FFT<data_t, bdistributed>::FourierInterpolateCopyTo( grid_fft_t &grid_
         }
     }
 
+    MPI_Barrier( MPI_COMM_WORLD );
+
     //--- receive data ------------------------------------------------------------
     #pragma omp parallel
     {
         MPI_Status status;
         ccomplex_t  * recvbuf = new ccomplex_t[ slicesz ]; 
 
-        #pragma omp for
+        #pragma omp for schedule(dynamic)
         for( size_t i=0; i<grid_to.size(0); ++i )
-        {
+        {   
             size_t iglobal_recv = i + offsets_recv[CONFIG::MPI_task_rank];
 
             if (iglobal_recv < fny0_left_recv || iglobal_recv > fny0_right_recv)
@@ -409,10 +411,13 @@ void Grid_FFT<data_t, bdistributed>::FourierInterpolateCopyTo( grid_fft_t &grid_
 
                 int recvfrom = get_task(iglobal_send, offsets_send, CONFIG::MPI_task_size);
                 
-                // receive data slice and check for MPI errors when in debug mode
-                status.MPI_ERROR = MPI_SUCCESS;
-                MPI_Recv(&recvbuf[0], (int)slicesz, datatype, recvfrom, (int)iglobal_recv, MPI_COMM_WORLD, &status);
-                assert(status.MPI_ERROR == MPI_SUCCESS);
+                //#pragma omp critical // need critical region here if we do "MPI_THREAD_FUNNELED", 
+                {
+                    // receive data slice and check for MPI errors when in debug mode
+                    status.MPI_ERROR = MPI_SUCCESS;
+                    MPI_Recv(&recvbuf[0], (int)slicesz, datatype, recvfrom, (int)iglobal_recv, MPI_COMM_WORLD, &status);
+                    assert(status.MPI_ERROR == MPI_SUCCESS);
+                }
 
                 // copy data slice into new grid, avoiding modes that do not exist in both
                 for( size_t j=0; j<grid_to.size(1); ++j )
