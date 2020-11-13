@@ -319,7 +319,7 @@ void Grid_FFT<data_t, bdistributed>::FourierInterpolateCopyTo( grid_fft_t &grid_
     music::dlog << "[MPI] Started scatter for Fourier interpolation/copy" << std::endl;
 
     //... determine communication offsets
-    std::vector<ptrdiff_t> offsets_send, offsets_recv;
+    std::vector<ptrdiff_t> offsets_send, offsets_recv, sizes_send, sizes_recv;
 
     // this should use bisection, not linear search
     auto get_task = [](ptrdiff_t index, const std::vector<ptrdiff_t> &offsets, const int ntasks) -> int
@@ -332,13 +332,24 @@ void Grid_FFT<data_t, bdistributed>::FourierInterpolateCopyTo( grid_fft_t &grid_
 
     int ntasks(MPI::get_size());
 
-    offsets_send.assign(ntasks, 0);
-    offsets_recv.assign(ntasks, 0);
+    offsets_send.assign(ntasks+1, 0);
+    sizes_send.assign(ntasks, 0);
+    offsets_recv.assign(ntasks+1, 0);
+    sizes_recv.assign(ntasks, 0);
 
+    MPI_Allgather(&grid_from.local_1_size_, 1, MPI_LONG_LONG, &sizes_send[0], 1,
+                    MPI_LONG_LONG, MPI_COMM_WORLD);
+    MPI_Allgather(&grid_to.local_1_size_, 1, MPI_LONG_LONG, &sizes_recv[0], 1,
+                    MPI_LONG_LONG, MPI_COMM_WORLD);
     MPI_Allgather(&grid_from.local_1_start_, 1, MPI_LONG_LONG, &offsets_send[0], 1,
                     MPI_LONG_LONG, MPI_COMM_WORLD);
     MPI_Allgather(&grid_to.local_1_start_, 1, MPI_LONG_LONG, &offsets_recv[0], 1,
                     MPI_LONG_LONG, MPI_COMM_WORLD);
+
+    for( int i=0; i< CONFIG::MPI_task_size; i++ ){
+        if( offsets_send[i+1] < offsets_send[i] + sizes_send[i] ) offsets_send[i+1] = offsets_send[i] + sizes_send[i];
+        if( offsets_recv[i+1] < offsets_recv[i] + sizes_recv[i] ) offsets_recv[i+1] = offsets_recv[i] + sizes_recv[i];
+    }
 
     const MPI_Datatype datatype =
         (typeid(data_t) == typeid(float)) ? MPI_C_FLOAT_COMPLEX 
@@ -436,6 +447,7 @@ void Grid_FFT<data_t, bdistributed>::FourierInterpolateCopyTo( grid_fft_t &grid_
         }
         delete[] recvbuf;
     }
+    MPI_Barrier( MPI_COMM_WORLD );
     
     MPI_Status status;
     for (size_t i = 0; i < req.size(); ++i)
@@ -444,6 +456,12 @@ void Grid_FFT<data_t, bdistributed>::FourierInterpolateCopyTo( grid_fft_t &grid_
         // c.f. http://www.open-mpi.org/community/lists/devel/2007/04/1402.php
         status.MPI_ERROR = MPI_SUCCESS;
         // std::cout << "task " << CONFIG::MPI_task_rank << " : checking request No" << i << std::endl;
+        int flag(1);
+        MPI_Test(&req[i], &flag, &status);
+        if( !flag ){
+            std::cout << "task " << CONFIG::MPI_task_rank << " : request No" << i << " unsuccessful" << std::endl;
+        }
+
         MPI_Wait(&req[i], &status);
         // std::cout << "---> ok!" << std::endl;
         assert(status.MPI_ERROR == MPI_SUCCESS);
