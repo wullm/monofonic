@@ -403,15 +403,13 @@ void Grid_FFT<data_t, bdistributed>::FourierInterpolateCopyTo( grid_fft_t &grid_
         }
     }
 
-    MPI_Barrier( MPI_COMM_WORLD );
-
     //--- receive data ------------------------------------------------------------
-    #pragma omp parallel
+    #pragma omp parallel if(CONFIG::MPI_threads_ok)
     {
         MPI_Status status;
         ccomplex_t  * recvbuf = new ccomplex_t[ slicesz ]; 
 
-        #pragma omp for schedule(dynamic)
+        #pragma omp for schedule(dynamic) if(CONFIG::MPI_threads_ok)
         for( size_t i=0; i<grid_to.size(0); ++i )
         {   
             size_t iglobal_recv = i + offsets_recv[CONFIG::MPI_task_rank];
