@@ -99,9 +99,9 @@ void Grid_FFT<data_t, bdistributed>::allocate(void)
 
         if (typeid(data_t) == typeid(real_t))
         {
-            cmplxsz = FFTW_API(mpi_local_size_3d_transposed)(n_[0], n_[1], n_[2] / 2 + 1, MPI_COMM_WORLD,
+            cmplxsz = FFTW_API(mpi_local_size_3d_transposed)(n_[0], n_[1], n_[2], MPI_COMM_WORLD,
                                                              &local_0_size_, &local_0_start_, &local_1_size_, &local_1_start_);
-            ntot_ = 2 * cmplxsz;
+            ntot_ = local_0_size_ * n_[1] * (n_[2]+2);
             data_ = (data_t *)FFTW_API(malloc)(ntot_ * sizeof(real_t));
             cdata_ = reinterpret_cast<ccomplex_t *>(data_);
             plan_ = FFTW_API(mpi_plan_dft_r2c_3d)(n_[0], n_[1], n_[2], (real_t *)data_, (complex_t *)data_,
@@ -811,7 +811,29 @@ void Grid_FFT<data_t, bdistributed>::Write_to_HDF5(std::string fname, std::strin
 
 #endif
 
+#if defined(USE_MPI)
+    std::vector<size_t> sizes0(MPI::get_size(), 0);
+    std::vector<size_t> offsets0(MPI::get_size()+1, 0);
+
+    MPI_Allgather((this->space_==kspace_id)? &this->local_1_start_ : &this->local_0_start_, 1, 
+        MPI_UNSIGNED_LONG_LONG, &offsets0[0], 1, MPI_UNSIGNED_LONG_LONG, MPI_COMM_WORLD);
+
+    MPI_Allgather((this->space_==kspace_id)? &this->local_1_size_ : &this->local_0_size_, 1, 
+        MPI_UNSIGNED_LONG_LONG, &sizes0[0], 1, MPI_UNSIGNED_LONG_LONG, MPI_COMM_WORLD);
+
+    for( int i=0; i< CONFIG::MPI_task_size; i++ ){
+        if( offsets0[i+1] < offsets0[i] + sizes0[i] ) offsets0[i+1] = offsets0[i] + sizes0[i];
+    }
+    
+#endif
+
+#if defined(USE_MPI)
+        auto loc_count = size(0), glob_count = size(0);
+        MPI_Allreduce( &loc_count, &glob_count, 1, MPI_UNSIGNED_LONG_LONG, MPI_SUM, MPI_COMM_WORLD );
+#endif
+
 #if defined(USE_MPI) && !defined(USE_MPI_IO)
+
     for (int itask = 0; itask < mpi_size; ++itask)
     {
         MPI_Barrier(MPI_COMM_WORLD);
@@ -828,7 +850,7 @@ void Grid_FFT<data_t, bdistributed>::Write_to_HDF5(std::string fname, std::strin
             count[i] = size(i);
 
 #if defined(USE_MPI)
-        count[0] *= mpi_size;
+        count[0] = glob_count;
 #endif
 
         if (typeid(data_t) == typeid(float))
@@ -879,7 +901,7 @@ void Grid_FFT<data_t, bdistributed>::Write_to_HDF5(std::string fname, std::strin
         plist_id = H5Pcreate(H5P_DATASET_XFER);
         H5Pset_dxpl_mpio(plist_id, H5FD_MPIO_COLLECTIVE);
 #else
-    plist_id = H5P_DEFAULT;
+        plist_id = H5P_DEFAULT;
 #endif
 
         memspace = H5Screate_simple(3, count, NULL);
@@ -888,9 +910,9 @@ void Grid_FFT<data_t, bdistributed>::Write_to_HDF5(std::string fname, std::strin
         for (size_t i = 0; i < size(0); ++i)
         {
 #if defined(USE_MPI)
-            offset[0] = mpi_rank * size(0) + i;
+            offset[0] = offsets0[mpi_rank] + i;
 #else
-        offset[0] = i;
+            offset[0] = i;
 #endif
 
             for (size_t j = 0; j < size(1); ++j)
@@ -928,7 +950,7 @@ void Grid_FFT<data_t, bdistributed>::Write_to_HDF5(std::string fname, std::strin
             for (int i = 0; i < 3; ++i)
                 count[i] = size(i);
 #if defined(USE_MPI)
-            count[0] *= mpi_size;
+            count[0] = glob_count;
 #endif
 
 #if defined(USE_MPI) && !defined(USE_MPI_IO)
@@ -963,7 +985,7 @@ void Grid_FFT<data_t, bdistributed>::Write_to_HDF5(std::string fname, std::strin
             for (size_t i = 0; i < size(0); ++i)
             {
 #if defined(USE_MPI)
-                offset[0] = mpi_rank * size(0) + i;
+                offset[0] = offsets0[mpi_rank] + i;//mpi_rank * size(0) + i;
 #else
             offset[0] = i;
 #endif
