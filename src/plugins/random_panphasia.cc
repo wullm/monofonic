@@ -510,6 +510,12 @@ public:
             auto y1(g1.kelem(i, j, k)), y2(g2.kelem(i, j, k)), y3(g3.kelem(i, j, k)), y4(g4.kelem(i, j, k));
 
             g0.kelem(i, j, k) += real_t(3.0) * (y1 * gx * gy * fz + y2 * fx * gy * gz + y3 * gx * fy * gz) + sqrt27 * y4 * gx * gy * gz;
+
+            // do final phase shift to account for corner centered coordinates vs. cell centers
+            auto phase_shift = - M_PI * ( kvec[0] / g0.kny_[0]
+                       + kvec[1] /g0.kny_[1] + kvec[2] / g0.kny_[2]);
+
+            g0.kelem(i, j, k) *= std::exp( ccomplex_t(0,phase_shift) );
           }
         }
       }
