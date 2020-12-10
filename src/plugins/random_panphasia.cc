@@ -171,10 +171,12 @@ protected:
   {
     // if ngrid is not a multiple of i_base, then we need to enlarge and then sample down
     ngrid_ = pcf_->get_value<size_t>("setup", "GridRes");
+    size_t ngidminsize_panphasia = pcf_->get_value_safe<size_t>("random", "PanphasiaMinRootResolution",512);
 
     grid_p_ = pdescriptor_->i_base;
     
-    lextra_ = (log10((double)ngrid_ / (double)grid_p_) + 0.001) / log10(2.0);
+    lextra_ = (log10((double)std::max(ngrid_,ngidminsize_panphasia) / (double)grid_p_) + 0.001) / log10(2.0);
+    // lmin 
 
     ngrid_panphasia_ = (1 << lextra_) * grid_p_;
     
