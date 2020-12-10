@@ -97,7 +97,7 @@ int run( config_file& the_config )
     //! do baryon ICs?
     const bool bDoBaryons = the_config.get_value_safe<bool>("setup", "DoBaryons", false );
     //! enable also back-scaled decaying relative velocity mode? only first order!
-    const bool bDoLinearBCcorr = the_config.get_value_safe<bool>("cosmology", "DoBaryonVrel", false);
+    const bool bDoLinearBCcorr = the_config.get_value_safe<bool>("setup", "DoBaryonVrel", false);
     // compute mass fractions 
     std::map< cosmo_species, double > Omega;
     if( bDoBaryons ){
