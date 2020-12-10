@@ -20,8 +20,8 @@ protected:
 
 public:
     //! constructor
-    explicit genericio_output_plugin(config_file &cf)
-            : output_plugin(cf, "GenericIO")
+    explicit genericio_output_plugin(config_file &cf, cosmology::calculator &cc)
+            : output_plugin(cf, cc, "GenericIO")
     {
         real_t astart = 1.0 / (1.0 + cf_.get_value<double>("setup", "zstart"));
         lunit_ = cf_.get_value<double>("setup", "BoxLength");
@@ -34,7 +34,7 @@ public:
         mu_value_ = 4.0 / (1.0 + 3.0*primordial_x);
         
         double rhoc = 27.7519737 * 1e10; // in h^2 M_sol / Mpc^3
-        rho_value_ = cf_.get_value<double>("cosmology", "Omega_b") * rhoc;
+        rho_value_ = cc_.cosmo_param_["Omega_b"] * rhoc;
         munit_ = rhoc * std::pow(cf_.get_value<double>("setup", "BoxLength"), 3);
     }
 

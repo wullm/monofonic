@@ -39,19 +39,19 @@ namespace particle
     const std::vector<std::vector<vec3_t<real_t>>> lattice_shifts =
         {
             // first shift must always be zero! (otherwise set_positions and set_velocities break)
-            /* SC : */ {{0.0, 0.0, 0.0}},
-            /* BCC: */ {{0.0, 0.0, 0.0}, {0.5, 0.5, 0.5}},
-            /* FCC: */ {{0.0, 0.0, 0.0}, {0.0, 0.5, 0.5}, {0.5, 0.0, 0.5}, {0.5, 0.5, 0.0}},
-            /* RSC: */ {{0.0, 0.0, 0.0}, {0.0, 0.0, 0.5}, {0.0, 0.5, 0.0}, {0.0, 0.5, 0.5}, {0.5, 0.0, 0.0}, {0.5, 0.0, 0.5}, {0.5, 0.5, 0.0}, {0.5, 0.5, 0.5}},
+            /* SC : */ {{real_t{0.0}, real_t{0.0}, real_t{0.0}}},
+            /* BCC: */ {{real_t{0.0}, real_t{0.0}, real_t{0.0}}, {real_t{0.5}, real_t{0.5}, real_t{0.5}}},
+            /* FCC: */ {{real_t{0.0}, real_t{0.0}, real_t{0.0}}, {real_t{0.0}, real_t{0.5}, real_t{0.5}}, {real_t{0.5}, real_t{0.0}, real_t{0.5}}, {real_t{0.5}, real_t{0.5}, real_t{0.0}}},
+            /* RSC: */ {{real_t{0.0}, real_t{0.0}, real_t{0.0}}, {real_t{0.0}, real_t{0.0}, real_t{0.5}}, {real_t{0.0}, real_t{0.5}, real_t{0.0}}, {real_t{0.0}, real_t{0.5}, real_t{0.5}}, {real_t{0.5}, real_t{0.0}, real_t{0.0}}, {real_t{0.5}, real_t{0.0}, real_t{0.5}}, {real_t{0.5}, real_t{0.5}, real_t{0.0}}, {real_t{0.5}, real_t{0.5}, real_t{0.5}}},
     };
 
     const std::vector<vec3_t<real_t>> second_lattice_shift =
         {
-            /* SC : */ {0.5, 0.5, 0.5}, // this corresponds to CsCl lattice
-            /* BCC: */ {0.5, 0.5, 0.0}, // is there a diatomic lattice with BCC base?!?
-            /* FCC: */ {0.5, 0.5, 0.5}, // this corresponds to NaCl lattice
-                                        // /* FCC: */ {0.25, 0.25, 0.25}, // this corresponds to Zincblende/GaAs lattice
-            /* RSC: */ {0.25, 0.25, 0.25},
+            /* SC : */ {real_t{0.5}, real_t{0.5}, real_t{0.5}}, // this corresponds to CsCl lattice
+            /* BCC: */ {real_t{0.5}, real_t{0.5}, real_t{0.0}}, // is there a diatomic lattice with BCC base?!?
+            /* FCC: */ {real_t{0.5}, real_t{0.5}, real_t{0.5}}, // this corresponds to NaCl lattice
+                                        // /* FCC: */ {real_t{0.25}, real_t{0.25}, real_t{0.25}}, // this corresponds to Zincblende/GaAs lattice
+            /* RSC: */ {real_t{0.25}, real_t{0.25}, real_t{0.25}},
     };
 
     template <typename field_t>
@@ -283,7 +283,7 @@ namespace particle
                         {
                             for (size_t k = 0; k < field.size(2); ++k)
                             {
-                                auto pos = field.template get_unit_r_shifted<real_t>(i, j, k, lattice_shifts[lattice_type][ishift] + (is_second_lattice ? second_lattice_shift[lattice_type] : vec3_t<real_t>{0., 0., 0.}));
+                                auto pos = field.template get_unit_r_shifted<real_t>(i, j, k, lattice_shifts[lattice_type][ishift] + (is_second_lattice ? second_lattice_shift[lattice_type] : vec3_t<real_t>{real_t(0.), real_t(0.), real_t(0.)}));
                                 if (b64reals)
                                 {
                                     particles_.set_pos64(ipcount++, idim, pos[idim] * lunit + field.relem(i, j, k));

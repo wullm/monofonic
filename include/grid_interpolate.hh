@@ -162,12 +162,12 @@ struct grid_interpolate
     if (is_distributed_trait)
     {
 #if defined(USE_MPI)
-      std::sort(pos.begin(), pos.end(), [&](auto x1, auto x2) { return get_task(x1) < get_task(x2); });
+      std::sort(pos.begin(), pos.end(), [&](auto x1, auto x2) { return this->get_task(x1) < this->get_task(x2); });
       std::vector<int> sendcounts(MPI::get_size(), 0), sendoffsets(MPI::get_size(), 0);
       std::vector<int> recvcounts(MPI::get_size(), 0), recvoffsets(MPI::get_size(), 0);
       for (auto x : pos)
       {
-        sendcounts[get_task(x)] += 3;
+        sendcounts[this->get_task(x)] += 3;
       }
 
       MPI_Alltoall(&sendcounts[0], 1, MPI_INT, &recvcounts[0], 1, MPI_INT, MPI_COMM_WORLD);

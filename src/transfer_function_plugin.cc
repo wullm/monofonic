@@ -39,7 +39,7 @@ void print_TransferFunction_plugins()
     music::ilog << std::endl;
 }
 
-std::unique_ptr<TransferFunction_plugin> select_TransferFunction_plugin(config_file &cf)
+std::unique_ptr<TransferFunction_plugin> select_TransferFunction_plugin(config_file &cf, const cosmology::parameters& cosmo_param)
 {
     std::string tfname = cf.get_value<std::string>("cosmology", "transfer");
 
@@ -57,5 +57,5 @@ std::unique_ptr<TransferFunction_plugin> select_TransferFunction_plugin(config_f
         music::ilog << std::setw(32) << std::left << "Transfer function plugin" << " : " << tfname << std::endl;
     }
 
-    return std::move(the_TransferFunction_plugin_creator->create(cf));
+    return std::move(the_TransferFunction_plugin_creator->create(cf, cosmo_param));
 }

@@ -1,12 +1,33 @@
+// This file is part of monofonIC (MUSIC2)
+// A software package to generate ICs for cosmological simulations
+// Copyright (C) 2020 by Oliver Hahn
+// 
+// monofonIC is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+// 
+// monofonIC is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+// 
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+#pragma once
+
 #include <gsl/gsl_math.h>
 #include <gsl/gsl_eigen.h>
 
 #include <math/vec3.hh>
 
+//! class for 3x3 matrix calculations
 template<typename T>
 class mat3_t{
 protected:
     std::array<T,9> data_;
+    std::array<double,9> data_double_;
     gsl_matrix_view m_;
     gsl_vector *eval_;
     gsl_matrix *evec_;
@@ -17,11 +38,19 @@ protected:
         // allocate memory for GSL operations if we haven't done so yet
         if( !bdid_alloc_gsl_ )
         {
-            m_ = gsl_matrix_view_array (&data_[0], 3, 3);
+            if( typeid(T)!=typeid(double) ){
+                m_ = gsl_matrix_view_array ( &data_double_[0], 3, 3);
+            }else{
+                m_ = gsl_matrix_view_array ( (double*)(&data_[0]), 3, 3); // this should only ever be called for T==double so cast is to avoid constexpr ifs from C++17
+            }
             eval_ = gsl_vector_alloc (3);
             evec_ = gsl_matrix_alloc (3, 3);
             wsp_ = gsl_eigen_symmv_alloc (3);
             bdid_alloc_gsl_ = true;
+        }
+
+        if( typeid(T)!=typeid(double) ){
+            for( int i=0; i<9; ++i ) data_double_[i] = double(data_[i]);
         }
     }
 

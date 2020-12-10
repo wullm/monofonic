@@ -28,21 +28,20 @@
 #include <general.hh>
 #include <config_file.hh>
 #include <transfer_function_plugin.hh>
+#include <ic_generator.hh>
+
 #include <math/interpolate.hh>
 
 class transfer_CLASS_plugin : public TransferFunction_plugin
 {
-
 private:
+  
+  using TransferFunction_plugin::cosmo_params_;
+
   interpolated_function_1d<true, true, false> delta_c_, delta_b_, delta_n_, delta_m_, theta_c_, theta_b_, theta_n_, theta_m_;
   interpolated_function_1d<true, true, false> delta_c0_, delta_b0_, delta_n0_, delta_m0_, theta_c0_, theta_b0_, theta_n0_, theta_m0_;
 
-  // single fluid growing/decaying mode decomposition
-  // gsl_interp_accel *gsl_ia_Cplus_, *gsl_ia_Cminus_;
-  // gsl_spline *gsl_sp_Cplus_, *gsl_sp_Cminus_;
-  // std::vector<double> tab_Cplus_, tab_Cminus_;
-
-  double Omega_m_, Omega_b_, N_ur_, zstart_, ztarget_, kmax_, kmin_, h_, astart_, atarget_, A_s_, n_s_, sigma8_, Tcmb_, tnorm_;
+  double zstart_, ztarget_, astart_, atarget_, kmax_, kmin_, h_, tnorm_;
 
   ClassParams pars_;
   std::unique_ptr<ClassEngine> the_ClassEngine_;
@@ -60,7 +59,7 @@ private:
   {
     //--- general parameters ------------------------------------------
     add_class_parameter("z_max_pk", std::max(std::max(zstart_, ztarget_),199.0)); // use 1.2 as safety
-    add_class_parameter("P_k_max_h/Mpc", kmax_);
+    add_class_parameter("P_k_max_h/Mpc", std::max(2.0,kmax_));
     add_class_parameter("output", "dTk,vTk");
     add_class_parameter("extra metric transfer functions","yes");
     // add_class_parameter("lensing", "no");
@@ -70,46 +69,60 @@ private:
     add_class_parameter("gauge", "synchronous");
 
     //--- cosmological parameters, densities --------------------------
-    add_class_parameter("h", h_);
+    add_class_parameter("h", cosmo_params_.get("h"));
 
-    add_class_parameter("Omega_b", Omega_b_);
-    add_class_parameter("Omega_cdm", Omega_m_ - Omega_b_);
-    add_class_parameter("Omega_k", 0.0);
-    // add_class_parameter("Omega_Lambda",1.0-Omega_m_);
+    add_class_parameter("Omega_b", cosmo_params_.get("Omega_b"));
+    add_class_parameter("Omega_cdm", cosmo_params_.get("Omega_c"));
+    add_class_parameter("Omega_k", cosmo_params_.get("Omega_k"));
     add_class_parameter("Omega_fld", 0.0);
     add_class_parameter("Omega_scf", 0.0);
+
+
     // add_class_parameter("fluid_equation_of_state","CLP");
     // add_class_parameter("w0_fld", -1 );
     // add_class_parameter("wa_fld", 0. );
     // add_class_parameter("cs2_fld", 1);
 
     //--- massive neutrinos -------------------------------------------
-#if 1
+#if 0
     //default off
     // add_class_parameter("Omega_ur",0.0);
-    add_class_parameter("N_ur", N_ur_);
+    add_class_parameter("N_ur", cosmo_params_.get("N_ur"));
     add_class_parameter("N_ncdm", 0);
 
 #else
+    
+    add_class_parameter("N_ur", cosmo_params_.get("N_ur"));
+    add_class_parameter("N_ncdm", cosmo_params_.get("N_nu_massive"));
+    if( cosmo_params_.get("N_nu_massive") > 0 ){
+      std::stringstream sstr;
+      if( cosmo_params_.get("m_nu1") > 1e-9 ) sstr << cosmo_params_.get("m_nu1");
+      if( cosmo_params_.get("m_nu2") > 1e-9 ) sstr << ", " << cosmo_params_.get("m_nu2");
+      if( cosmo_params_.get("m_nu3") > 1e-9 ) sstr << ", " << cosmo_params_.get("m_nu3");
+      add_class_parameter("m_ncdm", sstr.str().c_str());
+    }
+    
     // change above to enable
-    add_class_parameter("N_ur", 0);
-    add_class_parameter("N_ncdm", 1);
-    add_class_parameter("m_ncdm", "0.4");
-    add_class_parameter("T_ncdm", 0.71611);
+    //add_class_parameter("omega_ncdm", 0.0006451439);
+    //add_class_parameter("m_ncdm", "0.4");
+    //add_class_parameter("T_ncdm", 0.71611);
 #endif
 
     //--- cosmological parameters, primordial -------------------------
     add_class_parameter("P_k_ini type", "analytic_Pk");
 
-    if( A_s_ > 0.0 ){
-      add_class_parameter("A_s", A_s_);
+    if( cosmo_params_.get("A_s") > 0.0 ){
+      add_class_parameter("A_s", cosmo_params_.get("A_s"));
     }else{
-      add_class_parameter("sigma8", sigma8_);
+      add_class_parameter("sigma8", cosmo_params_.get("sigma_8"));
     }
-    add_class_parameter("n_s", n_s_);
+    add_class_parameter("n_s", cosmo_params_.get("n_s"));
     add_class_parameter("alpha_s", 0.0);
-    add_class_parameter("T_cmb", Tcmb_);
-    add_class_parameter("YHe", 0.248);
+    add_class_parameter("T_cmb", cosmo_params_.get("Tcmb"));
+    add_class_parameter("YHe", cosmo_params_.get("YHe"));
+
+    // additional parameters
+    add_class_parameter("reio_parametrization", "reio_none");
 
     // precision parameters
     add_class_parameter("k_per_decade_for_pk", 100);
@@ -166,53 +179,49 @@ private:
     
     the_ClassEngine_->getTk(z, k, dc, db, dn, dm, tc, tb, tn, tm);
 
-    real_t fc = (Omega_m_ - Omega_b_) / Omega_m_;
-    real_t fb = Omega_b_ / Omega_m_;
+    const double h  = cosmo_params_.get("h");
 
     for (size_t i = 0; i < k.size(); ++i)
     {
       // convert to 'CAMB' format, since we interpolate loglog and
       // don't want negative numbers...
-      auto ik2 = 1.0 / (k[i] * k[i]) * h_ * h_;
+      auto ik2 = 1.0 / (k[i] * k[i]) * h * h;
       dc[i] = -dc[i] * ik2;
       db[i] = -db[i] * ik2;
       dn[i] = -dn[i] * ik2;
-      dm[i] = fc * dc[i] + fb * db[i];
+      dm[i] = -dm[i] * ik2;
       tc[i] = -tc[i] * ik2;
       tb[i] = -tb[i] * ik2;
       tn[i] = -tn[i] * ik2;
-      tm[i] = fc * tc[i] + fb * tb[i];
+      tm[i] = -tm[i] * ik2;
     }
   }
 
 public:
-  explicit transfer_CLASS_plugin(config_file &cf)
-      : TransferFunction_plugin(cf)
+  explicit transfer_CLASS_plugin(config_file &cf, const cosmology::parameters& cosmo_params)
+      : TransferFunction_plugin(cf,cosmo_params)
   {
     this->tf_isnormalised_ = true;
 
     ofs_class_input_.open("input_class_parameters.ini", std::ios::trunc);
 
-    h_ = pcf_->get_value<double>("cosmology", "H0") / 100.0;
-    Omega_m_ = pcf_->get_value<double>("cosmology", "Omega_m");
-    Omega_b_ = pcf_->get_value<double>("cosmology", "Omega_b");
-    N_ur_ = pcf_->get_value_safe<double>("cosmology", "Neff", 3.046);
+    // all cosmological parameters need to be passed through the_cosmo_calc
+    
     ztarget_ = pcf_->get_value_safe<double>("cosmology", "ztarget", 0.0);
     atarget_ = 1.0 / (1.0 + ztarget_);
     zstart_ = pcf_->get_value<double>("setup", "zstart");
     astart_ = 1.0 / (1.0 + zstart_);
-    A_s_ = pcf_->get_value_safe<double>("cosmology", "A_s", -1.0);
-    n_s_ = pcf_->get_value<double>("cosmology", "nspec");
-    Tcmb_ = cf.get_value_safe<double>("cosmology", "Tcmb", 2.7255);
 
-    if (A_s_ > 0) {
-      music::ilog << "CLASS: Using A_s=" << A_s_<< " to normalise the transfer function." << std::endl;
+    h_ = cosmo_params_["h"];
+    
+    if (cosmo_params_["A_s"] > 0.0) {
+      music::ilog << "CLASS: Using A_s=" << cosmo_params_["A_s"] << " to normalise the transfer function." << std::endl;
     }else{
-      sigma8_ = pcf_->get_value_safe<double>("cosmology", "sigma_8", -1.0);
-      if( sigma8_ < 0 ){
+      double sigma8 = cosmo_params_["sigma_8"];
+      if( sigma8 < 0 ){
         throw std::runtime_error("Need to specify either A_s or sigma_8 for CLASS plugin...");
       }
-      music::ilog << "CLASS: Using sigma8_ =" << sigma8_<< " to normalise the transfer function." << std::endl;
+      music::ilog << "CLASS: Using sigma8_ =" << sigma8<< " to normalise the transfer function." << std::endl;
     }
 
     // determine highest k we will need for the resolution selected
@@ -222,11 +231,11 @@ public:
 
     // initialise CLASS and get the normalisation
     this->init_ClassEngine();
-    A_s_ = the_ClassEngine_->get_A_s(); // this either the input one, or the one computed from sigma8
+    double A_s_ = the_ClassEngine_->get_A_s(); // this either the input one, or the one computed from sigma8
     
     // compute the normalisation to interface with MUSIC
-    double k_p = pcf_->get_value_safe<double>("cosmology", "k_p", 0.05);
-    tnorm_ = std::sqrt(2.0 * M_PI * M_PI * A_s_ * std::pow(1.0 / k_p * h_, n_s_ - 1) / std::pow(2.0 * M_PI, 3.0));
+    double k_p = cosmo_params["k_p"] / cosmo_params["h"];
+    tnorm_ = std::sqrt(2.0 * M_PI * M_PI * A_s_ * std::pow(1.0 / k_p, cosmo_params["n_s"] - 1) / std::pow(2.0 * M_PI, 3.0));
 
     // compute the transfer function at z=0 using CLASS engine
     std::vector<double> k, dc, tc, db, tb, dn, tn, dm, tm;
@@ -257,32 +266,6 @@ public:
 
     music::ilog << "CLASS table contains k = " << this->get_kmin() << " to " << this->get_kmax() << " h Mpc-1." << std::endl;
 
-    //--------------------------------------------------------------------------
-    // single fluid growing/decaying mode decomposition
-    //--------------------------------------------------------------------------
-    /*gsl_ia_Cplus_ = gsl_interp_accel_alloc();
-    gsl_ia_Cminus_ = gsl_interp_accel_alloc();
-
-    gsl_sp_Cplus_ = gsl_spline_alloc(gsl_interp_cspline, tab_lnk_.size());
-    gsl_sp_Cminus_ = gsl_spline_alloc(gsl_interp_cspline, tab_lnk_.size());
-
-    tab_Cplus_.assign(tab_lnk_.size(), 0);
-    tab_Cminus_.assign(tab_lnk_.size(), 0);
-
-    std::ofstream ofs("grow_decay.txt");
-
-    for (size_t i = 0; i < tab_lnk_.size(); ++i)
-    {
-      tab_Cplus_[i] = (3.0 / 5.0 * tab_dtot_[i] / atarget_ - 2.0 / 5.0 * tab_ttot_[i] / atarget_);
-      tab_Cminus_[i] = (2.0 / 5.0 * std::pow(atarget_, 1.5) * (tab_dtot_[i] + tab_ttot_[i]));
-
-      ofs << std::exp(tab_lnk_[i]) << " " << tab_Cplus_[i] << " " << tab_Cminus_[i] << " " << tab_dtot_[i] << " " << tab_ttot_[i] << std::endl;
-    }
-
-    gsl_spline_init(gsl_sp_Cplus_, &tab_lnk_[0], &tab_Cplus_[0], tab_lnk_.size());
-    gsl_spline_init(gsl_sp_Cminus_, &tab_lnk_[0], &tab_Cminus_[0], tab_lnk_.size());*/
-    //--------------------------------------------------------------------------
-
     tf_distinct_ = true;
     tf_withvel_ = true;
     tf_withtotal0_ = true;
@@ -305,33 +288,35 @@ public:
     switch (type)
     {
       // values at ztarget:
-    case total:
+    case delta_matter:
       val = delta_m_(k); break;
-    case cdm:
+    case delta_cdm:
       val = delta_c_(k); break;
-    case baryon:
+    case delta_baryon:
       val = delta_b_(k); break;
-    case vtotal:
+    case theta_matter:
       val = theta_m_(k); break;
-    case vcdm:
+    case theta_cdm:
       val = theta_c_(k); break;
-    case vbaryon:
+    case theta_baryon:
       val = theta_b_(k); break;
-    case deltabc:
+    case delta_bc:
       val = delta_b_(k)-delta_c_(k); break;
+    case theta_bc:
+      val = theta_b_(k)-theta_c_(k); break;
 
       // values at zstart:
-    case total0:
+    case delta_matter0:
       val = delta_m0_(k); break;
-    case cdm0:
+    case delta_cdm0:
       val = delta_c0_(k); break;
-    case baryon0:
+    case delta_baryon0:
       val = delta_b0_(k); break;
-    case vtotal0:
+    case theta_matter0:
       val = theta_m0_(k); break;
-    case vcdm0:
+    case theta_cdm0:
       val = theta_c0_(k); break;
-    case vbaryon0:
+    case theta_baryon0:
       val = theta_b0_(k); break;
     default:
       throw std::runtime_error("Invalid type requested in transfer function evaluation");

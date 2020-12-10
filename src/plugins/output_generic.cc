@@ -30,14 +30,14 @@ protected:
 	bool out_eulerian_;
 public:
 	//! constructor
-	explicit generic_output_plugin(config_file &cf )
-	: output_plugin(cf, "Generic HDF5")
+	explicit generic_output_plugin(config_file &cf, std::unique_ptr<cosmology::calculator> &pcc )
+	: output_plugin(cf, pcc, "Generic HDF5")
 	{
 		real_t astart   = 1.0/(1.0+cf_.get_value<double>("setup", "zstart"));
 		real_t boxsize  = cf_.get_value<double>("setup", "BoxLength");
-		real_t omegab   = cf_.get_value<double>("cosmology", "Omega_b");
-		real_t omegam   = cf_.get_value<double>("cosmology", "Omega_m");
-		real_t omegal   = cf_.get_value<double>("cosmology", "Omega_L");
+		real_t omegab   = pcc->cosmo_param_["Omega_b"];
+		real_t omegam   = pcc->cosmo_param_["Omega_m"];
+		real_t omegal   = pcc->cosmo_param_["Omega_DE"];
 		
 
 		out_eulerian_   = cf_.get_value_safe<bool>("output", "generic_out_eulerian",false);

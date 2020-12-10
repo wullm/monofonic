@@ -295,7 +295,7 @@ void output_convergence(
                     for (std::size_t k = 0; k < phi_code.size(2); ++k) {
                         std::size_t idx = phi_code.get_idx(i, j, k);
                         auto kk = phi_code.get_k<real_t>(i, j, k);
-                        nabla_vini_mn.kelem(idx) = phi_code.kelem(idx) * (kk[m] * kk[n]);
+                        nabla_vini_mn.kelem(idx) = phi_code.kelem(idx) * real_t(kk[m] * kk[n]);
                     }
                 }
             }
@@ -379,12 +379,12 @@ void output_convergence(
                 for (std::size_t k = 0; k < phi.size(2); ++k) {
                     auto kk = phi.get_k<real_t>(i, j, k);
                     std::size_t idx = phi.get_idx(i, j, k);
-                    psi_1_tmp.kelem(idx) = ccomplex_t(0.0, 1.0) * (kk[idim] * phi.kelem(idx));
-                    psi_2_tmp.kelem(idx) = ccomplex_t(0.0, 1.0) * (kk[idim] * phi2.kelem(idx));
+                    psi_1_tmp.kelem(idx) = ccomplex_t(0.0, 1.0) * (real_t(kk[idim]) * phi.kelem(idx));
+                    psi_2_tmp.kelem(idx) = ccomplex_t(0.0, 1.0) * (real_t(kk[idim]) * phi2.kelem(idx));
                     psi_3_tmp.kelem(idx) = ccomplex_t(0.0, 1.0) * (
-                        kk[idim] * phi3.kelem(idx) +
-                        kk[idimp] * A3[idimpp]->kelem(idx) -
-                        kk[idimpp] * A3[idimp]->kelem(idx)
+                        real_t(kk[idim]) * phi3.kelem(idx) +
+                        real_t(kk[idimp]) * A3[idimpp]->kelem(idx) -
+                        real_t(kk[idimpp]) * A3[idimp]->kelem(idx)
                     );
                 }
             }

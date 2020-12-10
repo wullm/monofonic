@@ -21,29 +21,31 @@
 #include <memory>
 #include <general.hh>
 #include <config_file.hh>
+#include <cosmology_parameters.hh>
 
 enum tf_type
 {
-    total,
-    cdm,
-    baryon,
-    vtotal,
-    vcdm,
-    vbaryon,
-    deltabc,
-    total0,
-    cdm0,
-    baryon0,
-    vtotal0,
-    vcdm0,
-    vbaryon0,
+    delta_matter,
+    delta_cdm,
+    delta_baryon,
+    theta_matter,
+    theta_cdm,
+    theta_baryon,
+    delta_bc,
+    theta_bc,
+    delta_matter0,
+    delta_cdm0,
+    delta_baryon0,
+    theta_matter0,
+    theta_cdm0,
+    theta_baryon0,
 };
 
 class TransferFunction_plugin
 {
   public:
-    // Cosmology cosmo_;    //!< cosmological parameter, read from config_file
     config_file *pcf_;   //!< pointer to config_file from which to read parameters
+    const cosmology::parameters& cosmo_params_; //!< cosmological parameters are stored here
     bool tf_distinct_;   //!< bool if density transfer function is distinct for baryons and DM
     bool tf_withvel_;    //!< bool if also have velocity transfer functions
     bool tf_withtotal0_; //!< have the z=0 spectrum for normalisation purposes
@@ -52,8 +54,9 @@ class TransferFunction_plugin
     
   public:
     //! constructor
-    TransferFunction_plugin(config_file &cf)
-        : pcf_(&cf), tf_distinct_(false), tf_withvel_(false), tf_withtotal0_(false), tf_velunits_(false), tf_isnormalised_(false)
+    TransferFunction_plugin(config_file &cf, const cosmology::parameters& cosmo_params)
+        : pcf_(&cf), cosmo_params_( cosmo_params ), tf_distinct_(false), tf_withvel_(false), 
+          tf_withtotal0_(false), tf_velunits_(false), tf_isnormalised_(false)
     { }
 
     //! destructor
@@ -100,7 +103,7 @@ class TransferFunction_plugin
 struct TransferFunction_plugin_creator
 {
     //! create an instance of a transfer function plug-in
-    virtual std::unique_ptr<TransferFunction_plugin> create(config_file &cf) const = 0;
+    virtual std::unique_ptr<TransferFunction_plugin> create(config_file &cf, const cosmology::parameters& cp) const = 0;
 
     //! destroy an instance of a plug-in
     virtual ~TransferFunction_plugin_creator() {}
@@ -121,12 +124,12 @@ struct TransferFunction_plugin_creator_concrete : public TransferFunction_plugin
     }
 
     //! create an instance of the plug-in
-    std::unique_ptr<TransferFunction_plugin> create(config_file &cf) const
+    std::unique_ptr<TransferFunction_plugin> create(config_file &cf, const cosmology::parameters& cp) const
     {
-        return std::make_unique<Derived>(cf);
+        return std::make_unique<Derived>(cf,cp);
     }
 };
 
 // typedef TransferFunction_plugin TransferFunction;
 
-std::unique_ptr<TransferFunction_plugin> select_TransferFunction_plugin(config_file &cf);
+std::unique_ptr<TransferFunction_plugin> select_TransferFunction_plugin(config_file &cf, const cosmology::parameters& cp);

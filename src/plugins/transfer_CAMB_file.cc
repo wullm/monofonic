@@ -1,76 +1,56 @@
 // This file is part of monofonIC (MUSIC2)
 // A software package to generate ICs for cosmological simulations
 // Copyright (C) 2020 by Oliver Hahn
-// 
+//
 // monofonIC is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
-// 
+//
 // monofonIC is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
-// 
+//
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#include <gsl/gsl_errno.h>
-#include <gsl/gsl_spline.h>
-
 #include <vector>
-
-#include "transfer_function_plugin.hh"
-
-const double tiny = 1e-30;
+#include <transfer_function_plugin.hh>
+#include <math/interpolate.hh>
 
 class transfer_CAMB_file_plugin : public TransferFunction_plugin
 {
 
 private:
-  std::string m_filename_Pk, m_filename_Tk;
-  std::vector<double> m_tab_k, m_tab_Tk_tot, m_tab_Tk_cdm, m_tab_Tk_baryon;
-  std::vector<double> m_tab_Tvk_tot, m_tab_Tvk_cdm, m_tab_Tvk_baryon;
-  gsl_interp_accel *acc_tot, *acc_cdm, *acc_baryon;
-  gsl_interp_accel *acc_vtot, *acc_vcdm, *acc_vbaryon;
-  gsl_spline *spline_tot, *spline_cdm, *spline_baryon;
-  gsl_spline *spline_vtot, *spline_vcdm, *spline_vbaryon;
 
-  double m_kmin, m_kmax, m_Omega_b, m_Omega_m, m_zstart;
-  unsigned m_nlines;
+  using TransferFunction_plugin::cosmo_params_;
 
-  bool m_linbaryoninterp;
+  interpolated_function_1d<true, true, false> delta_c_, delta_b_, delta_n_, delta_m_, theta_c_, theta_b_, theta_n_, theta_m_;
 
-  void read_table(void)
+  double m_kmin, m_kmax;
+
+  // bool m_linbaryoninterp;
+
+  void read_table( const std::string& filename )
   {
 
-    m_nlines = 0;
-    m_linbaryoninterp = false;
+    size_t nlines{0};
+    // m_linbaryoninterp = false;
 
-#ifdef WITH_MPI
-    if (MPI::COMM_WORLD.Get_rank() == 0)
+    std::vector<double> k, dc, tc, db, tb, dn, tn, dm, tm;
+
+    if( CONFIG::MPI_task_rank == 0 )
     {
-#endif
-      music::ilog.Print("Reading tabulated transfer function data from file \n    \'%s\'", m_filename_Tk.c_str());
+      music::ilog << "Reading tabulated transfer function data from file:" << std::endl
+                  << "  \'" << filename << "\'" << std::endl;
 
       std::string line;
-      std::ifstream ifs(m_filename_Tk.c_str());
+      std::ifstream ifs(filename.c_str());
 
       if (!ifs.good())
-        throw std::runtime_error("Could not find transfer function file \'" + m_filename_Tk + "\'");
-
-      m_tab_k.clear();
-      m_tab_Tk_tot.clear();
-      m_tab_Tk_cdm.clear();
-      m_tab_Tk_baryon.clear();
-      m_tab_Tvk_tot.clear();
-      m_tab_Tvk_cdm.clear();    //>[150609SH: add]
-      m_tab_Tvk_baryon.clear(); //>[150609SH: add]
-
-      m_kmin = 1e30;
-      m_kmax = -1e30;
-      std::ofstream ofs("dump_transfer.txt");
-
+        throw std::runtime_error("Could not find transfer function file \'" + filename + "\'");
+      
       while (!ifs.eof())
       {
         getline(ifs, line);
@@ -83,285 +63,169 @@ private:
 
         std::stringstream ss(line);
 
-        double k, Tkc, Tkb, Tktot, Tkvtot, Tkvc, Tkvb, dummy;
+        double Tk, Tdc, Tdb, Tdn, Tdm, Tvb, Tvc, dummy;
 
-        ss >> k;
-        ss >> Tkc;   // cdm
-        ss >> Tkb;   // baryon
+        ss >> Tk;    // k
+        ss >> Tdc;   // cdm
+        ss >> Tdb;   // baryon
         ss >> dummy; // photon
         ss >> dummy; // nu
-        ss >> dummy; // mass_nu
-        ss >> Tktot; // total
+        ss >> Tdn;   // mass_nu
+        ss >> Tdm;   // total
         ss >> dummy; // no_nu
         ss >> dummy; // total_de
         ss >> dummy; // Weyl
-        ss >> Tkvc;  // v_cdm
-        ss >> Tkvb;  // v_b
+        ss >> Tvc;   // v_cdm
+        ss >> Tvb;   // v_b
         ss >> dummy; // v_b-v_cdm
 
         if (ss.bad() || ss.fail())
         {
           music::elog.Print("error reading the transfer function file (corrupt or not in expected format)!");
-          throw std::runtime_error("error reading transfer function file \'" +
-                                   m_filename_Tk + "\'");
+          throw std::runtime_error("error reading transfer function file \'" + filename + "\'");
         }
 
-        if (m_Omega_b < 1e-6)
-          Tkvtot = Tktot;
-        else
-          Tkvtot = ((m_Omega_m - m_Omega_b) * Tkvc + m_Omega_b * Tkvb) / m_Omega_m; //MvD
+        // if (cosmo_params_["Omega_b"] < 1e-6)
+        //   Tkvtot = Tktot;
+        // else
+        //   Tkvtot = cosmo_params_["f_c"] * Tkvc + cosmo_params_["f_b"]* Tkvb; 
 
-        m_linbaryoninterp |= Tkb < 0.0 || Tkvb < 0.0;
+        // m_linbaryoninterp |= Tkb < 0.0 || Tkvb < 0.0;
 
-        m_tab_k.push_back(log10(k));
-
-        m_tab_Tk_tot.push_back(Tktot);
-        m_tab_Tk_baryon.push_back(Tkb);
-        m_tab_Tk_cdm.push_back(Tkc);
-        m_tab_Tvk_tot.push_back(Tkvtot);
-        m_tab_Tvk_baryon.push_back(Tkvb);
-        m_tab_Tvk_cdm.push_back(Tkvc);
-
-        ++m_nlines;
-
-        if (k < m_kmin)
-          m_kmin = k;
-        if (k > m_kmax)
-          m_kmax = k;
-      }
-
-      for (size_t i = 0; i < m_tab_k.size(); ++i)
-      {
-        m_tab_Tk_tot[i] = log10(m_tab_Tk_tot[i]);
-        m_tab_Tk_cdm[i] = log10(m_tab_Tk_cdm[i]);
-        m_tab_Tvk_cdm[i] = log10(m_tab_Tvk_cdm[i]);
-        m_tab_Tvk_tot[i] = log10(m_tab_Tvk_tot[i]);
-
-        if (!m_linbaryoninterp)
-        {
-          m_tab_Tk_baryon[i] = log10(m_tab_Tk_baryon[i]);
-          m_tab_Tvk_baryon[i] = log10(m_tab_Tvk_baryon[i]);
-        }
+        k.push_back(Tk);
+        dc.push_back(Tdc);
+        db.push_back(Tdb);
+        dn.push_back(Tdn);
+        dm.push_back(Tdm);
+        tc.push_back(Tvc);
+        tb.push_back(Tvb);
+        tn.push_back(Tdm);
+        tm.push_back(Tdm);
+        ++nlines;  
       }
 
       ifs.close();
+      music::ilog.Print("Read CAMB transfer function table with %d rows", nlines);
 
-      music::ilog.Print("Read CAMB transfer function table with %d rows", m_nlines);
+      // if (m_linbaryoninterp)
+      //   music::ilog.Print("Using log-lin interpolation for baryons\n    (TF is not positive definite)");
 
-      if (m_linbaryoninterp)
-        music::ilog.Print("Using log-lin interpolation for baryons\n    (TF is not "
-                          "positive definite)");
-
-#ifdef WITH_MPI
     }
 
-    unsigned n = m_tab_k.size();
-    MPI::COMM_WORLD.Bcast(&n, 1, MPI_UNSIGNED, 0);
+#if defined(USE_MPI)
+    unsigned n = k.size();
+    MPI_Bcast(&n, 1, MPI_UNSIGNED, 0, MPI_COMM_WORLD);
 
-    if (MPI::COMM_WORLD.Get_rank() > 0)
+    if (CONFIG::MPI_task_rank > 0)
     {
-      m_tab_k.assign(n, 0);
-      m_tab_Tk_tot.assign(n, 0);
-      m_tab_Tk_cdm.assign(n, 0);
-      m_tab_Tk_baryon.assign(n, 0);
-      m_tab_Tvk_tot.assign(n, 0);
-      m_tab_Tvk_cdm.assign(n, 0);
-      m_tab_Tvk_baryon.assign(n, 0);
+      k.assign(n, 0);
+      dc.assign(n, 0);
+      tc.assign(n, 0);
+      db.assign(n, 0);
+      tb.assign(n, 0);
+      dn.assign(n, 0);
+      tn.assign(n, 0);
+      dm.assign(n, 0);
+      tm.assign(n, 0);
     }
 
-    MPI::COMM_WORLD.Bcast(&m_tab_k[0], n, MPI_DOUBLE, 0);
-    MPI::COMM_WORLD.Bcast(&m_tab_Tk_tot[0], n, MPI_DOUBLE, 0);
-    MPI::COMM_WORLD.Bcast(&m_tab_Tk_cdm[0], n, MPI_DOUBLE, 0);
-    MPI::COMM_WORLD.Bcast(&m_tab_Tk_baryon[0], n, MPI_DOUBLE, 0);
-    MPI::COMM_WORLD.Bcast(&m_tab_Tvk_tot[0], n, MPI_DOUBLE, 0);
-    MPI::COMM_WORLD.Bcast(&m_tab_Tvk_cdm[0], n, MPI_DOUBLE, 0);
-    MPI::COMM_WORLD.Bcast(&m_tab_Tvk_baryon[0], n, MPI_DOUBLE, 0);
-
+    MPI_Bcast(&k[0],  n, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    MPI_Bcast(&dc[0], n, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    MPI_Bcast(&tc[0], n, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    MPI_Bcast(&db[0], n, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    MPI_Bcast(&tb[0], n, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    MPI_Bcast(&dn[0], n, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    MPI_Bcast(&tn[0], n, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    MPI_Bcast(&dm[0], n, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    MPI_Bcast(&tm[0], n, MPI_DOUBLE, 0, MPI_COMM_WORLD);
 #endif
+
+    delta_c_.set_data(k, dc);
+    theta_c_.set_data(k, tc);
+    delta_b_.set_data(k, db);
+    theta_b_.set_data(k, tb);
+    delta_n_.set_data(k, dn);
+    theta_n_.set_data(k, tn);
+    delta_m_.set_data(k, dm);
+    theta_m_.set_data(k, tm);
+
+    // do not use first and last value since interpolation becomes lower order
+    m_kmin = k[1];
+    m_kmax = k[k.size()-2];
   }
 
 public:
-  transfer_CAMB_file_plugin(config_file &cf)
-      : TransferFunction_plugin(cf)
+  transfer_CAMB_file_plugin(config_file &cf, const cosmology::parameters& cosmo_params)
+      : TransferFunction_plugin(cf, cosmo_params)
   {
     music::wlog << "The CAMB file plugin is not well tested! Proceed with checks of correctness of output before running a simulation!" << std::endl;
 
-    m_filename_Tk = pcf_->get_value<std::string>("cosmology", "transfer_file");
-    m_Omega_m = cf.get_value<double>("cosmology", "Omega_m"); //MvD
-    m_Omega_b = cf.get_value<double>("cosmology", "Omega_b"); //MvD
-    m_zstart = cf.get_value<double>("setup", "zstart");       //MvD
+    std::string filename = pcf_->get_value<std::string>("cosmology", "transfer_file");
 
-    read_table();
+    this->read_table( filename );
 
-    acc_tot = gsl_interp_accel_alloc();
-    acc_cdm = gsl_interp_accel_alloc();
-    acc_baryon = gsl_interp_accel_alloc();
-    acc_vtot = gsl_interp_accel_alloc();
-    acc_vcdm = gsl_interp_accel_alloc();
-    acc_vbaryon = gsl_interp_accel_alloc();
-
-    spline_tot = gsl_spline_alloc(gsl_interp_cspline, m_tab_k.size());
-    spline_cdm = gsl_spline_alloc(gsl_interp_cspline, m_tab_k.size());
-    spline_baryon = gsl_spline_alloc(gsl_interp_cspline, m_tab_k.size());
-    spline_vtot = gsl_spline_alloc(gsl_interp_cspline, m_tab_k.size());
-    spline_vcdm =
-        gsl_spline_alloc(gsl_interp_cspline, m_tab_k.size());
-    spline_vbaryon =
-        gsl_spline_alloc(gsl_interp_cspline, m_tab_k.size());
-
-    gsl_spline_init(spline_tot, &m_tab_k[0], &m_tab_Tk_tot[0], m_tab_k.size());
-    gsl_spline_init(spline_cdm, &m_tab_k[0], &m_tab_Tk_cdm[0], m_tab_k.size());
-    gsl_spline_init(spline_baryon, &m_tab_k[0], &m_tab_Tk_baryon[0],
-                    m_tab_k.size());
-    gsl_spline_init(spline_vtot, &m_tab_k[0], &m_tab_Tvk_tot[0],
-                    m_tab_k.size());
-    gsl_spline_init(spline_vcdm, &m_tab_k[0], &m_tab_Tvk_cdm[0],
-                    m_tab_k.size());
-    gsl_spline_init(spline_vbaryon, &m_tab_k[0], &m_tab_Tvk_baryon[0],
-                    m_tab_k.size());
-
+    // set properties of this transfer function plugin:
     tf_distinct_ = true; // different density between CDM v.s. Baryon
     tf_withvel_ = true;  // using velocity transfer function
+    tf_withtotal0_ = false; // only have 1 file for the moment
   }
 
   ~transfer_CAMB_file_plugin()
   {
-    gsl_spline_free(spline_tot);
-    gsl_spline_free(spline_cdm);
-    gsl_spline_free(spline_baryon);
-    gsl_spline_free(spline_vtot);
-    gsl_spline_free(spline_vcdm);
-    gsl_spline_free(spline_vbaryon);
-
-    gsl_interp_accel_free(acc_tot);
-    gsl_interp_accel_free(acc_cdm);
-    gsl_interp_accel_free(acc_baryon);
-    gsl_interp_accel_free(acc_vtot);
-    gsl_interp_accel_free(acc_vcdm);
-    gsl_interp_accel_free(acc_vbaryon);
   }
 
-  // linear interpolation in log-log
-  inline double extrap_right(double k, const tf_type &type) const
-  {
-    int n = m_tab_k.size() - 1, n1 = n - 1;
-
-    double v1(1.0), v2(1.0);
-
-    double lk = log10(k);
-    double dk = m_tab_k[n] - m_tab_k[n1];
-    double delk = lk - m_tab_k[n];
-    double dc{0.0}, db{0.0};
-
-    switch (type)
-    {
-    case cdm:
-      v1 = m_tab_Tk_cdm[n1];
-      v2 = m_tab_Tk_cdm[n];
-      return pow(10.0, (v2 - v1) / dk * (delk) + v2);
-    case baryon:
-      v1 = m_tab_Tk_baryon[n1];
-      v2 = m_tab_Tk_baryon[n];
-      if (m_linbaryoninterp)
-        return std::max((v2 - v1) / dk * (delk) + v2, tiny);
-      return pow(10.0, (v2 - v1) / dk * (delk) + v2);
-    case vtotal: //>[150609SH: add]
-      v1 = m_tab_Tvk_tot[n1];
-      v2 = m_tab_Tvk_tot[n];
-      return pow(10.0, (v2 - v1) / dk * (delk) + v2);
-    case vcdm: //>[150609SH: add]
-      v1 = m_tab_Tvk_cdm[n1];
-      v2 = m_tab_Tvk_cdm[n];
-      return pow(10.0, (v2 - v1) / dk * (delk) + v2);
-    case vbaryon: //>[150609SH: add]
-      v1 = m_tab_Tvk_baryon[n1];
-      v2 = m_tab_Tvk_baryon[n];
-      if (m_linbaryoninterp)
-        return std::max((v2 - v1) / dk * (delk) + v2, tiny);
-      return pow(10.0, (v2 - v1) / dk * (delk) + v2);
-    case total:
-      v1 = m_tab_Tk_tot[n1];
-      v2 = m_tab_Tk_tot[n];
-      return pow(10.0, (v2 - v1) / dk * (delk) + v2);
-    case deltabc:
-      v1 = m_tab_Tk_cdm[n1];
-      v2 = m_tab_Tk_cdm[n];
-      dc = pow(10.0, (v2 - v1) / dk * (delk) + v2);
-      v1 = m_tab_Tk_baryon[n1];
-      v2 = m_tab_Tk_baryon[n];
-      db = pow(10.0, (v2 - v1) / dk * (delk) + v2);
-      return db-dc;
-    default:
-      throw std::runtime_error(
-          "Invalid type requested in transfer function evaluation");
-    }
-
-    return 0.0;
-  }
-
+  //!< return log-log interpolated values for transfer funtion 'type'
   inline double compute(double k, tf_type type) const
   {
-    // use constant interpolation on the left side of the tabulated values
-    if (k < m_kmin)
-    {
-      switch (type)
-      {
-      case cdm:
-        return pow(10.0, m_tab_Tk_cdm[0]);
-      case baryon:
-        if (m_linbaryoninterp)
-          return m_tab_Tk_baryon[0];
-        return pow(10.0, m_tab_Tk_baryon[0]);
-      case vtotal:
-        return pow(10.0, m_tab_Tvk_tot[0]);
-      case vcdm:
-        return pow(10.0, m_tab_Tvk_cdm[0]);
-      case vbaryon:
-        if (m_linbaryoninterp)
-          return m_tab_Tvk_baryon[0];
-        return pow(10.0, m_tab_Tvk_baryon[0]);
-      case total:
-        return pow(10.0, m_tab_Tk_tot[0]);
-      default:
-        throw std::runtime_error(
-            "Invalid type requested in transfer function evaluation");
-      }
-    }
-    // use linear interpolation on the right side of the tabulated values
-    else if (k > m_kmax)
-      return extrap_right(k, type);
+    // use constant interpolation on the left side of the tabulated values, i.e.
+    // set values k<k_min to value at k_min! (since transfer functions asymptote to constant)
+    k = std::max(k,m_kmin);
 
-    double lk = log10(k);
     switch (type)
     {
-    case cdm:
-      return pow(10.0, gsl_spline_eval(spline_cdm, lk, acc_cdm));
-    case baryon:
-      if (m_linbaryoninterp)
-        return gsl_spline_eval(spline_baryon, lk, acc_baryon);
-      return pow(10.0, gsl_spline_eval(spline_baryon, lk, acc_baryon));
-    case vtotal:
-      return pow(10.0, gsl_spline_eval(spline_vtot, lk, acc_vtot)); //MvD
-    case vcdm:
-      return pow(10.0, gsl_spline_eval(spline_vcdm, lk, acc_vcdm));
-    case vbaryon:
-      if (m_linbaryoninterp)
-        return gsl_spline_eval(spline_vbaryon, lk, acc_vbaryon);
-      return pow(10.0, gsl_spline_eval(spline_vbaryon, lk, acc_vbaryon));
-    case total:
-      return pow(10.0, gsl_spline_eval(spline_tot, lk, acc_tot));
+    case delta_matter0:
+    case delta_matter:  
+      return delta_m_(k);
+
+    case delta_cdm0:
+    case delta_cdm:
+      return delta_c_(k);
+
+    case delta_baryon0:
+    case delta_baryon:
+      return delta_b_(k);
+
+    case theta_matter0:
+    case theta_matter:
+      return theta_m_(k);
+
+    case theta_cdm0:
+    case theta_cdm:
+      return theta_c_(k);
+
+    case theta_baryon0:
+    case theta_baryon:
+      return theta_b_(k);
+
+    case delta_bc:
+      return delta_b_(k)-delta_c_(k);
+    
+    case theta_bc:
+      return theta_b_(k)-theta_c_(k);
+
     default:
-      throw std::runtime_error(
-          "Invalid type requested in transfer function evaluation");
+      throw std::runtime_error("Invalid type requested in transfer function evaluation");
     }
   }
 
-  inline double get_kmin(void) const { return pow(10.0, m_tab_k[1]); }
+  //!< Return minimum k for which we can interpolate
+  inline double get_kmin(void) const { return m_kmin; }
 
-  inline double get_kmax(void) const { return pow(10.0, m_tab_k[m_tab_k.size() - 2]); }
+  //!< Return maximum k for which we can interpolate
+  inline double get_kmax(void) const { return m_kmax; }
 };
 
 namespace
 {
-TransferFunction_plugin_creator_concrete<transfer_CAMB_file_plugin> creator("CAMB_file");
+  TransferFunction_plugin_creator_concrete<transfer_CAMB_file_plugin> creator("CAMB_file");
 }

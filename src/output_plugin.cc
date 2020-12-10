@@ -40,12 +40,11 @@ void print_output_plugins()
 	music::ilog << std::endl;
 }
 
-std::unique_ptr<output_plugin> select_output_plugin( config_file& cf )
+std::unique_ptr<output_plugin> select_output_plugin( config_file& cf, std::unique_ptr<cosmology::calculator>& pcc )
 {
 	std::string formatname = cf.get_value<std::string>( "output", "format" );
 	
-	output_plugin_creator *the_output_plugin_creator 
-	= get_output_plugin_map()[ formatname ];
+	output_plugin_creator *the_output_plugin_creator = get_output_plugin_map()[ formatname ];
 	
 	if( !the_output_plugin_creator )
 	{	
@@ -58,7 +57,7 @@ std::unique_ptr<output_plugin> select_output_plugin( config_file& cf )
 		music::ilog << std::setw(32) << std::left << "Output plugin" << " : " << formatname << std::endl;
 	}
 	
-	return std::move(the_output_plugin_creator->create( cf ));
+	return std::move(the_output_plugin_creator->create( cf, pcc ));
 }
 
 

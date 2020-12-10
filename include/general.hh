@@ -30,7 +30,14 @@
 
 #include "config_file.hh"
 
+//! use to suppress warnings of unused variables
 #define _unused(x) ((void)(x))
+
+//! assert on all elements of a brace enclosed initializer list (useful for variadic templates)
+inline void list_assert_all( const std::initializer_list<bool>& t )
+{
+  for( auto b : t ) {assert(b);_unused(b);}
+}
 
 // include CMake controlled configuration settings
 #include "cmake_config.hh"

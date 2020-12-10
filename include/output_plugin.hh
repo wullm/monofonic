@@ -25,6 +25,7 @@
 #include <general.hh>
 #include <grid_fft.hh>
 #include <config_file.hh>
+#include <cosmology_calculator.hh>
 
 enum class output_type {particles,field_lagrangian,field_eulerian};
 
@@ -35,6 +36,9 @@ protected:
 	//! reference to the config_file object that holds all configuration options
 	config_file &cf_;
 
+	//! reference to the cosmology calculator object that does all things cosmological
+	std::unique_ptr<cosmology::calculator> &pcc_;
+
 	//! output file or directory name
 	std::string fname_;
 
@@ -42,8 +46,8 @@ protected:
 	std::string interface_name_;
 public:
 	//! constructor
-	output_plugin(config_file &cf, std::string interface_name )
-		: cf_(cf), interface_name_(interface_name)
+	output_plugin(config_file &cf, std::unique_ptr<cosmology::calculator>& pcc, std::string interface_name )
+		: cf_(cf), pcc_(pcc), interface_name_(interface_name)
 	{
 		fname_ = cf_.get_value<std::string>("output", "filename");
 	}
@@ -88,7 +92,7 @@ public:
 struct output_plugin_creator
 {
 	//! create an instance of a plug-in
-	virtual std::unique_ptr<output_plugin> create(config_file &cf) const = 0;
+	virtual std::unique_ptr<output_plugin> create(config_file &cf, std::unique_ptr<cosmology::calculator>& pcc) const = 0;
 
 	//! destroy an instance of a plug-in
 	virtual ~output_plugin_creator() {}
@@ -113,12 +117,12 @@ struct output_plugin_creator_concrete : public output_plugin_creator
 	}
 
 	//! create an instance of the plug-in
-	std::unique_ptr<output_plugin> create(config_file &cf) const
+	std::unique_ptr<output_plugin> create(config_file &cf, std::unique_ptr<cosmology::calculator>& pcc) const
 	{
-		return std::make_unique<Derived>(cf); // Derived( cf );
+		return std::make_unique<Derived>(cf,pcc); // Derived( cf );
 	}
 };
 
 //! failsafe version to select the output plug-in
-std::unique_ptr<output_plugin> select_output_plugin(config_file &cf);
+std::unique_ptr<output_plugin> select_output_plugin(config_file &cf, std::unique_ptr<cosmology::calculator>& pcc);
 

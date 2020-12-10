@@ -40,12 +40,12 @@ std::unique_ptr<RNG_plugin> the_random_number_generator;
 std::unique_ptr<output_plugin> the_output_plugin;
 std::unique_ptr<cosmology::calculator>  the_cosmo_calc;
 
-int Initialise( config_file& the_config )
+int initialise( config_file& the_config )
 {
     the_random_number_generator = std::move(select_RNG_plugin(the_config));
-    the_output_plugin           = std::move(select_output_plugin(the_config));
     the_cosmo_calc              = std::make_unique<cosmology::calculator>(the_config);
-
+    the_output_plugin           = std::move(select_output_plugin(the_config, the_cosmo_calc));
+    
     return 0;
 }
 
@@ -55,7 +55,7 @@ void reset () {
     the_cosmo_calc.reset();
 }
 
-int Run( config_file& the_config )
+int run( config_file& the_config )
 {
     //--------------------------------------------------------------------------------------------------------
     // Read run parameters
@@ -96,14 +96,17 @@ int Run( config_file& the_config )
     //--------------------------------------------------------------------------------------------------------
     //! do baryon ICs?
     const bool bDoBaryons = the_config.get_value_safe<bool>("setup", "DoBaryons", false );
+    //! enable also back-scaled decaying relative velocity mode? only first order!
+    const bool bDoLinearBCcorr = the_config.get_value_safe<bool>("cosmology", "DoBaryonVrel", false);
+    // compute mass fractions 
     std::map< cosmo_species, double > Omega;
     if( bDoBaryons ){
-        double Om = the_config.get_value<double>("cosmology", "Omega_m");
-        double Ob = the_config.get_value<double>("cosmology", "Omega_b");
+        double Om = the_cosmo_calc->cosmo_param_["Omega_m"];
+        double Ob = the_cosmo_calc->cosmo_param_["Omega_b"];
         Omega[cosmo_species::dm] = Om-Ob;
         Omega[cosmo_species::baryon] = Ob;
     }else{
-        double Om = the_config.get_value<double>("cosmology", "Omega_m");
+        double Om = the_cosmo_calc->cosmo_param_["Omega_m"];
         Omega[cosmo_species::dm] = Om;
         Omega[cosmo_species::baryon] = 0.0;
     }
@@ -137,9 +140,9 @@ int Run( config_file& the_config )
 
     // Anisotropy parameters for beyond box tidal field 
     const std::array<real_t,3> lss_aniso_lambda = {
-        the_config.get_value_safe<double>("cosmology", "LSS_aniso_lx", 0.0),
-        the_config.get_value_safe<double>("cosmology", "LSS_aniso_ly", 0.0),
-        the_config.get_value_safe<double>("cosmology", "LSS_aniso_lz", 0.0),
+        real_t(the_config.get_value_safe<double>("cosmology", "LSS_aniso_lx", 0.0)),
+        real_t(the_config.get_value_safe<double>("cosmology", "LSS_aniso_ly", 0.0)),
+        real_t(the_config.get_value_safe<double>("cosmology", "LSS_aniso_lz", 0.0)),
     };  
     
     const real_t lss_aniso_sum_lambda = lss_aniso_lambda[0]+lss_aniso_lambda[1]+lss_aniso_lambda[2];
@@ -161,31 +164,42 @@ int Run( config_file& the_config )
     const real_t Dplus0 = the_cosmo_calc->get_growth_factor(astart);
     const real_t vfac   = the_cosmo_calc->get_vfact(astart);
 
-    const double g1  = -Dplus0;
-    const double g2  = ((LPTorder>1)? -3.0/7.0*Dplus0*Dplus0 : 0.0);
-    const double g3  = ((LPTorder>2)? 1.0/3.0*Dplus0*Dplus0*Dplus0 : 0.0);
-    // const double g3a = ((LPTorder>2)? 1.0/3.0*Dplus0*Dplus0*Dplus0 : 0.0);
-    // const double g3b = ((LPTorder>2)? -10.0/21.*Dplus0*Dplus0*Dplus0 : 0.0);
-    const double g3c = ((LPTorder>2)? 1.0/7.0*Dplus0*Dplus0*Dplus0 : 0.0);
+    const real_t g1  = -Dplus0;
+    const real_t g2  = ((LPTorder>1)? -3.0/7.0*Dplus0*Dplus0 : 0.0);
+    const real_t g3  = ((LPTorder>2)? 1.0/3.0*Dplus0*Dplus0*Dplus0 : 0.0);
+    const real_t g3c = ((LPTorder>2)? 1.0/7.0*Dplus0*Dplus0*Dplus0 : 0.0);
 
     // vfac = d log D+ / dt 
     // d(D+^2)/dt = 2*D+ * d D+/dt = 2 * D+^2 * vfac
     // d(D+^3)/dt = 3*D+^2* d D+/dt = 3 * D+^3 * vfac
-    const double vfac1 =  vfac;
-    const double vfac2 =  2*vfac;
-    const double vfac3 =  3*vfac;
+    const real_t vfac1 =  vfac;
+    const real_t vfac2 =  2*vfac;
+    const real_t vfac3 =  3*vfac;
 
     // anisotropic velocity growth factor for external tides
     // cf. eq. (5) of Stuecker et al. 2020 (https://arxiv.org/abs/2003.06427)
     const std::array<real_t,3> lss_aniso_alpha = {
-        1.0 - Dplus0 * lss_aniso_lambda[0],
-        1.0 - Dplus0 * lss_aniso_lambda[1],
-        1.0 - Dplus0 * lss_aniso_lambda[2],
+        real_t(1.0) - Dplus0 * lss_aniso_lambda[0],
+        real_t(1.0) - Dplus0 * lss_aniso_lambda[1],
+        real_t(1.0) - Dplus0 * lss_aniso_lambda[2],
     };
 
     //--------------------------------------------------------------------
     // Create arrays
     //--------------------------------------------------------------------
+
+    // white noise field 
+    Grid_FFT<real_t> wnoise({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
+
+    //... Fill the wnoise grid with a Gaussian white noise field, we do this first since the RNG might need extra memory
+    music::ilog << "-------------------------------------------------------------------------------" << std::endl;
+    music::ilog << "Generating white noise field...." << std::endl;
+
+    the_random_number_generator->Fill_Grid(wnoise);
+    
+    wnoise.FourierTransformForward();
+
+    //... Next, declare LPT related arrays, allocated only as needed by order
     Grid_FFT<real_t> phi({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
     Grid_FFT<real_t> phi2({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen}, false); // do not allocate these unless needed
     Grid_FFT<real_t> phi3({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen}, false); //   ..
@@ -196,24 +210,12 @@ int Run( config_file& the_config )
     //... array [.] access to components of A3:
     std::array<Grid_FFT<real_t> *, 3> A3({&A3x, &A3y, &A3z});
 
-    // white noise field 
-    Grid_FFT<real_t> wnoise({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
-
     // temporary storage of additional data
     Grid_FFT<real_t> tmp({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
 
     //--------------------------------------------------------------------
-    // Fill the grid with a Gaussian white noise field
-    //--------------------------------------------------------------------
-    music::ilog << "-------------------------------------------------------------------------------" << std::endl;
-    music::ilog << "Generating white noise field...." << std::endl;
-
-    the_random_number_generator->Fill_Grid(wnoise);
-    
-    wnoise.FourierTransformForward();
-
-    //--------------------------------------------------------------------
     // Use externally specified large scale modes from constraints in case
+    // TODO: move to separate routine
     //--------------------------------------------------------------------
     if( bAddConstrainedModes ){
         Grid_FFT<real_t,false> cwnoise({8,8,8}, {boxlen,boxlen,boxlen});
@@ -328,7 +330,7 @@ int Run( config_file& the_config )
     phi.FourierTransformForward(false);
     phi.assign_function_of_grids_kdep([&](auto k, auto wn) {
         real_t kmod = k.norm();
-        ccomplex_t delta = wn * the_cosmo_calc->get_amplitude(kmod, total);
+        ccomplex_t delta = wn * the_cosmo_calc->get_amplitude(kmod, delta_matter);
         return -delta / (kmod * kmod);
     }, wnoise);
 
@@ -359,7 +361,7 @@ int Run( config_file& the_config )
             phi2.assign_function_of_grids_kdep([&](vec3_t<real_t> kvec, ccomplex_t pphi, ccomplex_t pphi2) {
                 real_t k2 = kvec.norm_squared();
                 real_t fac_aniso = (kvec[0] * kvec[0] * lss_aniso_lambda[0] + kvec[1] * kvec[1] * lss_aniso_lambda[1] + kvec[2] * kvec[2] * lss_aniso_lambda[2]);
-                return pphi2 - (lss_aniso_sum_lambda * k2 + 4.0/3.0 * fac_aniso ) * pphi;
+                return pphi2 - (lss_aniso_sum_lambda * k2 + real_t(4.0/3.0) * fac_aniso ) * pphi;
             }, phi, phi2);
         }
 
@@ -490,7 +492,7 @@ int Run( config_file& the_config )
         music::ilog << std::endl
                     << ">>> Computing ICs for species \'" << cosmo_species_name[this_species] << "\' <<<\n" << std::endl;
 
-        const real_t C_species = (this_species == cosmo_species::baryon)? (1.0-the_cosmo_calc->cosmo_param_.f_b) : -the_cosmo_calc->cosmo_param_.f_b;
+        const real_t C_species = (this_species == cosmo_species::baryon)? (1.0-the_cosmo_calc->cosmo_param_["f_b"]) : -the_cosmo_calc->cosmo_param_["f_b"];
 
         // main loop block
         {
@@ -525,7 +527,7 @@ int Run( config_file& the_config )
                 wnoise.FourierTransformForward();
                 rho.FourierTransformForward(false);
                 rho.assign_function_of_grids_kdep( [&]( auto k, auto wn ){
-                    return wn * the_cosmo_calc->get_amplitude_rhobc(k.norm());;
+                    return wn * the_cosmo_calc->get_amplitude_delta_bc(k.norm(),bDoLinearBCcorr);
                 }, wnoise );
                 rho.zero_DC_mode();
                 rho.FourierTransformBackward();
@@ -556,7 +558,7 @@ int Run( config_file& the_config )
                 wnoise.FourierTransformForward();
                 rho.FourierTransformForward(false);
                 rho.assign_function_of_grids_kdep( [&]( auto k, auto wn ){
-                    return wn * the_cosmo_calc->get_amplitude_rhobc(k.norm());;
+                    return wn * the_cosmo_calc->get_amplitude_delta_bc(k.norm(), false);
                 }, wnoise );
                 rho.zero_DC_mode();
                 rho.FourierTransformBackward();
@@ -650,7 +652,7 @@ int Run( config_file& the_config )
                     
                     tmp.FourierTransformBackward(false);
                     tmp.assign_function_of_grids_r([&](auto ppsi, auto pgrad_psi, auto prho) {
-                            return vunit * std::real((std::conj(ppsi) * pgrad_psi - ppsi * std::conj(pgrad_psi)) / ccomplex_t(0.0, 2.0 / hbar)/(1.0+prho));
+                            return vunit * std::real((std::conj(ppsi) * pgrad_psi - ppsi * std::conj(pgrad_psi)) / ccomplex_t(0.0, 2.0 / hbar)/real_t(1.0+prho));
                         }, psi, grad_psi, rho);
 
                     fluid_component fc = (idim==0)? fluid_component::vx : ((idim==1)? fluid_component::vy : fluid_component::vz );
@@ -682,6 +684,7 @@ int Run( config_file& the_config )
                     A3[1]->FourierTransformForward();
                     A3[2]->FourierTransformForward();
                 }
+                wnoise.FourierTransformForward();
             
                 // write out positions
                 for( int idim=0; idim<3; ++idim ){
@@ -767,6 +770,12 @@ int Run( config_file& the_config )
                                 
                                 if( LPTorder > 2 ){
                                     tmp.kelem(idx) += vfac3 * (lg.gradient(idimp,tmp.get_k3(i,j,k)) * A3[idimpp]->kelem(idx) - lg.gradient(idimpp,tmp.get_k3(i,j,k)) * A3[idimp]->kelem(idx));
+                                }
+
+                                // if multi-species, then add vbc component backwards
+                                if( bDoBaryons & bDoLinearBCcorr ){
+                                    real_t knorm = wnoise.get_k<real_t>(i,j,k).norm();
+                                    tmp.kelem(idx) -= vfac1 * C_species * the_cosmo_calc->get_amplitude_theta_bc(knorm, bDoLinearBCcorr) * wnoise.kelem(i,j,k) * lg.gradient(idim,tmp.get_k3(i,j,k)) / (knorm*knorm);
                                 }
 
                                 // correct with interpolation kernel if we used interpolation to read out the positions (for glasses)

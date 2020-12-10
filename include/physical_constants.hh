@@ -69,4 +69,7 @@ static constexpr double u_SI = 1.660539040e-27;
 // critical density of the Universe in h^2 kg/m^3
 static constexpr double rhocrit_h2_SI = 3 * 1e10 / (8 * pi_ * G_SI) / Mpc_SI / Mpc_SI;
 
+// solar mass in kg
+static constexpr double Msun_SI = 1.98847e30;
+
 } // namespace phys_const

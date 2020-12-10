@@ -28,6 +28,7 @@
 
 #include <general.hh>
 #include <ic_generator.hh>
+#include <cosmology_parameters.hh>
 #include <particle_plt.hh>
 
 
@@ -73,8 +74,9 @@ int main( int argc, char** argv )
     //------------------------------------------------------------------------------
     
 #if defined(USE_MPI)
-    MPI_Init_thread(&argc, &argv, MPI_THREAD_FUNNELED, &CONFIG::MPI_thread_support);
-    CONFIG::MPI_threads_ok = CONFIG::MPI_thread_support >= MPI_THREAD_FUNNELED;
+    int thread_wanted = MPI_THREAD_MULTIPLE; // MPI_THREAD_FUNNELED
+    MPI_Init_thread(&argc, &argv, thread_wanted, &CONFIG::MPI_thread_support);
+    CONFIG::MPI_threads_ok = CONFIG::MPI_thread_support >= thread_wanted;
     MPI_Comm_rank(MPI_COMM_WORLD, &CONFIG::MPI_task_rank);
     MPI_Comm_size(MPI_COMM_WORLD, &CONFIG::MPI_task_size);
     CONFIG::MPI_ok = true;
@@ -123,6 +125,7 @@ int main( int argc, char** argv )
     if (argc != 2)
     {
         // print_region_generator_plugins();
+        cosmology::print_ParameterSets();
         print_TransferFunction_plugins();
         print_RNG_plugins();
         print_output_plugins();
@@ -166,7 +169,7 @@ int main( int argc, char** argv )
     omp_set_num_threads(CONFIG::num_threads);
 #endif
 
-    // std::feclearexcept(FE_ALL_EXCEPT);
+    std::feclearexcept(FE_ALL_EXCEPT);
 
     //------------------------------------------------------------------------------
     // Write code configuration to screen
@@ -211,7 +214,7 @@ int main( int argc, char** argv )
     music::ilog << std::setw(32) << std::left << "OS/Kernel version" << " : " << kinfo.kernel << " version " << kinfo.major << "." << kinfo.minor << " build " << kinfo.build_number << std::endl;
 
     // FFTW related infos
-    music::ilog << std::setw(32) << std::left << "FFTW version" << " : " << fftw_version << std::endl;
+    music::ilog << std::setw(32) << std::left << "FFTW version" << " : " << FFTW_API(version) << std::endl;
     music::ilog << std::setw(32) << std::left << "FFTW supports multi-threading" << " : " << (CONFIG::FFTW_threads_ok? "yes" : "no") << std::endl;
     music::ilog << std::setw(32) << std::left << "FFTW mode" << " : ";
 #if defined(FFTW_MODE_PATIENT)
@@ -221,12 +224,12 @@ int main( int argc, char** argv )
 #else
 	music::ilog << "FFTW_ESTIMATE" << std::endl;
 #endif
-    //--------------------------------------------------------------------
+
+    ///////////////////////////////////////////////////////////////////////
     // Initialise plug-ins
-    //--------------------------------------------------------------------
     try
     {
-        ic_generator::Initialise( the_config );
+        ic_generator::initialise( the_config );
     }catch(...){
         handle_eptr( std::current_exception() );
         music::elog << "Problem during initialisation. See error(s) above. Exiting..." << std::endl;
@@ -235,17 +238,20 @@ int main( int argc, char** argv )
         #endif
         return 1;
     }
+    ///////////////////////////////////////////////////////////////////////
+
 
     ///////////////////////////////////////////////////////////////////////
     // do the job...
-    ///////////////////////////////////////////////////////////////////////
-    ic_generator::Run( the_config );
-
-    // particle::test_plt();
+    ic_generator::run( the_config );
     ///////////////////////////////////////////////////////////////////////
 
+
+    ///////////////////////////////////////////////////////////////////////
     // call the destructor of plugins before tearing down MPI
     ic_generator::reset();
+    ///////////////////////////////////////////////////////////////////////
+
 
 #if defined(USE_MPI)
     MPI_Barrier(MPI_COMM_WORLD);

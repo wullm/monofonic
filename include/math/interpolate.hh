@@ -1,3 +1,20 @@
+// This file is part of monofonIC (MUSIC2)
+// A software package to generate ICs for cosmological simulations
+// Copyright (C) 2020 by Oliver Hahn
+// 
+// monofonIC is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+// 
+// monofonIC is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+// 
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
 #pragma once
 
 #include <vector>
@@ -29,6 +46,7 @@ public:
   interpolated_function_1d(const std::vector<double> &data_x, const std::vector<double> &data_y)
   : isinit_(false)
   {
+    static_assert(!(logx & periodic),"Class \'interpolated_function_1d\' cannot both be periodic and logarithmic in x!");
     this->set_data( data_x, data_y );
   }
 
@@ -44,7 +62,6 @@ public:
     
     assert(data_x_.size() == data_y_.size());
     assert(data_x_.size() > 5);
-    assert(!(logx & periodic));
 
     if (logx) for (auto &d : data_x_) d = std::log(d);
     if (logy) for (auto &d : data_y_) d = std::log(d);
@@ -61,8 +78,8 @@ public:
   double operator()(double x) const noexcept
   {
     assert( isinit_ && !(logx&&x<=0.0) );
-    double xa = logx ? std::log(x) : x;
-    double y(gsl_spline_eval(gsl_sp_, xa, gsl_ia_));
+    const double xa = logx ? std::log(x) : x;
+    const double y(gsl_spline_eval(gsl_sp_, xa, gsl_ia_));
     return logy ? std::exp(y) : y;
   }
 };
