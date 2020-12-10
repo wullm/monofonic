@@ -362,9 +362,10 @@ inline bool config_file::get_value_safe<bool>(std::string const &strSection,
   std::string r1;
   try {
     r1 = get_value_basic<std::string>(strSection, strEntry);
-    if (r1 == "true" || r1 == "yes" || r1 == "on" || r1 == "1")
+    std::transform(r1.begin(), r1.end(),r1.begin(), ::toupper);
+    if (r1 == "YAY" || r1 == "TRUE" || r1 == "YES" || r1 == "ON" || r1 == "1")
       return true;
-    if (r1 == "false" || r1 == "no" || r1 == "off" || r1 == "0")
+    if (r1 == "NAY" || r1 == "FALSE" || r1 == "NO" || r1 == "OFF" || r1 == "0")
       return false;
   } catch (except_item_not_found&) {
     return defaultValue;
