@@ -171,21 +171,21 @@ protected:
   {
     // if ngrid is not a multiple of i_base, then we need to enlarge and then sample down
     ngrid_ = pcf_->get_value<size_t>("setup", "GridRes");
-    size_t ngidminsize_panphasia = pcf_->get_value_safe<size_t>("random", "PanphasiaMinRootResolution",512);
+    int ngidminsize_panphasia = pcf_->get_value_safe<int>("random", "PanphasiaMinRootResolution",512);
 
     grid_p_ = pdescriptor_->i_base;
     
-    lextra_ = (log10((double)std::max<size_t>(ngrid_,ngidminsize_panphasia) / (double)grid_p_) + 0.001) / log10(2.0);
-    // lmin 
+    lextra_ = (log10((double)ngrid_ / (double)grid_p_) + 0.001) / log10(2.0);
+    // lmin
 
     ngrid_panphasia_ = (1 << lextra_) * grid_p_;
-    
-    if( ngrid_panphasia_ < ngrid_ ){
+
+    if( ngrid_panphasia_ < ngidminsize_panphasia ){
       lextra_++;
       ngrid_panphasia_*=2;
     }
-    assert( ngrid_panphasia_ >= ngrid_ );
-
+    assert( ngrid_panphasia_ >= ngidminsize_panphasia);
+   
     clear_panphasia_thread_states();
 
     music::ilog.Print("PANPHASIA: using grid size %lld (level=%d)",ngrid_panphasia_, lextra_);
