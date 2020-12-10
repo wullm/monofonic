@@ -175,7 +175,7 @@ protected:
 
     grid_p_ = pdescriptor_->i_base;
     
-    lextra_ = (log10((double)std::max(ngrid_,ngidminsize_panphasia) / (double)grid_p_) + 0.001) / log10(2.0);
+    lextra_ = (log10((double)std::max<size_t>(ngrid_,ngidminsize_panphasia) / (double)grid_p_) + 0.001) / log10(2.0);
     // lmin 
 
     ngrid_panphasia_ = (1 << lextra_) * grid_p_;
