@@ -171,7 +171,7 @@ protected:
   {
     // if ngrid is not a multiple of i_base, then we need to enlarge and then sample down
     ngrid_ = pcf_->get_value<size_t>("setup", "GridRes");
-    int ngidminsize_panphasia = pcf_->get_value_safe<int>("random", "PanphasiaMinRootResolution",512);
+    int ngridminsize_panphasia = pcf_->get_value_safe<int>("random", "PanphasiaMinRootResolution",512);
 
     grid_p_ = pdescriptor_->i_base;
     
@@ -180,15 +180,18 @@ protected:
 
     ngrid_panphasia_ = (1 << lextra_) * grid_p_;
 
-    if( ngrid_panphasia_ < ngidminsize_panphasia ){
+    while( ngrid_panphasia_ < ngridminsize_panphasia ){
       lextra_++;
       ngrid_panphasia_*=2;
     }
-    assert( ngrid_panphasia_ >= ngidminsize_panphasia);
+    assert( ngrid_panphasia_ >= ngridminsize_panphasia);
+
    
     clear_panphasia_thread_states();
 
     music::ilog.Print("PANPHASIA: using grid size %lld (level=%d)",ngrid_panphasia_, lextra_);
+    if (ngridminsize_panphasia<512) 
+        music::ilog.Print("PANPHASIA WARNING: PanphasiaMinRootResolution = %d below minimum recommended of 512",ngridminsize_panphasia);
     music::ilog.Print("PANPHASIA: running with %d threads", num_threads_, ngrid_panphasia_ );
 
     coordinate_system_shift_[0] = -pcf_->get_value_safe<int>("setup", "shift_x", 0);
