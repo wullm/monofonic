@@ -41,7 +41,7 @@ protected:
   int num_files_, num_simultaneous_writers_;
 
   real_t lunit_, vunit_, munit_;
-  real_t boxsize_, hubble_param_, astart_;
+  real_t boxsize_, hubble_param_, astart_, zstart_;
   bool blongids_, bdobaryons_;
   std::string this_fname_;
 
@@ -63,7 +63,8 @@ public:
     const double rhoc = 27.7519737; // in h^2 1e10 M_sol / Mpc^3
 
     hubble_param_ = pcc->cosmo_param_["h"];
-    astart_ = 1.0/(1.0+cf_.get_value<double>("setup","zstart"));
+    zstart_ = cf_.get_value<double>("setup","zstart");
+    astart_ = 1.0/(1.0 + zstart_);
     boxsize_ = cf_.get_value<double>("setup", "BoxLength");
 
     lunit_ = boxsize_ / hubble_param_; // final units will be in Mpc (without h)
@@ -125,6 +126,7 @@ public:
       HDFWriteGroupAttribute(this_fname_, "Header", "MassTable", from_7array<double>(mass_));
       
       HDFWriteGroupAttribute(this_fname_, "Header", "Time", from_value<double>(time_));
+      HDFWriteGroupAttribute(this_fname_, "Header", "Redshift", from_value<double>(zstart_));
       HDFWriteGroupAttribute(this_fname_, "Header", "Flag_Entropy_ICs", from_value<int>(0));
 
       HDFWriteGroupAttribute(this_fname_, "Header", "NumFilesPerSnapshot", from_value<int>(num_files_));
