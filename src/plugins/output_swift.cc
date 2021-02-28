@@ -73,7 +73,7 @@ public:
     blongids_ = cf_.get_value_safe<bool>("output", "UseLongids", false);
     bdobaryons_ = cf_.get_value<bool>("setup","DoBaryons");
 
-    for (int i = 0; i < 6; ++i)
+    for (int i = 0; i < 7; ++i)
     {
       npart_[i] = 0;
       npartTotal_[i] = 0;
@@ -196,7 +196,7 @@ public:
     case cosmo_species::baryon:
       return 0;
     case cosmo_species::neutrino:
-      return 3;
+      return 6;
     }
     return -1;
   }
