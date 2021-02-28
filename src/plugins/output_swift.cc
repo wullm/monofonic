@@ -159,7 +159,8 @@ public:
         const double mu = (Tini > 1.e4) ? 4.0 / (8. - 5. * YHe) : 4.0 / (1. + 3. * (1. - YHe));
         const double ceint = 1.3806e-16 / 1.6726e-24 * Tini * npol / mu / unitv / unitv;
 
-        music::ilog.Print("Swift : set initial gas temperature to %.2f K/mu", Tini / mu);
+        music::ilog.Print("Swift : Calculated initial gas temperature: %.2f K/mu", Tini / mu);
+        music::ilog.Print("Swift : set initial internal energy to %.2e km^2/s^2", ceint);
 
         std::vector<write_real_t> data( npart_[0], ceint );
         HDFWriteDataset(this_fname_, "PartType0/InternalEnergy", data);
