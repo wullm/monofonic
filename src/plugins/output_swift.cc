@@ -152,7 +152,11 @@ public:
         std::vector<write_real_t> data( npart_[0], ceint );
         HDFWriteDataset(this_fname_, "PartType0/InternalEnergy", data);
 
-        data.assign( npart_[0], boxsize_ / cf_.get_value<double>("setup","GridRes") );
+        const double h = boxsize_ / hubble_param_ / cf_.get_value<double>("setup","GridRes");
+
+        music::ilog.Print("Swift : set initial smoothing length to mean inter-part separation: %.2f Mpc", h);
+
+        data.assign( npart_[0], h);
         HDFWriteDataset(this_fname_, "PartType0/SmoothingLength", data);
         
       }
