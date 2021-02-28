@@ -98,13 +98,13 @@ public:
     // create output HDF5 file
     HDFCreateFile(this_fname_);
 
-    // Write UNITS header
+    // Write UNITS header using the physical constants assumed internally by SWIFT
     HDFCreateGroup(this_fname_, "Units");
-    HDFWriteGroupAttribute(this_fname_, "Units", "Unit mass in cgs (U_M)", 1.98848e43);      // 10^10 Msun in grams
-    HDFWriteGroupAttribute(this_fname_, "Units", "Unit length in cgs (U_L)", 3.08567758e24); // 1 Mpc in cm
-    HDFWriteGroupAttribute(this_fname_, "Units", "Unit time in cgs (U_t)", 3.08567758e19);   // so that unit vel is 1 km/s
-    HDFWriteGroupAttribute(this_fname_, "Units", "Unit current in cgs (U_I)", 1.0);            // 1 Ampere
-    HDFWriteGroupAttribute(this_fname_, "Units", "Unit temperature in cgs (U_T)", 1.0);               // 1 Kelvin
+    HDFWriteGroupAttribute(this_fname_, "Units", "Unit mass in cgs (U_M)", 1.98841e43);         // 10^10 Msun in grams
+    HDFWriteGroupAttribute(this_fname_, "Units", "Unit length in cgs (U_L)", 3.08567758149e24); // 1 Mpc in cm
+    HDFWriteGroupAttribute(this_fname_, "Units", "Unit time in cgs (U_t)", 3.08567758149e19);   // so that unit vel is 1 km/s
+    HDFWriteGroupAttribute(this_fname_, "Units", "Unit current in cgs (U_I)", 1.0);             // 1 Ampere
+    HDFWriteGroupAttribute(this_fname_, "Units", "Unit temperature in cgs (U_T)", 1.0);         // 1 Kelvin
 
     // Write MUSIC configuration header
     HDFCreateGroup(this_fname_, "ICs_parameters");
