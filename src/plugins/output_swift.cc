@@ -92,6 +92,10 @@ public:
       this_fname_ += "." + std::to_string(thisrank);
 #endif
 
+    // Now that we modified the filename for MPI support, propagate the change to the super-class
+    // as it does operations on the file behind our back.
+    fname_ = this_fname_;
+
     // delete output file if it exists
     unlink(this_fname_.c_str());
 
