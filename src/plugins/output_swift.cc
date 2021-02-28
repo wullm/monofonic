@@ -106,9 +106,15 @@ public:
     HDFWriteGroupAttribute(this_fname_, "Units", "Unit current in cgs (U_I)", 1.0);            // 1 Ampere
     HDFWriteGroupAttribute(this_fname_, "Units", "Unit temperature in cgs (U_T)", 1.0);               // 1 Kelvin
 
-    // TODO: Write MUSIC configuration header
-    HDFCreateGroup(fname_, "ICs_parameters");
-    // ...
+    // Write MUSIC configuration header
+    HDFCreateGroup(this_fname_, "ICs_parameters");
+    HDFWriteGroupAttribute(this_fname_, "ICs_parameters", "Code", std::string("MUSIC2 - monofonIC"));
+    HDFWriteGroupAttribute(this_fname_, "ICs_parameters", "Git Revision", std::string(GIT_REV));
+    HDFWriteGroupAttribute(this_fname_, "ICs_parameters", "Git Tag", std::string(GIT_TAG));
+    HDFWriteGroupAttribute(this_fname_, "ICs_parameters", "Git Branch", std::string(GIT_BRANCH));
+    HDFWriteGroupAttribute(this_fname_, "ICs_parameters", "Precision", std::string(CMAKE_PRECISION_STR));
+    HDFWriteGroupAttribute(this_fname_, "ICs_parameters", "Convolutions", std::string(CMAKE_CONVOLVER_STR));
+    HDFWriteGroupAttribute(this_fname_, "ICs_parameters", "PLT", std::string(CMAKE_PLT_STR));
   }
 
   // use destructor to write header post factum
