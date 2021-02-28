@@ -124,7 +124,7 @@ public:
     {   
       HDFCreateGroup(this_fname_, "Header");
       HDFWriteGroupAttribute(fname_, "Header", "Dimension", 3);
-      HDFWriteGroupAttribute(fname_, "Header", "BoxSize", lunit_);  // in Mpc, not Mpc/h
+      HDFWriteGroupAttribute(fname_, "Header", "BoxSize", boxsize_ / hubble_param_);  // in Mpc, not Mpc/h
       
       HDFWriteGroupAttribute(this_fname_, "Header", "NumPart_Total", from_7array<unsigned>(npartTotal_));
       HDFWriteGroupAttribute(this_fname_, "Header", "NumPart_Total_HighWord", from_7array<unsigned>(npartTotalHighWord_));
@@ -137,7 +137,7 @@ public:
 
       HDFWriteGroupAttribute(this_fname_, "Header", "NumFilesPerSnapshot", from_value<int>(num_files_));
       
-      // write GAS internal energy if baryons are enabled
+      // write GAS internal energy and smoothing length if baryons are enabled
       if( bdobaryons_ )
       {
         const double gamma  = cf_.get_value_safe<double>("cosmology", "gamma", 5.0 / 3.0);
