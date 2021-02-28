@@ -22,9 +22,9 @@
 #include "HDF_IO.hh"
 
 template <typename T>
-std::vector<T> from_6array(const std::array<T,6>& a)
+std::vector<T> from_7array(const std::array<T,7>& a)
 {
-  return std::vector<T>{{a[0], a[1], a[2], a[3], a[4], a[5]}};
+  return std::vector<T>{{a[0], a[1], a[2], a[3], a[4], a[5], a[6]}};
 }
 
 template <typename T>
@@ -45,8 +45,8 @@ protected:
   bool blongids_, bdobaryons_;
   std::string this_fname_;
 
-  std::array<uint32_t,6> npart_, npartTotal_, npartTotalHighWord_;
-  std::array<double,6> mass_;
+  std::array<uint32_t,7> npart_, npartTotal_, npartTotalHighWord_;
+  std::array<double,7> mass_;
   double time_;
 
 public:
@@ -119,10 +119,10 @@ public:
       HDFWriteGroupAttribute(fname_, "Header", "Dimension", 3);
       HDFWriteGroupAttribute(fname_, "Header", "BoxSize", lunit_);  // in Mpc, not Mpc/h
       
-      HDFWriteGroupAttribute(this_fname_, "Header", "NumPart_Total", from_6array<unsigned>(npartTotal_));
-      HDFWriteGroupAttribute(this_fname_, "Header", "NumPart_Total_HighWord", from_6array<unsigned>(npartTotalHighWord_));
-      HDFWriteGroupAttribute(this_fname_, "Header", "NumPart_ThisFile", from_6array<unsigned>(npart_));
-      HDFWriteGroupAttribute(this_fname_, "Header", "MassTable", from_6array<double>(mass_));
+      HDFWriteGroupAttribute(this_fname_, "Header", "NumPart_Total", from_7array<unsigned>(npartTotal_));
+      HDFWriteGroupAttribute(this_fname_, "Header", "NumPart_Total_HighWord", from_7array<unsigned>(npartTotalHighWord_));
+      HDFWriteGroupAttribute(this_fname_, "Header", "NumPart_ThisFile", from_7array<unsigned>(npart_));
+      HDFWriteGroupAttribute(this_fname_, "Header", "MassTable", from_7array<double>(mass_));
       
       HDFWriteGroupAttribute(this_fname_, "Header", "Time", from_value<double>(time_));
       HDFWriteGroupAttribute(this_fname_, "Header", "Flag_Entropy_ICs", from_value<int>(0));
