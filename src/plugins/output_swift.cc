@@ -49,6 +49,7 @@ protected:
   std::array<uint32_t,7> npartTotal_, npartTotalHighWord_;
   std::array<double,7> mass_;
   double time_;
+  double ceint_, h_;
 
 public:
   //! constructor
@@ -147,6 +148,29 @@ public:
       std::string desc = cf_.get_value<std::string>("random", "descriptor");
       HDFWriteGroupAttribute(fname_, "ICs_parameters", "Descriptor", desc);
     }
+
+
+    if (bdobaryons_) {
+
+      const double gamma  = cf_.get_value_safe<double>("cosmology", "gamma", 5.0 / 3.0);
+      const double YHe    = pcc_->cosmo_param_["YHe"];
+      const double omegab = pcc_->cosmo_param_["Omega_b"];
+      const double Tcmb0  = pcc_->cosmo_param_["Tcmb"];
+
+      // compute gas internal energy
+      const double npol = (fabs(1.0 - gamma) > 1e-7) ? 1.0 / (gamma - 1.) : 1.0;
+      const double unitv = 1e5;
+      const double adec = 1.0 / (160. * std::pow(omegab * hubble_param_ * hubble_param_ / 0.022, 2.0 / 5.0));
+      const double Tini = astart_ < adec ? Tcmb0 / astart_ : Tcmb0 / astart_ / astart_ * adec;
+      const double mu = (Tini > 1.e4) ? 4.0 / (8. - 5. * YHe) : 4.0 / (1. + 3. * (1. - YHe));
+      ceint_ = 1.3806e-16 / 1.6726e-24 * Tini * npol / mu / unitv / unitv;
+
+      music::ilog.Print("Swift : Calculated initial gas temperature: %.2f K/mu", Tini / mu);
+      music::ilog.Print("Swift : set initial internal energy to %.2e km^2/s^2", ceint_);
+
+      h_ = boxsize_ / hubble_param_ / cf_.get_value<double>("setup","GridRes");
+      music::ilog.Print("Swift : set initial smoothing length to mean inter-part separation: %.2f Mpc", h_);
+    }
   }
 
   // use destructor to write header post factum
@@ -226,7 +250,7 @@ public:
       mass_[sid] = 0.0;
     else
       mass_[sid] = Omega_species * munit_ / pc.get_global_num_particles();
-    
+
     HDFCreateGroup(fname_, std::string("PartType") + std::to_string(sid));
 
     //... write positions and velocities.....
@@ -258,34 +282,12 @@ public:
 
     // write GAS internal energy and smoothing length if baryons are enabled
     if( bdobaryons_ && s == cosmo_species::baryon) {
-      
-      const double gamma  = cf_.get_value_safe<double>("cosmology", "gamma", 5.0 / 3.0);
-      const double YHe    = pcc_->cosmo_param_["YHe"];
-      //const double Omega0 = cf_.get_value<double>("cosmology", "Omega_m");
-      const double omegab = pcc_->cosmo_param_["Omega_b"];
-      const double Tcmb0  = pcc_->cosmo_param_["Tcmb"];
-      
-      // compute gas internal energy
-      const double npol = (fabs(1.0 - gamma) > 1e-7) ? 1.0 / (gamma - 1.) : 1.0;
-      const double unitv = 1e5;
-      const double adec = 1.0 / (160. * std::pow(omegab * hubble_param_ * hubble_param_ / 0.022, 2.0 / 5.0));
-      const double Tini = astart_ < adec ? Tcmb0 / astart_ : Tcmb0 / astart_ / astart_ * adec;
-      const double mu = (Tini > 1.e4) ? 4.0 / (8. - 5. * YHe) : 4.0 / (1. + 3. * (1. - YHe));
-      const double ceint = 1.3806e-16 / 1.6726e-24 * Tini * npol / mu / unitv / unitv;
-      
-      music::ilog.Print("Swift : Calculated initial gas temperature: %.2f K/mu", Tini / mu);
-      music::ilog.Print("Swift : set initial internal energy to %.2e km^2/s^2", ceint);
-      
-      std::vector<write_real_t> data( npart_[0], ceint );
+
+      std::vector<write_real_t> data( npart_[0], ceint_ );
       HDFWriteDataset(fname_, std::string("PartType") + std::to_string(sid) + std::string("/InternalEnergy"), data);
       
-      const double h = boxsize_ / hubble_param_ / cf_.get_value<double>("setup","GridRes");
-      
-      music::ilog.Print("Swift : set initial smoothing length to mean inter-part separation: %.2f Mpc", h);
-      
-      data.assign( npart_[0], h);
+      data.assign( npart_[0], h_);
       HDFWriteDataset(fname_, std::string("PartType") + std::to_string(sid) + std::string("/SmoothingLength"), data);
-      
     }
   }
 };
