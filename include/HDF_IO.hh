@@ -886,6 +886,60 @@ inline void HDFWriteDatasetVector( const std::string Filename, const std::string
   H5Fclose( HDF_FileID );
 }
 
+template< typename T >
+inline void HDFCreateEmptyDataset( const std::string Filename, const std::string ObjName, const size_t num_particles)
+{
+
+  hid_t
+    HDF_FileID,
+    HDF_DatasetID,
+    HDF_DataspaceID,
+    HDF_Type;
+
+  hsize_t HDF_Dims;
+
+  HDF_FileID = H5Fopen( Filename.c_str(), H5F_ACC_RDWR, H5P_DEFAULT );
+
+  HDF_Type                = GetDataType<T>();
+
+  HDF_Dims                = (hsize_t) (num_particles);
+  HDF_DataspaceID         = H5Screate_simple(1, &HDF_Dims, NULL);
+  HDF_DatasetID           = H5Dcreate( HDF_FileID, ObjName.c_str(), HDF_Type,
+                                       HDF_DataspaceID, H5P_DEFAULT );
+  H5Dclose( HDF_DatasetID );
+  H5Sclose( HDF_DataspaceID );
+
+  H5Fclose( HDF_FileID );
+}
+
+template< typename T >
+inline void HDFCreateEmptyDatasetVector( const std::string Filename, const std::string ObjName, const size_t num_particles)
+{
+
+    hid_t
+    HDF_FileID,
+    HDF_DatasetID,
+    HDF_DataspaceID,
+    HDF_Type;
+
+  hsize_t HDF_Dims[2];
+
+  HDF_FileID = H5Fopen( Filename.c_str(), H5F_ACC_RDWR, H5P_DEFAULT );
+
+  HDF_Type                = GetDataType<T>();
+
+  HDF_Dims[0]             = (hsize_t) (num_particles);
+  HDF_Dims[1]             = (hsize_t) 3;
+  
+  HDF_DataspaceID         = H5Screate_simple(2, HDF_Dims, NULL);
+  HDF_DatasetID           = H5Dcreate( HDF_FileID, ObjName.c_str(), HDF_Type,
+                                       HDF_DataspaceID, H5P_DEFAULT );
+  H5Dclose( HDF_DatasetID );
+  H5Sclose( HDF_DataspaceID );
+  H5Fclose( HDF_FileID );
+  
+}
+
 inline void HDFCreateGroup( const std::string Filename, const std::string GroupName )
 {
 	hid_t HDF_FileID, HDF_GroupID;

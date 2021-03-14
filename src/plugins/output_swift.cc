@@ -60,7 +60,7 @@ public:
     // SWIFT uses a single file as IC */
     num_files_ = 1;
     this_rank_ = 0;
-    num_files_ = 1;
+    num_ranks_ = 1;
 
     real_t astart = 1.0 / (1.0 + cf_.get_value<double>("setup", "zstart"));
     const double rhoc = 27.7519737; // in h^2 1e10 M_sol / Mpc^3
@@ -251,7 +251,45 @@ public:
     else
       mass_[sid] = Omega_species * munit_ / pc.get_global_num_particles();
 
-    HDFCreateGroup(fname_, std::string("PartType") + std::to_string(sid));
+    const size_t global_num_particles =  pc.get_global_num_particles();
+    
+    // start by creating the full empty datasets in the file
+    if (this_rank_ == 0) {
+
+      HDFCreateGroup(fname_, std::string("PartType") + std::to_string(sid));
+
+      if (this->has_64bit_reals())
+      {
+	HDFCreateEmptyDatasetVector<double>(fname_, std::string("PartType") + std::to_string(sid) + std::string("/Coordinates"), global_num_particles);
+	HDFCreateEmptyDatasetVector<double>(fname_, std::string("PartType") + std::to_string(sid) + std::string("/Velocities"), global_num_particles);
+      }
+      else
+      {
+	HDFCreateEmptyDatasetVector<float>(fname_, std::string("PartType") + std::to_string(sid) + std::string("/Coordinates"), global_num_particles);
+	HDFCreateEmptyDatasetVector<float>(fname_, std::string("PartType") + std::to_string(sid) + std::string("/Velocities"), global_num_particles);
+      }
+
+      if (this->has_64bit_ids())
+	HDFCreateEmptyDataset<uint64_t>(fname_, std::string("PartType") + std::to_string(sid) + std::string("/ParticleIDs"), global_num_particles);
+      else
+	HDFCreateEmptyDataset<uint32_t>(fname_, std::string("PartType") + std::to_string(sid) + std::string("/ParticleIDs"), global_num_particles);
+
+      if( pc.bhas_individual_masses_ ){
+	if (this->has_64bit_reals())
+	  HDFCreateEmptyDataset<double>(fname_, std::string("PartType") + std::to_string(sid) + std::string("/Masses"), global_num_particles);
+	else 
+	  HDFCreateEmptyDataset<float>(fname_, std::string("PartType") + std::to_string(sid) + std::string("/Masses"), global_num_particles);      
+      }
+
+      if( bdobaryons_ && s == cosmo_species::baryon) {
+
+	// note: despite this being a constant array we still need to handle it in a distributed way
+	HDFCreateEmptyDataset<write_real_t>(fname_, std::string("PartType") + std::to_string(sid) + std::string("/InternalEnergy"), global_num_particles);
+	HDFCreateEmptyDataset<write_real_t>(fname_, std::string("PartType") + std::to_string(sid) + std::string("/SmoothinLength"), global_num_particles);
+      }
+    }
+
+    // Now each node writes its own chunk in a round-robin fashion, appending at the end of the currently existing data 
 
     //... write positions and velocities.....
     if (this->has_64bit_reals())
