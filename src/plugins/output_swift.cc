@@ -63,7 +63,7 @@ public:
     num_ranks_ = 1;
 
     real_t astart = 1.0 / (1.0 + cf_.get_value<double>("setup", "zstart"));
-    const double rhoc = 27.7519737; // in h^2 1e10 M_sol / Mpc^3
+    const double rhoc = 27.7536609198; // in h^2 1e10 M_sol / Mpc^3 assuming SWIFT's internal constants
 
     hubble_param_ = pcc->cosmo_param_["h"];
     zstart_ = cf_.get_value<double>("setup","zstart");
@@ -297,6 +297,7 @@ public:
     // now each node writes its own chunk in a round-robin fashion, appending at the end of the currently existing data 
     for (int rank = 0; rank < num_ranks_; ++rank) {
 
+      // wait until the initialisation or the previous rank in the loop is done
       MPI_Barrier(MPI_COMM_WORLD);
 
       if (rank == this_rank_) {
