@@ -285,48 +285,63 @@ public:
 
 	// note: despite this being a constant array we still need to handle it in a distributed way
 	HDFCreateEmptyDataset<write_real_t>(fname_, std::string("PartType") + std::to_string(sid) + std::string("/InternalEnergy"), global_num_particles);
-	HDFCreateEmptyDataset<write_real_t>(fname_, std::string("PartType") + std::to_string(sid) + std::string("/SmoothinLength"), global_num_particles);
+	HDFCreateEmptyDataset<write_real_t>(fname_, std::string("PartType") + std::to_string(sid) + std::string("/SmoothingLength"), global_num_particles);
       }
     }
 
-    // Now each node writes its own chunk in a round-robin fashion, appending at the end of the currently existing data 
+    // compute each rank's offset in the global array
+    const size_t n_local = pc.get_local_num_particles();
+    size_t offset = 0;	
+    MPI_Exscan(&n_local, &offset, 1, MPI_UNSIGNED_LONG_LONG, MPI_SUM, MPI_COMM_WORLD);
 
-    //... write positions and velocities.....
-    if (this->has_64bit_reals())
-    {
-      HDFWriteDatasetVector(fname_, std::string("PartType") + std::to_string(sid) + std::string("/Coordinates"), pc.positions64_);
-      HDFWriteDatasetVector(fname_, std::string("PartType") + std::to_string(sid) + std::string("/Velocities"), pc.velocities64_);
-    }
-    else
-    {
-      HDFWriteDatasetVector(fname_, std::string("PartType") + std::to_string(sid) + std::string("/Coordinates"), pc.positions32_);
-      HDFWriteDatasetVector(fname_, std::string("PartType") + std::to_string(sid) + std::string("/Velocities"), pc.velocities32_);
-    }
+    // now each node writes its own chunk in a round-robin fashion, appending at the end of the currently existing data 
+    for (int rank = 0; rank < num_ranks_; ++rank) {
 
-    //... write ids.....
-    if (this->has_64bit_ids())
-      HDFWriteDataset(fname_, std::string("PartType") + std::to_string(sid) + std::string("/ParticleIDs"), pc.ids64_);
-    else
-      HDFWriteDataset(fname_, std::string("PartType") + std::to_string(sid) + std::string("/ParticleIDs"), pc.ids32_);
+      MPI_Barrier(MPI_COMM_WORLD);
 
-    //... write masses.....
-    if( pc.bhas_individual_masses_ ){
-      if (this->has_64bit_reals()){
-        HDFWriteDataset(fname_, std::string("PartType") + std::to_string(sid) + std::string("/Masses"), pc.mass64_);
-      }else{
-        HDFWriteDataset(fname_, std::string("PartType") + std::to_string(sid) + std::string("/Masses"), pc.mass32_);
+      if (rank == this_rank_) {
+
+	//... write positions and velocities.....
+	if (this->has_64bit_reals())
+	  {
+	    HDFWriteDatasetVectorChunk(fname_, std::string("PartType") + std::to_string(sid) + std::string("/Coordinates"), pc.positions64_, offset);
+	    HDFWriteDatasetVectorChunk(fname_, std::string("PartType") + std::to_string(sid) + std::string("/Velocities"), pc.velocities64_, offset);
+	  }
+	else
+	  {
+	    HDFWriteDatasetVectorChunk(fname_, std::string("PartType") + std::to_string(sid) + std::string("/Coordinates"), pc.positions32_, offset);
+	    HDFWriteDatasetVectorChunk(fname_, std::string("PartType") + std::to_string(sid) + std::string("/Velocities"), pc.velocities32_, offset);
+	  }
+	
+	//... write ids.....
+	if (this->has_64bit_ids())
+	  HDFWriteDatasetChunk(fname_, std::string("PartType") + std::to_string(sid) + std::string("/ParticleIDs"), pc.ids64_, offset);
+	else
+	  HDFWriteDatasetChunk(fname_, std::string("PartType") + std::to_string(sid) + std::string("/ParticleIDs"), pc.ids32_, offset);
+	
+	//... write masses.....
+	if( pc.bhas_individual_masses_ ){
+	  if (this->has_64bit_reals()){
+	    HDFWriteDatasetChunk(fname_, std::string("PartType") + std::to_string(sid) + std::string("/Masses"), pc.mass64_, offset);
+	  }else{
+	    HDFWriteDatasetChunk(fname_, std::string("PartType") + std::to_string(sid) + std::string("/Masses"), pc.mass32_, offset);
+	  }
+	}
+	
+	// write GAS internal energy and smoothing length if baryons are enabled
+	if(bdobaryons_ && s == cosmo_species::baryon) {
+	  
+	  std::vector<write_real_t> data( pc.get_local_num_particles(), ceint_ );
+	  HDFWriteDatasetChunk(fname_, std::string("PartType") + std::to_string(sid) + std::string("/InternalEnergy"), data, offset);
+	  
+	  data.assign( pc.get_local_num_particles(), h_);
+	  HDFWriteDatasetChunk(fname_, std::string("PartType") + std::to_string(sid) + std::string("/SmoothingLength"), data, offset);
+	}
       }
     }
 
-    // write GAS internal energy and smoothing length if baryons are enabled
-    if( bdobaryons_ && s == cosmo_species::baryon) {
-
-      std::vector<write_real_t> data( npart_[0], ceint_ );
-      HDFWriteDataset(fname_, std::string("PartType") + std::to_string(sid) + std::string("/InternalEnergy"), data);
-      
-      data.assign( npart_[0], h_);
-      HDFWriteDataset(fname_, std::string("PartType") + std::to_string(sid) + std::string("/SmoothingLength"), data);
-    }
+    // end with a barrier to make sure everyone is done before the destructor does its job
+    MPI_Barrier(MPI_COMM_WORLD);
   }
 };
 
