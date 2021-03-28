@@ -72,7 +72,7 @@ public:
 
     lunit_ = boxsize_ / hubble_param_; // final units will be in Mpc (without h)
     vunit_ = boxsize_; // final units will be in km/s
-    munit_ = rhoc * std::pow(boxsize_, 3) / hubble_param_; // final units will be in 1e10 M_sol    
+    munit_ = rhoc * std::pow(boxsize_, 3) / hubble_param_; // final units will be in 1e10 M_sol
 
     blongids_ = cf_.get_value_safe<bool>("output", "UseLongids", false);
     bdobaryons_ = cf_.get_value<bool>("setup","DoBaryons");
@@ -113,7 +113,7 @@ public:
       h_ = boxsize_ / hubble_param_ / cf_.get_value<double>("setup","GridRes");
       music::ilog.Print("Swift : set initial smoothing length to mean inter-part separation: %.2f Mpc", h_);
     }
-    
+
     // Only ranks 0 writes the header
     if (this_rank_ != 0) return;
 
@@ -175,24 +175,24 @@ public:
   // use destructor to write header post factum
   ~swift_output_plugin()
   {
-    if (!std::uncaught_exception()) 
-    {         
+    if (!std::uncaught_exception())
+    {
       if (this_rank_  == 0) {
-	
+
 	// Write Standard Gadget / SWIFT hdf5 header
 	HDFCreateGroup(fname_, "Header");
 	HDFWriteGroupAttribute(fname_, "Header", "Dimension", 3);
 	HDFWriteGroupAttribute(fname_, "Header", "BoxSize", boxsize_ / hubble_param_);  // in Mpc, not Mpc/h
-	
+
 	HDFWriteGroupAttribute(fname_, "Header", "NumPart_Total", from_7array<unsigned>(npartTotal_));
 	HDFWriteGroupAttribute(fname_, "Header", "NumPart_Total_HighWord", from_7array<unsigned>(npartTotalHighWord_));
 	HDFWriteGroupAttribute(fname_, "Header", "NumPart_ThisFile", from_7array<uint64_t>(npart_));
 	HDFWriteGroupAttribute(fname_, "Header", "MassTable", from_7array<double>(mass_));
-	
+
 	HDFWriteGroupAttribute(fname_, "Header", "Time", from_value<double>(time_));
 	HDFWriteGroupAttribute(fname_, "Header", "Redshift", from_value<double>(zstart_));
 	HDFWriteGroupAttribute(fname_, "Header", "Flag_Entropy_ICs", from_value<int>(0));
-	
+
 	HDFWriteGroupAttribute(fname_, "Header", "NumFilesPerSnapshot", from_value<int>(num_files_));
 
 	music::ilog << "Wrote SWIFT IC file(s) to " << fname_ << std::endl;
@@ -244,14 +244,14 @@ public:
     npart_[sid] = (pc.get_global_num_particles());
     npartTotal_[sid] = (uint32_t)(pc.get_global_num_particles());
     npartTotalHighWord_[sid] = (uint32_t)((pc.get_global_num_particles()) >> 32);
-    
+
     if( pc.bhas_individual_masses_ )
       mass_[sid] = 0.0;
     else
       mass_[sid] = Omega_species * munit_ / pc.get_global_num_particles();
 
     const size_t global_num_particles =  pc.get_global_num_particles();
-    
+
     // start by creating the full empty datasets in the file
     if (this_rank_ == 0) {
 
@@ -276,7 +276,7 @@ public:
       if( pc.bhas_individual_masses_ ){
 	if (this->has_64bit_reals())
 	  HDFCreateEmptyDataset<double>(fname_, std::string("PartType") + std::to_string(sid) + std::string("/Masses"), global_num_particles);
-	else 
+	else
 	  HDFCreateEmptyDataset<float>(fname_, std::string("PartType") + std::to_string(sid) + std::string("/Masses"), global_num_particles);      
       }
 
@@ -290,7 +290,7 @@ public:
 
     // compute each rank's offset in the global array
     const size_t n_local = pc.get_local_num_particles();
-    size_t offset = 0;	
+    size_t offset = 0;
     MPI_Exscan(&n_local, &offset, 1, MPI_UNSIGNED_LONG_LONG, MPI_SUM, MPI_COMM_WORLD);
 
     // now each node writes its own chunk in a round-robin fashion, appending at the end of the currently existing data 
@@ -312,13 +312,13 @@ public:
 	    HDFWriteDatasetVectorChunk(fname_, std::string("PartType") + std::to_string(sid) + std::string("/Coordinates"), pc.positions32_, offset);
 	    HDFWriteDatasetVectorChunk(fname_, std::string("PartType") + std::to_string(sid) + std::string("/Velocities"), pc.velocities32_, offset);
 	  }
-	
+
 	//... write ids.....
 	if (this->has_64bit_ids())
 	  HDFWriteDatasetChunk(fname_, std::string("PartType") + std::to_string(sid) + std::string("/ParticleIDs"), pc.ids64_, offset);
 	else
 	  HDFWriteDatasetChunk(fname_, std::string("PartType") + std::to_string(sid) + std::string("/ParticleIDs"), pc.ids32_, offset);
-	
+
 	//... write masses.....
 	if( pc.bhas_individual_masses_ ){
 	  if (this->has_64bit_reals()){
@@ -327,13 +327,13 @@ public:
 	    HDFWriteDatasetChunk(fname_, std::string("PartType") + std::to_string(sid) + std::string("/Masses"), pc.mass32_, offset);
 	  }
 	}
-	
+
 	// write GAS internal energy and smoothing length if baryons are enabled
 	if(bdobaryons_ && s == cosmo_species::baryon) {
-	  
+
 	  std::vector<write_real_t> data( pc.get_local_num_particles(), ceint_ );
 	  HDFWriteDatasetChunk(fname_, std::string("PartType") + std::to_string(sid) + std::string("/InternalEnergy"), data, offset);
-	  
+
 	  data.assign( pc.get_local_num_particles(), h_);
 	  HDFWriteDatasetChunk(fname_, std::string("PartType") + std::to_string(sid) + std::string("/SmoothingLength"), data, offset);
 	}
