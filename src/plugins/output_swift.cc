@@ -291,13 +291,17 @@ public:
     // compute each rank's offset in the global array
     const size_t n_local = pc.get_local_num_particles();
     size_t offset = 0;
+#ifdef USE_MPI
     MPI_Exscan(&n_local, &offset, 1, MPI_UNSIGNED_LONG_LONG, MPI_SUM, MPI_COMM_WORLD);
+#endif
 
     // now each node writes its own chunk in a round-robin fashion, appending at the end of the currently existing data 
     for (int rank = 0; rank < num_ranks_; ++rank) {
 
+#ifdef USE_MPI
       // wait until the initialisation or the previous rank in the loop is done
       MPI_Barrier(MPI_COMM_WORLD);
+#endif
 
       if (rank == this_rank_) {
 
@@ -340,8 +344,10 @@ public:
       }
     }
 
+#ifdef USE_MPI
     // end with a barrier to make sure everyone is done before the destructor does its job
     MPI_Barrier(MPI_COMM_WORLD);
+#endif
   }
 };
 
