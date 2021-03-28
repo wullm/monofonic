@@ -92,6 +92,28 @@ public:
     MPI_Comm_size(MPI_COMM_WORLD, &num_ranks_);
 #endif
 
+    if (bdobaryons_) {
+
+      const double gamma  = cf_.get_value_safe<double>("cosmology", "gamma", 5.0 / 3.0);
+      const double YHe    = pcc_->cosmo_param_["YHe"];
+      const double omegab = pcc_->cosmo_param_["Omega_b"];
+      const double Tcmb0  = pcc_->cosmo_param_["Tcmb"];
+
+      // compute gas internal energy
+      const double npol = (fabs(1.0 - gamma) > 1e-7) ? 1.0 / (gamma - 1.) : 1.0;
+      const double unitv = 1e5;
+      const double adec = 1.0 / (160. * std::pow(omegab * hubble_param_ * hubble_param_ / 0.022, 2.0 / 5.0));
+      const double Tini = astart_ < adec ? Tcmb0 / astart_ : Tcmb0 / astart_ / astart_ * adec;
+      const double mu = (Tini > 1.e4) ? 4.0 / (8. - 5. * YHe) : 4.0 / (1. + 3. * (1. - YHe));
+      ceint_ = 1.3806e-16 / 1.6726e-24 * Tini * npol / mu / unitv / unitv;
+
+      music::ilog.Print("Swift : Calculated initial gas temperature: %.2f K/mu", Tini / mu);
+      music::ilog.Print("Swift : set initial internal energy to %.2e km^2/s^2", ceint_);
+
+      h_ = boxsize_ / hubble_param_ / cf_.get_value<double>("setup","GridRes");
+      music::ilog.Print("Swift : set initial smoothing length to mean inter-part separation: %.2f Mpc", h_);
+    }
+    
     // Only ranks 0 writes the header
     if (this_rank_ != 0) return;
 
@@ -147,29 +169,6 @@ public:
     if (rng == "PANPHASIA") {
       std::string desc = cf_.get_value<std::string>("random", "descriptor");
       HDFWriteGroupAttribute(fname_, "ICs_parameters", "Descriptor", desc);
-    }
-
-
-    if (bdobaryons_) {
-
-      const double gamma  = cf_.get_value_safe<double>("cosmology", "gamma", 5.0 / 3.0);
-      const double YHe    = pcc_->cosmo_param_["YHe"];
-      const double omegab = pcc_->cosmo_param_["Omega_b"];
-      const double Tcmb0  = pcc_->cosmo_param_["Tcmb"];
-
-      // compute gas internal energy
-      const double npol = (fabs(1.0 - gamma) > 1e-7) ? 1.0 / (gamma - 1.) : 1.0;
-      const double unitv = 1e5;
-      const double adec = 1.0 / (160. * std::pow(omegab * hubble_param_ * hubble_param_ / 0.022, 2.0 / 5.0));
-      const double Tini = astart_ < adec ? Tcmb0 / astart_ : Tcmb0 / astart_ / astart_ * adec;
-      const double mu = (Tini > 1.e4) ? 4.0 / (8. - 5. * YHe) : 4.0 / (1. + 3. * (1. - YHe));
-      ceint_ = 1.3806e-16 / 1.6726e-24 * Tini * npol / mu / unitv / unitv;
-
-      music::ilog.Print("Swift : Calculated initial gas temperature: %.2f K/mu", Tini / mu);
-      music::ilog.Print("Swift : set initial internal energy to %.2e km^2/s^2", ceint_);
-
-      h_ = boxsize_ / hubble_param_ / cf_.get_value<double>("setup","GridRes");
-      music::ilog.Print("Swift : set initial smoothing length to mean inter-part separation: %.2f Mpc", h_);
     }
   }
 
