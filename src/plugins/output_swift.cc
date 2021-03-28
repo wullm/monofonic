@@ -195,7 +195,7 @@ public:
 
 	HDFWriteGroupAttribute(fname_, "Header", "NumFilesPerSnapshot", from_value<int>(num_files_));
 
-	music::ilog << "Wrote SWIFT IC file(s) to " << fname_ << std::endl;
+	music::ilog << "Done writing SWIFT IC file to " << fname_ << std::endl;
       }
     }
   }
@@ -286,6 +286,8 @@ public:
 	HDFCreateEmptyDataset<write_real_t>(fname_, std::string("PartType") + std::to_string(sid) + std::string("/InternalEnergy"), global_num_particles);
 	HDFCreateEmptyDataset<write_real_t>(fname_, std::string("PartType") + std::to_string(sid) + std::string("/SmoothingLength"), global_num_particles);
       }
+
+      music::ilog << "Created empty arrays for PartType" << std::to_string(sid) << " into file " << fname_ << "." << std::endl;
     }
 
     // compute each rank's offset in the global array
@@ -341,6 +343,10 @@ public:
 	  data.assign( pc.get_local_num_particles(), h_);
 	  HDFWriteDatasetChunk(fname_, std::string("PartType") + std::to_string(sid) + std::string("/SmoothingLength"), data, offset);
 	}
+      }
+
+      if (this_rank_ == 0) {
+	music::ilog << "Rank " << rank << " wrote its PartType" << std::to_string(sid) << " data to the IC file." << std::endl;
       }
     }
 
