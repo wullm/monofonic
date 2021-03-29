@@ -196,6 +196,8 @@ public:
 	HDFWriteGroupAttribute(fname_, "Header", "NumFilesPerSnapshot", from_value<int>(num_files_));
 
 	music::ilog << "Done writing SWIFT IC file to " << fname_ << std::endl;
+	music::ilog << "Note that the IC file does not contain any h-factors nor any extra sqrt(a)-factors for the velocities" << std::endl;
+	music::ilog << "The SWIFT parameters 'InitialConditions:cleanup_h_factors' and 'InitialConditions:cleanup_velocity_factors' should hence *NOT* be set!" << std::endl;
       }
     }
   }
