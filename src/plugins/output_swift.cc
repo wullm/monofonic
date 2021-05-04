@@ -22,9 +22,9 @@
 #include "HDF_IO.hh"
 
 template <typename T>
-std::vector<T> from_6array(const std::array<T,6>& a)
+std::vector<T> from_7array(const std::array<T,7>& a)
 {
-  return std::vector<T>{{a[0], a[1], a[2], a[3], a[4], a[5]}};
+  return std::vector<T>{{a[0], a[1], a[2], a[3], a[4], a[5], a[6]}};
 }
 
 template <typename T>
@@ -41,12 +41,12 @@ protected:
   int num_files_, num_simultaneous_writers_;
 
   real_t lunit_, vunit_, munit_;
-  real_t boxsize_, hubble_param_, astart_;
+  real_t boxsize_, hubble_param_, astart_, zstart_;
   bool blongids_, bdobaryons_;
   std::string this_fname_;
 
-  std::array<uint32_t,6> npart_, npartTotal_, npartTotalHighWord_;
-  std::array<double,6> mass_;
+  std::array<uint32_t,7> npart_, npartTotal_, npartTotalHighWord_;
+  std::array<double,7> mass_;
   double time_;
 
 public:
@@ -63,7 +63,8 @@ public:
     const double rhoc = 27.7519737; // in h^2 1e10 M_sol / Mpc^3
 
     hubble_param_ = pcc->cosmo_param_["h"];
-    astart_ = 1.0/(1.0+cf_.get_value<double>("setup","zstart"));
+    zstart_ = cf_.get_value<double>("setup","zstart");
+    astart_ = 1.0/(1.0 + zstart_);
     boxsize_ = cf_.get_value<double>("setup", "BoxLength");
 
     lunit_ = boxsize_ / hubble_param_; // final units will be in Mpc (without h)
@@ -73,7 +74,7 @@ public:
     blongids_ = cf_.get_value_safe<bool>("output", "UseLongids", false);
     bdobaryons_ = cf_.get_value<bool>("setup","DoBaryons");
 
-    for (int i = 0; i < 6; ++i)
+    for (int i = 0; i < 7; ++i)
     {
       npart_[i] = 0;
       npartTotal_[i] = 0;
@@ -91,23 +92,63 @@ public:
       this_fname_ += "." + std::to_string(thisrank);
 #endif
 
+    // Now that we modified the filename for MPI support, propagate the change to the super-class
+    // as it does operations on the file behind our back.
+    fname_ = this_fname_;
+
     // delete output file if it exists
     unlink(this_fname_.c_str());
 
     // create output HDF5 file
     HDFCreateFile(this_fname_);
 
-    // Write UNITS header
+    // Write UNITS header using the physical constants assumed internally by SWIFT
     HDFCreateGroup(this_fname_, "Units");
-    HDFWriteGroupAttribute(this_fname_, "Units", "Unit mass in cgs (U_M)", 1.98848e43);      // 10^10 Msun in grams
-    HDFWriteGroupAttribute(this_fname_, "Units", "Unit length in cgs (U_L)", 3.08567758e24); // 1 Mpc in cm
-    HDFWriteGroupAttribute(this_fname_, "Units", "Unit time in cgs (U_t)", 3.08567758e19);   // so that unit vel is 1 km/s
-    HDFWriteGroupAttribute(this_fname_, "Units", "Unit current in cgs (U_I)", 1.0);            // 1 Ampere
-    HDFWriteGroupAttribute(this_fname_, "Units", "Unit temperature in cgs (U_T)", 1.0);               // 1 Kelvin
+    HDFWriteGroupAttribute(this_fname_, "Units", "Unit mass in cgs (U_M)", 1.98841e43);         // 10^10 Msun in grams
+    HDFWriteGroupAttribute(this_fname_, "Units", "Unit length in cgs (U_L)", 3.08567758149e24); // 1 Mpc in cm
+    HDFWriteGroupAttribute(this_fname_, "Units", "Unit time in cgs (U_t)", 3.08567758149e19);   // so that unit vel is 1 km/s
+    HDFWriteGroupAttribute(this_fname_, "Units", "Unit current in cgs (U_I)", 1.0);             // 1 Ampere
+    HDFWriteGroupAttribute(this_fname_, "Units", "Unit temperature in cgs (U_T)", 1.0);         // 1 Kelvin
 
-    // TODO: Write MUSIC configuration header
-    HDFCreateGroup(fname_, "ICs_parameters");
-    // ...
+    // Write MUSIC configuration header
+    int order = cf_.get_value<int>("setup", "LPTorder");
+    std::string load = cf_.get_value<std::string>("setup", "ParticleLoad");
+    std::string tf = cf_.get_value<std::string>("cosmology", "transfer");
+    std::string cosmo_set = cf_.get_value<std::string>("cosmology", "ParameterSet");
+    std::string rng = cf_.get_value<std::string>("random", "generator");
+    int do_fixing = cf_.get_value<bool>("setup", "DoFixing");
+    int do_invert = cf_.get_value<bool>("setup", "DoInversion");
+    int do_baryons = cf_.get_value<bool>("setup", "DoBaryons");
+    int do_baryonsVrel = cf_.get_value<bool>("setup", "DoBaryonVrel");
+    int L = cf_.get_value<int>("setup", "GridRes");
+
+    HDFCreateGroup(this_fname_, "ICs_parameters");
+    HDFWriteGroupAttribute(this_fname_, "ICs_parameters", "Code", std::string("MUSIC2 - monofonIC"));
+    HDFWriteGroupAttribute(this_fname_, "ICs_parameters", "Git Revision", std::string(GIT_REV));
+    HDFWriteGroupAttribute(this_fname_, "ICs_parameters", "Git Tag", std::string(GIT_TAG));
+    HDFWriteGroupAttribute(this_fname_, "ICs_parameters", "Git Branch", std::string(GIT_BRANCH));
+    HDFWriteGroupAttribute(this_fname_, "ICs_parameters", "Precision", std::string(CMAKE_PRECISION_STR));
+    HDFWriteGroupAttribute(this_fname_, "ICs_parameters", "Convolutions", std::string(CMAKE_CONVOLVER_STR));
+    HDFWriteGroupAttribute(this_fname_, "ICs_parameters", "PLT", std::string(CMAKE_PLT_STR));
+    HDFWriteGroupAttribute(this_fname_, "ICs_parameters", "LPT Order", order);
+    HDFWriteGroupAttribute(this_fname_, "ICs_parameters", "Particle Load", load);
+    HDFWriteGroupAttribute(this_fname_, "ICs_parameters", "Transfer Function", tf);
+    HDFWriteGroupAttribute(this_fname_, "ICs_parameters", "Cosmology Parameter Set", cosmo_set);
+    HDFWriteGroupAttribute(this_fname_, "ICs_parameters", "Random Generator", rng);
+    HDFWriteGroupAttribute(this_fname_, "ICs_parameters", "Mode Fixing", do_fixing);
+    HDFWriteGroupAttribute(this_fname_, "ICs_parameters", "Mode inversion", do_invert);
+    HDFWriteGroupAttribute(this_fname_, "ICs_parameters", "Baryons", do_baryons);
+    HDFWriteGroupAttribute(this_fname_, "ICs_parameters", "Baryons Relative Velocity", do_baryonsVrel);
+    HDFWriteGroupAttribute(this_fname_, "ICs_parameters", "Grid Resolution", L);
+
+    if (tf == "CLASS") {
+      double ztarget = cf_.get_value<double>("cosmology", "ztarget");
+      HDFWriteGroupAttribute(this_fname_, "ICs_parameters", "Target Redshift", ztarget);
+    }
+    if (rng == "PANPHASIA") {
+      std::string desc = cf_.get_value<std::string>("random", "descriptor");
+      HDFWriteGroupAttribute(this_fname_, "ICs_parameters", "Descriptor", desc);
+    }
   }
 
   // use destructor to write header post factum
@@ -117,19 +158,20 @@ public:
     {   
       HDFCreateGroup(this_fname_, "Header");
       HDFWriteGroupAttribute(fname_, "Header", "Dimension", 3);
-      HDFWriteGroupAttribute(fname_, "Header", "BoxSize", lunit_);  // in Mpc, not Mpc/h
+      HDFWriteGroupAttribute(fname_, "Header", "BoxSize", boxsize_ / hubble_param_);  // in Mpc, not Mpc/h
       
-      HDFWriteGroupAttribute(this_fname_, "Header", "NumPart_Total", from_6array<unsigned>(npartTotal_));
-      HDFWriteGroupAttribute(this_fname_, "Header", "NumPart_Total_HighWord", from_6array<unsigned>(npartTotalHighWord_));
-      HDFWriteGroupAttribute(this_fname_, "Header", "NumPart_ThisFile", from_6array<unsigned>(npart_));
-      HDFWriteGroupAttribute(this_fname_, "Header", "MassTable", from_6array<double>(mass_));
+      HDFWriteGroupAttribute(this_fname_, "Header", "NumPart_Total", from_7array<unsigned>(npartTotal_));
+      HDFWriteGroupAttribute(this_fname_, "Header", "NumPart_Total_HighWord", from_7array<unsigned>(npartTotalHighWord_));
+      HDFWriteGroupAttribute(this_fname_, "Header", "NumPart_ThisFile", from_7array<unsigned>(npart_));
+      HDFWriteGroupAttribute(this_fname_, "Header", "MassTable", from_7array<double>(mass_));
       
       HDFWriteGroupAttribute(this_fname_, "Header", "Time", from_value<double>(time_));
+      HDFWriteGroupAttribute(this_fname_, "Header", "Redshift", from_value<double>(zstart_));
       HDFWriteGroupAttribute(this_fname_, "Header", "Flag_Entropy_ICs", from_value<int>(0));
 
       HDFWriteGroupAttribute(this_fname_, "Header", "NumFilesPerSnapshot", from_value<int>(num_files_));
       
-      // write GAS internal energy if baryons are enabled
+      // write GAS internal energy and smoothing length if baryons are enabled
       if( bdobaryons_ )
       {
         const double gamma  = cf_.get_value_safe<double>("cosmology", "gamma", 5.0 / 3.0);
@@ -147,12 +189,17 @@ public:
         const double mu = (Tini > 1.e4) ? 4.0 / (8. - 5. * YHe) : 4.0 / (1. + 3. * (1. - YHe));
         const double ceint = 1.3806e-16 / 1.6726e-24 * Tini * npol / mu / unitv / unitv;
 
-        music::ilog.Print("Swift : set initial gas temperature to %.2f K/mu", Tini / mu);
+        music::ilog.Print("Swift : Calculated initial gas temperature: %.2f K/mu", Tini / mu);
+        music::ilog.Print("Swift : set initial internal energy to %.2e km^2/s^2", ceint);
 
         std::vector<write_real_t> data( npart_[0], ceint );
         HDFWriteDataset(this_fname_, "PartType0/InternalEnergy", data);
 
-        data.assign( npart_[0], boxsize_ / cf_.get_value<double>("setup","GridRes") );
+        const double h = boxsize_ / hubble_param_ / cf_.get_value<double>("setup","GridRes");
+
+        music::ilog.Print("Swift : set initial smoothing length to mean inter-part separation: %.2f Mpc", h);
+
+        data.assign( npart_[0], h);
         HDFWriteDataset(this_fname_, "PartType0/SmoothingLength", data);
         
       }
@@ -192,7 +239,7 @@ public:
     case cosmo_species::baryon:
       return 0;
     case cosmo_species::neutrino:
-      return 3;
+      return 6;
     }
     return -1;
   }
