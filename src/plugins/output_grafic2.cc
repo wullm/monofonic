@@ -51,7 +51,7 @@ protected:
     real_t lunit_, vunit_, munit_, omegab_;
     uint32_t levelmin_;
     bool bhavebaryons_;
-    std::vector<float> data_buf_;
+    std::vector<float> data_buf_, data_buf_write_;
     std::string dirname_;
     bool bUseSPT_;
 
@@ -207,52 +207,59 @@ void grafic2_output_plugin::write_grid_data(const Grid_FFT<real_t> &g, const cos
     std::string file_name = this->get_file_name(s, c);
 
     // serialize parallel write
-    for (int write_rank = 0; write_rank < CONFIG::MPI_task_size; ++write_rank)
+    if (CONFIG::MPI_task_rank == 0)
     {
-        if (write_rank == CONFIG::MPI_task_rank)
+        unlink(file_name.c_str());
+    }
+
+    std::ofstream *pofs;
+
+    // write header or seek to end of file
+    if (CONFIG::MPI_task_rank == 0)
+    {
+        pofs = new std::ofstream(file_name.c_str(), std::ios::binary|std::ios::app);
+        uint32_t blocksz = sizeof(header);
+        pofs->write(reinterpret_cast<const char *>(&blocksz), sizeof(int));
+        pofs->write(reinterpret_cast<const char *>(&header_), blocksz);
+        pofs->write(reinterpret_cast<const char *>(&blocksz), sizeof(int));
+    }
+
+    // check field size against buffer size...
+    uint32_t ngrid = cf_.get_value<int>("setup", "GridRes");
+    assert( g.global_size(0) == ngrid && g.global_size(1) == ngrid && g.global_size(2) == ngrid);
+    assert( g.size(1) == ngrid && g.size(2) == ngrid);
+    // write actual field slice by slice
+    // std::cerr << write_rank << ">" << g.size(0) << " " << g.size(1) << " " << g.size(2) << std::endl;
+    for (size_t i = 0; i < g.size(2); ++i)
+    {   
+        data_buf_.assign(ngrid * ngrid, 0.0f);
+
+        for (unsigned j = 0; j < g.size(1); ++j)
         {
-            if (write_rank == 0)
+            for (unsigned k = 0; k < g.size(0); ++k)
             {
-                unlink(file_name.c_str());
+                data_buf_[j * ngrid + (k+g.local_0_start_)] = g.relem(k, j, i);
             }
-            std::ofstream ofs(file_name.c_str(), std::ios::binary|std::ios::app);
-
-            // write header or seek to end of file
-            if (write_rank == 0)
-            {
-                uint32_t blocksz = sizeof(header);
-                ofs.write(reinterpret_cast<const char *>(&blocksz), sizeof(int));
-                ofs.write(reinterpret_cast<const char *>(&header_), blocksz);
-                ofs.write(reinterpret_cast<const char *>(&blocksz), sizeof(int));
-            }
-
-            // check field size against buffer size...
-            uint32_t ngrid = cf_.get_value<int>("setup", "GridRes");
-            assert( g.global_size(0) == ngrid && g.global_size(1) == ngrid && g.global_size(2) == ngrid);
-            assert( g.size(1) == ngrid && g.size(2) == ngrid);
-            // write actual field slice by slice
-            for (size_t i = 0; i < g.size(2); ++i)
-            {
-                for (unsigned j = 0; j < g.size(1); ++j)
-                {
-                    for (unsigned k = 0; k < g.size(0); ++k)
-                    {
-                        data_buf_[j * ngrid + k] = g.relem(k, j, i);
-                    }
-                }
-
-                uint32_t blocksz = ngrid * ngrid * sizeof(float);
-                ofs.write(reinterpret_cast<const char *>(&blocksz), sizeof(uint32_t));
-                ofs.write(reinterpret_cast<const char *>(&data_buf_[0]), blocksz);
-                ofs.write(reinterpret_cast<const char *>(&blocksz), sizeof(uint32_t));
-            }
-
-            ofs.close();
         }
+#if defined(USE_MPI)
+        if( CONFIG::MPI_task_rank == 0 ) data_buf_write_.assign(ngrid*ngrid,0.0f);
+        MPI_Reduce( &data_buf_[0], &data_buf_write_[0], ngrid*ngrid, MPI::get_datatype<float>(), MPI_SUM, 0, MPI_COMM_WORLD );
+        if( CONFIG::MPI_task_rank == 0 ) data_buf_.swap(data_buf_write_);
+#endif
 
-        multitask_sync_barrier();
+        if( CONFIG::MPI_task_rank == 0 )
+        {
+            uint32_t blocksz = ngrid * ngrid * sizeof(float);
+            pofs->write(reinterpret_cast<const char *>(&blocksz), sizeof(uint32_t));
+            pofs->write(reinterpret_cast<const char *>(&data_buf_[0]), blocksz);
+            pofs->write(reinterpret_cast<const char *>(&blocksz), sizeof(uint32_t));
+        }
+    }
 
-    } // end loop over write_rank
+    if( CONFIG::MPI_task_rank == 0 ){
+        pofs->close();
+        delete pofs;
+    }
 
     music::ilog << interface_name_ << " : Wrote field to file \'" << file_name << "\'" << std::endl;
 }
