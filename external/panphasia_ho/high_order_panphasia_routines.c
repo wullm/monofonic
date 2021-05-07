@@ -621,10 +621,11 @@ int demo_descriptor_()
   char desc_name[100];
   char desc_iden[8];
   int error_code;
+  int pan_mode;
 
   descriptor_read_in = 0;
 
-  if (error_code = parse_and_validate_descriptor_(str))
+  if (error_code = parse_and_validate_descriptor_(str,&pan_mode))
   {
 
     printf("Invalid descriptor %s\n", str);
@@ -756,11 +757,13 @@ int PANPHASIA_init_descriptor_(char *descriptor, int *verbose)
   set_panphasia_key_(verb);
   check_panphasia_key_(verb);
 
-  if (error = parse_and_validate_descriptor_(descriptor))
+  int pan_mode;
+  if (error = parse_and_validate_descriptor_(descriptor,&pan_mode))
   {
     printf("-----------------------------------------\n");
     printf("Error initating start-up Panphasia routines \n");
     printf("Error code %d\n", error);
+    printf("pan_mode   %d\n", pan_mode);
     printf("-----------------------------------------\n");
     abort();
   };
@@ -907,18 +910,17 @@ int PANPHASIA_compute_coefficients_(size_t *xstart, size_t *ystart, size_t *zsta
   if (*zstart >= rel_coord_max)
     return (203);
 
-  if ((*xextent > rel_coord_max) || (*xextent == 0))
-    return (204);
-  if ((*yextent > rel_coord_max) || (*yextent == 0))
-    return (205);
-  if ((*zextent > rel_coord_max) || (*zextent == 0))
-    return (206);
+  if (*xextent > rel_coord_max) return (204);
+  if (*yextent > rel_coord_max) return (205);
+  if (*zextent > rel_coord_max) return (206);
 
   if ((*ncopy < 0) || (*ncopy > Nbasis))
     return (207);
 
   if ((copy_list[0] < 0) || (copy_list[*ncopy - 1] >= Nbasis))
     return (208);
+
+  if ((*xextent==0)||(*yextent==0)||(*zextent==0)) return(0);
 
   for (int i = 1; i < *ncopy; i++)
     if (copy_list[i] <= copy_list[i - 1])
@@ -1160,8 +1162,8 @@ int PANPHASIA_compute_coefficients_(size_t *xstart, size_t *ystart, size_t *zsta
   //========================================================================================
   {
 
-    FFTW_REAL *ptr_real = output_values;
-    FFTW_COMPLEX *ptr_cmplx = output_values;
+    PAN_REAL *ptr_real = output_values;
+    PAN_COMPLEX *ptr_cmplx = output_values;
     size_t zdimension = (*flag_output_mode == 2) ? *zextent + 2 : *zextent; // For R2C pad by two in z-dimension
 
     //printf("zdimension = %ld\n",zdimension);
@@ -1183,7 +1185,7 @@ int PANPHASIA_compute_coefficients_(size_t *xstart, size_t *ystart, size_t *zsta
           {
 
             for (size_t i = 0; i < *ncopy; i++)
-              ptr_cmplx[out_v_index + i] = (FFTW_COMPLEX)working_space[index + copy_list[i]];
+              ptr_cmplx[out_v_index + i] = (PAN_COMPLEX)working_space[index + copy_list[i]];
           }
           else
           {
@@ -1233,7 +1235,7 @@ int PANPHASIA_compute_coefficients_(size_t *xstart, size_t *ystart, size_t *zsta
 //======================================================================================
 //======================================================================================
 
-int parse_and_validate_descriptor_(char *descriptor)
+int parse_and_validate_descriptor_(char *descriptor, int *pan_mode)
 {
 
   char *token;
@@ -1302,12 +1304,12 @@ int parse_and_validate_descriptor_(char *descriptor)
 
   if (kk_limit_set == 0)
   {
-    sprintf(descriptor_as_read, "[Panph%d,L%llu,(%llu,%llu,%llu),S%llu,CH%lld,%s]",
+    sprintf(descriptor_as_read, "[Panph%llu,L%llu,(%llu,%llu,%llu),S%llu,CH%lld,%s]",
             desc_order, desc_level, desc_x, desc_y, desc_z, desc_size, desc_ch, desc_name);
   }
   else
   {
-    sprintf(descriptor_as_read, "[Panph%d,L%llu,(%llu,%llu,%llu),S%llu,KK%lld,CH%lld,%s]",
+    sprintf(descriptor_as_read, "[Panph%llu,L%llu,(%llu,%llu,%llu),S%llu,KK%lld,CH%lld,%s]",
             desc_order, desc_level, desc_x, desc_y, desc_z, desc_size, desc_kk_limit, desc_ch, desc_name);
   }
 
@@ -1331,6 +1333,8 @@ int parse_and_validate_descriptor_(char *descriptor)
   strcpy(descriptor_name, desc_name);
   strcpy(full_descriptor, descriptor);
   descriptor_read_in = 1;
+
+  *pan_mode = (desc_order==1)? 0:1;   // 0 - Old descriptor: 1 HO descriptor
 
   comp_ch = compute_check_digit_(); // check the check digit
 
@@ -1643,16 +1647,15 @@ void test_cell_moments(char root_descriptor[200], size_t rel_lev, size_t rel_ori
 void integrate_cell(int ix, int iy, int iz, size_t xextent, size_t yextent, size_t zextent, FFTW_REAL *output_values, double *results)
 {
 
-  /*/////////////////////////////////////////////////////////////////////////////
-
- This function computes the integral over a cell of the product of the
-Panphasia field with an 'analysing' Legendre polynomial. As the
-integrand is a polynomial, Gaussian quadrature can be used for
-integration as it is exact up to rounding error provide p_order
-is less than 10.
-
-/*/
-  ///////////////////////////////////////////////////////////////////////////*/
+/////////////////////////////////////////////////////////////////////////////
+//
+// This function computes the integral over a cell of the product of the
+// Panphasia field with an 'analysing' Legendre polynomial. As the
+// integrand is a polynomial, Gaussian quadrature can be used for
+// integration as it is exact up to rounding error provide p_order
+// is less than 10.
+//
+/////////////////////////////////////////////////////////////////////////////
 
   const double GQ_weights[5] = {0.2955242247147529, 0.2692667193099963,
                                 0.2190863625159820, 0.1494513491505806,
@@ -1830,14 +1833,14 @@ void compute_sph_bessel_coeffs(int nfft, int pmax, int n4dimen, int fdim, double
   const double pi = 4.0 * atan(1.0);
   for (int l = 0; l <= pmax; l++)
   {
-    double norm = sqrt((double)(2 * l + 1) * fdim);
+    double norm = sqrt((double)(2 * l + 1));
     double complex phase_shift = cpow(-I, l);
     for (int i = 0; i < nfft; i++)
     {
       int j = (i <= nfft / 2) ? i : i - nfft;
       int k = abs(j);
       double sign = (j < 0) ? pow(-1.0, l) : 1.0;
-      double x = pi * (double)k / (double)(nfft * fdim);
+      double x = pi*(double)fdim*(double)k/(double)nfft;
       double result;
       spherical_bessel_(&l, &x, &result);
 

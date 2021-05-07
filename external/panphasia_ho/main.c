@@ -24,6 +24,8 @@ int PANPHASIA_HO_main(void)
    int error;
    size_t x0 = 0, y0 = 0, z0 = 0;
    size_t rel_level;
+   int fdim=1;   //Option to scale Fourier grid dimension relative to Panphasia coefficient grid
+
    char descriptor[300] = "[Panph6,L20,(424060,82570,148256),S1,KK0,CH-999,Auriga_100_vol2]";
 
    PANPHASIA_init_descriptor_(descriptor, &verbose);
@@ -40,9 +42,9 @@ int PANPHASIA_HO_main(void)
 
    ptrdiff_t alloc_local, local_n0, local_0_start;
 
-   ptrdiff_t N0 = descriptor_base_size << rel_level;
+   ptrdiff_t N0 = fdim*(descriptor_base_size << rel_level);
 
-   alloc_local = FFTW_MPI_LOCAL_SIZE_3D(N0, N0, N0, MPI_COMM_WORLD, &local_n0, &local_0_start);
+   alloc_local = FFTW_MPI_LOCAL_SIZE_3D(N0, N0, N0 +2 , MPI_COMM_WORLD, &local_n0, &local_0_start);
 
    FFTW_COMPLEX *Panphasia_White_Noise_Field;
 
@@ -54,6 +56,8 @@ int PANPHASIA_HO_main(void)
    };
 
    fftw_free(Panphasia_White_Noise_Field);
+
+   return(0);
 }
 
 #ifdef STANDALONE_PANPHASIA_HO
@@ -108,7 +112,7 @@ int main(int argc, char **argv)
 
    ptrdiff_t N0 = descriptor_base_size << rel_level;
 
-   alloc_local = FFTW_MPI_LOCAL_SIZE_3D(N0, N0, N0, MPI_COMM_WORLD, &local_n0, &local_0_start);
+   alloc_local = FFTW_MPI_LOCAL_SIZE_3D(N0, N0, N0+2, MPI_COMM_WORLD, &local_n0, &local_0_start);
 
    FFTW_COMPLEX *Panphasia_White_Noise_Field;
 
@@ -125,6 +129,9 @@ int main(int argc, char **argv)
    //==================== End FFTW  ===========================
 
    MPI_Finalize();
+   return(0);
 }
+
+
 
 #endif // STANDALONE_PANPHASIA_HO
