@@ -3,7 +3,7 @@
 //  By default Panphasia is computed at single
 //  precision.  To override this define PAN_DOUBLE
 
-#define PAN_DOUBLE_PRECISION  8
+//#define PAN_DOUBLE_PRECISION  8
 
 
 #ifndef PAN_DOUBLE_PRECISION
@@ -49,7 +49,7 @@ void compute_all_properties_of_a_panphasia_cell_(size_t *level, size_t *j1, size
 void return_root_legendre_coefficients_(PAN_REAL *root);
 
 
-int parse_and_validate_descriptor_(char *);
+int parse_and_validate_descriptor_(char *, int *);
 int demo_descriptor_();
 long long int compute_check_digit_();
 int PANPHASIA_init_descriptor_(char *descriptor, int *verbose);
