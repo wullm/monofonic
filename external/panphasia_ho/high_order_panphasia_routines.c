@@ -1235,7 +1235,7 @@ int PANPHASIA_compute_coefficients_(size_t *xstart, size_t *ystart, size_t *zsta
 //======================================================================================
 //======================================================================================
 
-int parse_and_validate_descriptor_(char *descriptor, int *pan_mode)
+int parse_and_validate_descriptor_(const char *descriptor, int *pan_mode)
 {
 
   char *token;
