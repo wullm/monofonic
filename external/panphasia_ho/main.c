@@ -18,7 +18,7 @@ int number_omp_threads = 1;
 #endif
 
 // does the same as the main below, but does not initialise MPI or FFTW (this should be done in MONOFONIC)
-int PANPHASIA_HO_main(void)
+int PANPHASIA_HO_main(const char *descriptor, size_t *ngrid_load)
 {
    int verbose = 0;
    int error;
@@ -26,11 +26,18 @@ int PANPHASIA_HO_main(void)
    size_t rel_level;
    int fdim=1;   //Option to scale Fourier grid dimension relative to Panphasia coefficient grid
 
-   char descriptor[300] = "[Panph6,L20,(424060,82570,148256),S1,KK0,CH-999,Auriga_100_vol2]";
+   //char descriptor[300] = "[Panph6,L20,(424060,82570,148256),S1,KK0,CH-999,Auriga_100_vol2]";
 
    PANPHASIA_init_descriptor_(descriptor, &verbose);
 
-   rel_level = 6; //Set size of test dataset
+   printf("Descriptor %s\n ngrid_load %llu\n",descriptor,*ngrid_load);
+
+   // Choose smallest value of level to equal of exceed *ngrid_load)
+
+   for (rel_level=0; fdim*(descriptor_base_size<<(rel_level+1))<=*ngrid_load; rel_level++);
+
+   printf("Setting relative level = %llu\n",rel_level);
+
 
    if (error = PANPHASIA_init_level_(&rel_level, &x0, &y0, &z0, &verbose))
    {

@@ -729,7 +729,7 @@ int demo_descriptor_()
   return (0);
 };
 
-int PANPHASIA_init_descriptor_(char *descriptor, int *verbose)
+int PANPHASIA_init_descriptor_(const char *descriptor, int *verbose)
 {
   int error;
   int verb;
