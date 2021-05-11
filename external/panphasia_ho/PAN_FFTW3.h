@@ -1,6 +1,14 @@
 // Define macros for FFTW3 to allow swapping 
 // between single/double precision FTs
 
+#ifndef USE_PRECISION_FLOAT
+
+#define FOURIER_DOUBLE
+
+#endif
+
+
+
 #define FOURIER_DOUBLE
 
 #ifdef FOURIER_DOUBLE

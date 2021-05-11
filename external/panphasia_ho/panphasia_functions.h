@@ -3,8 +3,10 @@
 //  By default Panphasia is computed at single
 //  precision.  To override this define PAN_DOUBLE
 
-//#define PAN_DOUBLE_PRECISION  8
 
+#ifndef USE_PRECISION_FLOAT
+#define PAN_DOUBLE_PRECISION  8
+#endif
 
 #ifndef PAN_DOUBLE_PRECISION
 
