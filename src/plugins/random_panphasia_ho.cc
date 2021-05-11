@@ -40,7 +40,7 @@
 #include <grid_fft.hh>
 
 extern "C"{
-  int PANPHASIA_HO_main( void );
+  int PANPHASIA_HO_main( const char *descriptor, size_t *ngrid);
   int parse_and_validate_descriptor_(const char *, int *);
 }
 
@@ -74,7 +74,7 @@ public:
       std::cout << "PANPHASIA: Old descriptor" << std::endl;
     }else if( panphasia_mode_ == 1 ){
       std::cout << "PANPHASIA: New descriptor" << std::endl;
-      PANPHASIA_HO_main();
+      PANPHASIA_HO_main(descriptor_string_.c_str(),&grid_res_);
     }else{
       std::cout << "PANPHASIA: Something went wrong with descriptor" << std::endl;
       abort();
