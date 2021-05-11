@@ -54,7 +54,7 @@ void return_root_legendre_coefficients_(PAN_REAL *root);
 int parse_and_validate_descriptor_(const char *, int *);
 int demo_descriptor_();
 long long int compute_check_digit_();
-int PANPHASIA_init_descriptor_(char *descriptor, int *verbose);
+int PANPHASIA_init_descriptor_(const char *descriptor, int *verbose);
 int PANPHASIA_init_level_(size_t *oct_level, size_t *rel_orig_x, size_t *rel_orig_y,size_t *rel_orig_z,int *verbose);
 
 
