@@ -41,7 +41,7 @@
 
 extern "C"
 {
-  #include <panphasia_ho/panphasia_functions.h>
+#include <panphasia_ho/panphasia_functions.h>
   extern size_t descriptor_base_size;
 }
 
@@ -53,6 +53,7 @@ protected:
   int num_threads_;
   int panphasia_mode_;
   size_t grid_res_;
+  real_t boxlength_;
 
 public:
   explicit RNG_panphasia_ho(config_file &cf) : RNG_plugin(cf)
@@ -66,85 +67,98 @@ public:
 
     descriptor_string_ = pcf_->get_value<std::string>("random", "descriptor");
     grid_res_ = pcf_->get_value<size_t>("setup", "GridRes");
+    boxlength_ = pcf_->get_value<size_t>("setup", "BoxLength");
 
     panphasia_mode_ = 0;
     parse_and_validate_descriptor_(descriptor_string_.c_str(), &panphasia_mode_);
-
-    if (panphasia_mode_ == 0)
-    {
-      std::cout << "PANPHASIA: Old descriptor" << std::endl;
-    }
-    else if (panphasia_mode_ == 1)
-    {
-      std::cout << "PANPHASIA: New descriptor" << std::endl;
-
-      int verbose = 0;
-      int error;
-      size_t x0 = 0, y0 = 0, z0 = 0;
-      size_t rel_level;
-      int fdim = 1; //Option to scale Fourier grid dimension relative to Panphasia coefficient grid
-
-      //char descriptor[300] = "[Panph6,L20,(424060,82570,148256),S1,KK0,CH-999,Auriga_100_vol2]";
-
-      PANPHASIA_init_descriptor_(descriptor_string_.c_str(), &verbose);
-
-      printf("Descriptor %s\n ngrid_load %lu\n", descriptor_string_.c_str(), grid_res_);
-
-      // Choose smallest value of level to equal of exceed grid_res_)
-
-      for (rel_level = 0; fdim * (descriptor_base_size << (rel_level + 1)) <= grid_res_; rel_level++)
-        ;
-
-      printf("Setting relative level = %lu\n", rel_level);
-
-      if ((error = PANPHASIA_init_level_(&rel_level, &x0, &y0, &z0, &verbose)))
-      {
-        printf("Abort: PANPHASIA_init_level_ :error code %d\n", error);
-        abort();
-      };
-
-      //======================= FFTW ==============================
-
-      ptrdiff_t alloc_local, local_n0, local_0_start;
-
-      ptrdiff_t N0 = fdim * (descriptor_base_size << rel_level);
-
-      alloc_local = FFTW_MPI_LOCAL_SIZE_3D(N0, N0, N0 + 2, MPI_COMM_WORLD, &local_n0, &local_0_start);
-
-      FFTW_COMPLEX *Panphasia_White_Noise_Field;
-
-      Panphasia_White_Noise_Field = FFTW_ALLOC_COMPLEX(alloc_local);
-
-      if ((error = PANPHASIA_compute_kspace_field_(rel_level, N0, local_n0, local_0_start, Panphasia_White_Noise_Field)))
-      {
-        printf("Error code from PANPHASIA_compute ...  %d\n", error);
-      };
-
-      fftw_free(Panphasia_White_Noise_Field);
-
-      //   PANPHASIA_HO_main(descriptor_string_.c_str(),&grid_res_);
-    }
-    else
-    {
-      std::cout << "PANPHASIA: Something went wrong with descriptor" << std::endl;
-      abort();
-    }
   }
 
   ~RNG_panphasia_ho()
   {
-    if (panphasia_mode_ == 0) // old
-    {
-    }
   }
 
   bool isMultiscale() const { return true; }
 
+  void Run_Panphasia_Highorder(Grid_FFT<real_t> &g);
+
   void Fill_Grid(Grid_FFT<real_t> &g)
   {
+    switch( panphasia_mode_ ){
+
+      case 0: // old mode
+              music::ilog << "PANPHASIA: Old descriptor" << std::endl;
+              break;
+
+      case 1: // PANPHASIA HO descriptor
+              music::ilog << "PANPHASIA: New descriptor" << std::endl;
+              this->Run_Panphasia_Highorder( g );
+              break;
+
+      default: // unknown PANPHASIA mode
+              music::elog << "PANPHASIA: Something went wrong with descriptor" << std::endl;
+              abort();
+              break;
+    }
   }
 };
 
+void RNG_panphasia_ho::Run_Panphasia_Highorder(Grid_FFT<real_t> &g)
+{
+  int verbose = 0;
+  int error;
+  size_t x0 = 0, y0 = 0, z0 = 0;
+  size_t rel_level;
+  int fdim = 1; //Option to scale Fourier grid dimension relative to Panphasia coefficient grid
+
+  //char descriptor[300] = "[Panph6,L20,(424060,82570,148256),S1,KK0,CH-999,Auriga_100_vol2]";
+
+  PANPHASIA_init_descriptor_(descriptor_string_.c_str(), &verbose);
+
+  printf("Descriptor %s\n ngrid_load %lu\n", descriptor_string_.c_str(), grid_res_);
+
+  // Choose smallest value of level to equal of exceed grid_res_)
+
+  for (rel_level = 0; fdim * (descriptor_base_size << (rel_level + 1)) <= grid_res_; rel_level++)
+    ;
+
+  printf("Setting relative level = %lu\n", rel_level);
+
+  if ((error = PANPHASIA_init_level_(&rel_level, &x0, &y0, &z0, &verbose)))
+  {
+    printf("Abort: PANPHASIA_init_level_ :error code %d\n", error);
+    abort();
+  };
+
+  //======================= FFTW ==============================
+
+  ptrdiff_t alloc_local, local_n0, local_0_start;
+
+  size_t N0 = fdim * (descriptor_base_size << rel_level);
+
+  alloc_local = FFTW_MPI_LOCAL_SIZE_3D(N0, N0, N0 + 2, MPI_COMM_WORLD, &local_n0, &local_0_start);
+
+  Grid_FFT<real_t> pan_grid({{N0, N0, N0}}, {{boxlength_, boxlength_, boxlength_}});
+
+  assert(pan_grid.n_[0] == N0);
+  assert(pan_grid.n_[1] == N0);
+  assert(pan_grid.n_[2] == N0);
+  assert(pan_grid.local_0_start_ == local_0_start);
+  assert(pan_grid.local_0_size_ == local_n0);
+  assert(pan_grid.ntot_ == alloc_local);
+
+  pan_grid.FourierTransformForward(false);
+
+  FFTW_COMPLEX *Panphasia_White_Noise_Field = reinterpret_cast<FFTW_COMPLEX *>(&pan_grid.data_[0]);
+
+  // Panphasia_White_Noise_Field = FFTW_ALLOC_COMPLEX(alloc_local);
+
+  if ((error = PANPHASIA_compute_kspace_field_(rel_level, N0, local_n0, local_0_start, Panphasia_White_Noise_Field)))
+  {
+    music::elog << "Error code from PANPHASIA_compute ...  (ErrCode = " << error << ")" << std::endl;
+  };
+
+  pan_grid.FourierInterpolateCopyTo( g );
+}
 namespace
 {
   RNG_plugin_creator_concrete<RNG_panphasia_ho> creator("PANPHASIA_HO");
