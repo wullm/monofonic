@@ -286,8 +286,7 @@ printf("Plan completed ... \n");
 //////////////////////////////////////////////////////////////////////////   
 //----------------------------------------------------------------------------------   
 
-
-memset(return_field, 0, local_n0_fourier_return*N0_fourier_grid *(N0_fourier_grid +2) * sizeof(FFTW_COMPLEX));
+memset(return_field, 0, local_n0_fourier_return*N0_fourier_grid *(N0_fourier_grid +2)/2 * sizeof(FFTW_COMPLEX));
  
 
 for (int iter = 0;  iter < nsubdivide; iter++){
