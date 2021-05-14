@@ -96,6 +96,8 @@ int run( config_file& the_config )
     //--------------------------------------------------------------------------------------------------------
     //! do baryon ICs?
     const bool bDoBaryons = the_config.get_value_safe<bool>("setup", "DoBaryons", false );
+    //! exclude massive neutrinos from the total matter fluid?
+    const bool bExcludeNeutrinos = the_config.get_value_safe<bool>("setup", "ExcludeNeutrinos", false );
     //! enable also back-scaled decaying relative velocity mode? only first order!
     const bool bDoLinearBCcorr = the_config.get_value_safe<bool>("setup", "DoBaryonVrel", false);
     // compute mass fractions 
@@ -109,6 +111,12 @@ int run( config_file& the_config )
         double Om = the_cosmo_calc->cosmo_param_["Omega_m"];
         Omega[cosmo_species::dm] = Om;
         Omega[cosmo_species::baryon] = 0.0;
+    }
+
+    //! if necessary, subtract the massive neutrino density
+    if (bExcludeNeutrinos) {
+        double Onu = the_cosmo_calc->cosmo_param_["Omega_nu_massive"];
+        Omega[cosmo_species::dm] -= Onu;
     }
 
     //--------------------------------------------------------------------------------------------------------
@@ -327,10 +335,24 @@ int run( config_file& the_config )
     double wtime = get_wtime();
     music::ilog << std::setw(40) << std::setfill('.') << std::left << "Computing phi(1) term" << std::flush;
 
+    // baryon, cdm, and total matter densities
+    real_t O_b = the_cosmo_calc->cosmo_param_["Omega_b"];
+    real_t O_c = the_cosmo_calc->cosmo_param_["Omega_c"];
+    real_t O_m = the_cosmo_calc->cosmo_param_["Omega_m"];
+
     phi.FourierTransformForward(false);
     phi.assign_function_of_grids_kdep([&](auto k, auto wn) {
         real_t kmod = k.norm();
-        ccomplex_t delta = wn * the_cosmo_calc->get_amplitude(kmod, delta_matter);
+        ccomplex_t delta;
+        if (bExcludeNeutrinos) {
+            // Use (Ob * delta_b + Oc * delta_c)/(Ob + Oc), excluding neutrinos
+            ccomplex_t delta_b = the_cosmo_calc->get_amplitude(kmod, delta_baryon);
+            ccomplex_t delta_c = the_cosmo_calc->get_amplitude(kmod, delta_cdm);
+            delta = wn * (O_b * delta_b + O_c * delta_c) / (O_b + O_c);
+        }else {
+            // Use total matter density including all non-relativistic species
+            delta = wn * the_cosmo_calc->get_amplitude(kmod, delta_matter);
+        }
         return -delta / (kmod * kmod);
     }, wnoise);
 
@@ -492,7 +514,8 @@ int run( config_file& the_config )
         music::ilog << std::endl
                     << ">>> Computing ICs for species \'" << cosmo_species_name[this_species] << "\' <<<\n" << std::endl;
 
-        const real_t C_species = (this_species == cosmo_species::baryon)? (1.0-the_cosmo_calc->cosmo_param_["f_b"]) : -the_cosmo_calc->cosmo_param_["f_b"];
+        const real_t f_b = O_b / ((bExcludeNeutrinos) ? (O_b + O_c) : O_m);
+        const real_t C_species = (this_species == cosmo_species::baryon)? (1.0-f_b) : -f_b; 
 
         // main loop block
         {
