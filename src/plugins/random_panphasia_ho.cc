@@ -39,11 +39,16 @@
 
 #include <grid_fft.hh>
 
-extern "C"
+namespace PANPHASIA2
 {
+  extern "C"
+  {
 #include <panphasia_ho/panphasia_functions.h>
-  extern size_t descriptor_base_size;
+    extern size_t descriptor_base_size;
+  }
 }
+
+#include "PANPHASIA.hh"
 
 class RNG_panphasia_ho : public RNG_plugin
 {
@@ -54,6 +59,8 @@ protected:
   int panphasia_mode_;
   size_t grid_res_;
   real_t boxlength_;
+
+  PANPHASIA1::RNG *ppan1_rng_;
 
 public:
   explicit RNG_panphasia_ho(config_file &cf) : RNG_plugin(cf)
@@ -70,11 +77,20 @@ public:
     boxlength_ = pcf_->get_value<size_t>("setup", "BoxLength");
 
     panphasia_mode_ = 0;
-    parse_and_validate_descriptor_(descriptor_string_.c_str(), &panphasia_mode_);
+    PANPHASIA2::parse_and_validate_descriptor_(descriptor_string_.c_str(), &panphasia_mode_);
+
+    if (panphasia_mode_ == 0)
+    {
+      ppan1_rng_ = new PANPHASIA1::RNG(&cf);
+    }
   }
 
   ~RNG_panphasia_ho()
   {
+    if (panphasia_mode_ == 0)
+    {
+      delete ppan1_rng_;
+    }
   }
 
   bool isMultiscale() const { return true; }
@@ -83,21 +99,23 @@ public:
 
   void Fill_Grid(Grid_FFT<real_t> &g)
   {
-    switch( panphasia_mode_ ){
+    switch (panphasia_mode_)
+    {
 
-      case 0: // old mode
-              music::ilog << "PANPHASIA: Old descriptor" << std::endl;
-              break;
+    case 0: // old mode
+      music::ilog << "PANPHASIA: Old descriptor" << std::endl;
+      ppan1_rng_->Fill(g);
+      break;
 
-      case 1: // PANPHASIA HO descriptor
-              music::ilog << "PANPHASIA: New descriptor" << std::endl;
-              this->Run_Panphasia_Highorder( g );
-              break;
+    case 1: // PANPHASIA HO descriptor
+      music::ilog << "PANPHASIA: New descriptor" << std::endl;
+      this->Run_Panphasia_Highorder(g);
+      break;
 
-      default: // unknown PANPHASIA mode
-              music::elog << "PANPHASIA: Something went wrong with descriptor" << std::endl;
-              abort();
-              break;
+    default: // unknown PANPHASIA mode
+      music::elog << "PANPHASIA: Something went wrong with descriptor" << std::endl;
+      abort();
+      break;
     }
   }
 };
@@ -112,18 +130,18 @@ void RNG_panphasia_ho::Run_Panphasia_Highorder(Grid_FFT<real_t> &g)
 
   //char descriptor[300] = "[Panph6,L20,(424060,82570,148256),S1,KK0,CH-999,Auriga_100_vol2]";
 
-  PANPHASIA_init_descriptor_(descriptor_string_.c_str(), &verbose);
+  PANPHASIA2::PANPHASIA_init_descriptor_(descriptor_string_.c_str(), &verbose);
 
   printf("Descriptor %s\n ngrid_load %lu\n", descriptor_string_.c_str(), grid_res_);
 
   // Choose smallest value of level to equal of exceed grid_res_)
 
-  for (rel_level = 0; fdim * (descriptor_base_size << (rel_level + 1)) <= grid_res_; rel_level++)
+  for (rel_level = 0; fdim * (PANPHASIA2::descriptor_base_size << (rel_level + 1)) <= grid_res_; rel_level++)
     ;
 
   printf("Setting relative level = %lu\n", rel_level);
 
-  if ((error = PANPHASIA_init_level_(&rel_level, &x0, &y0, &z0, &verbose)))
+  if ((error = PANPHASIA2::PANPHASIA_init_level_(&rel_level, &x0, &y0, &z0, &verbose)))
   {
     printf("Abort: PANPHASIA_init_level_ :error code %d\n", error);
     abort();
@@ -133,7 +151,7 @@ void RNG_panphasia_ho::Run_Panphasia_Highorder(Grid_FFT<real_t> &g)
 
   ptrdiff_t alloc_local, local_n0, local_0_start;
 
-  size_t N0 = fdim * (descriptor_base_size << rel_level);
+  size_t N0 = fdim * (PANPHASIA2::descriptor_base_size << rel_level);
 
   alloc_local = FFTW_MPI_LOCAL_SIZE_3D(N0, N0, N0 + 2, MPI_COMM_WORLD, &local_n0, &local_0_start);
 
@@ -144,7 +162,7 @@ void RNG_panphasia_ho::Run_Panphasia_Highorder(Grid_FFT<real_t> &g)
   assert(pan_grid.n_[2] == N0);
   assert(pan_grid.local_0_start_ == local_0_start);
   assert(pan_grid.local_0_size_ == local_n0);
-  assert(pan_grid.ntot_ == alloc_local);
+  assert(pan_grid.ntot_ == size_t(alloc_local));
 
   pan_grid.FourierTransformForward(false);
 
@@ -152,12 +170,12 @@ void RNG_panphasia_ho::Run_Panphasia_Highorder(Grid_FFT<real_t> &g)
 
   // Panphasia_White_Noise_Field = FFTW_ALLOC_COMPLEX(alloc_local);
 
-  if ((error = PANPHASIA_compute_kspace_field_(rel_level, N0, local_n0, local_0_start, Panphasia_White_Noise_Field)))
+  if ((error = PANPHASIA2::PANPHASIA_compute_kspace_field_(rel_level, N0, local_n0, local_0_start, Panphasia_White_Noise_Field)))
   {
     music::elog << "Error code from PANPHASIA_compute ...  (ErrCode = " << error << ")" << std::endl;
   };
 
-  pan_grid.FourierInterpolateCopyTo( g );
+  pan_grid.FourierInterpolateCopyTo(g);
 }
 namespace
 {
