@@ -153,7 +153,7 @@ endif(ENABLE_PANPHASIA)
 option(ENABLE_PANPHASIA_HO "Enable PANPHASIA-HO random number generator" ON)
 ########################################################################################################################
 # INCLUDES
-include_directories(${PROJECT_SOURCE_DIR}/include)
+include_directories(${PROJECT_SOURCE_DIR}/include ${PROJECT_SOURCE_DIR}/external)
 
 # SOURCES
 # get all the *.cc files in the subfolders

@@ -3,6 +3,7 @@
 //  By default Panphasia is computed at single
 //  precision.  To override this define PAN_DOUBLE
 
+#pragma once
 
 #ifndef USE_PRECISION_FLOAT
 #define PAN_DOUBLE_PRECISION  8
@@ -21,7 +22,7 @@
 #endif
 
 
-
+#include "PAN_FFTW3.h"
 
 /////////////////////////////////////////////////////////////////////
 
@@ -89,7 +90,10 @@ int return_binary_tree_cell_lists(size_t level_max, size_t *list_cell_coordinate
 
 
 
-
+#ifdef __cplusplus
+void compute_sph_bessel_coeffs(int, int, int, int, std::complex<double>* *);
+#else
 void compute_sph_bessel_coeffs(int, int, int, int, double complex *);
+#endif
 
 int PANPHASIA_compute_kspace_field_(size_t, ptrdiff_t, ptrdiff_t, ptrdiff_t, FFTW_COMPLEX *);
