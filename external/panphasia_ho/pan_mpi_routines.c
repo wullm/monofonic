@@ -45,7 +45,7 @@ int flag_output_mode=2;
 int error;
 ptrdiff_t size_to_alloc_fourier;
 ptrdiff_t size_to_alloc_pan;
-ptrdiff_t local_n0_fourier_xoffset;
+ ptrdiff_t local_fourier_x_start, local_fourier_x_end;
 FFTW_PLAN output_coeff_forward_plan; 
 
 ptrdiff_t  N0_pan_grid = descriptor_base_size<<relative_level;
@@ -66,9 +66,9 @@ if (pmax>descriptor_order) return(100020);
 
 for (size_t i=0; i<Nbasis; i++) copy_list[i]=i;
 
-printf("Dimensions of FT   (%td,%td,%td)\n",N0_fourier_grid,N0_fourier_grid,N0_fourier_grid);
-printf("Dimensions of PG   (%td,%td,%td)\n",N0_pan_grid,N0_pan_grid,N0_pan_grid);
-printf("local_no %td local_0_start_fourier %td\n",local_n0_fourier_return, local_0_start_fourier_return);
+//printf("Dimensions of FT   (%td,%td,%td)\n",N0_fourier_grid,N0_fourier_grid,N0_fourier_grid);
+//printf("Dimensions of PG   (%td,%td,%td)\n",N0_pan_grid,N0_pan_grid,N0_pan_grid);
+//printf("local_no %td local_0_start_fourier %td\n",local_n0_fourier_return, local_0_start_fourier_return);
 
 //  Compute 1-D Spherical Bessel coefficients for each order //////////////////
 //  These are needed for the convolutions below              //////////////////
@@ -84,7 +84,7 @@ if (sph_bessel_coeff==NULL) return(100030);
 
 compute_sph_bessel_coeffs(nfft_dim, pmax, n4dimen, fdim, sph_bessel_coeff);
 
-printf("Reached here! ndimen4 %ld\n",n4dimen);
+//printf("Reached here! ndimen4 %ld\n",n4dimen);
 ///////////////////////////////////////////////////////////////////////////////
 
 
@@ -119,35 +119,39 @@ if (local_n0_fourier!=local_n0_fourier_return){
    return(100033);
  };
 
-local_0_start_pan = local_0_start_fourier/fdim;
-local_n0_pan = (local_0_start_fourier + local_n0_fourier)/fdim - local_0_start_pan;
 
+ ptrdiff_t abs_fourier_x_start, abs_fourier_x_end;
 
-const ptrdiff_t ndimens_alloc_pan[] = {N0_pan_grid, N0_pan_grid, N0_pan_grid+2}; // Allocated for r2c
- howmany = ncopy;
-
-ptrdiff_t local_n0_pan_check;
-ptrdiff_t local_0_start_pan_check;
-size_to_alloc_pan = howmany * local_n0_pan * N0_pan_grid * ( N0_pan_grid+2);
-
-ptrdiff_t size_to_alloc_pan_check = FFTW_MPI_LOCAL_SIZE_MANY(rank, ndimens_alloc_pan, howmany,
- 						    FFTW_MPI_DEFAULT_BLOCK,MPI_COMM_WORLD,
-                                                    &local_n0_pan_check,&local_0_start_pan_check);
- if (size_to_alloc_pan!=size_to_alloc_pan_check){
-   printf("size_to_alloc_pan!=size_to_alloc_pan_check\n");
-   return(100034);
-
+ if (local_0_start_fourier_return%fdim==0){
+   abs_fourier_x_start = local_0_start_fourier_return;
+ }else{
+   abs_fourier_x_start = local_0_start_fourier_return + fdim - (local_0_start_fourier_return%fdim);
  };
 
- local_n0_fourier_xoffset = local_0_start_fourier_return%fdim;
 
-printf("size_to_alloc_fourier = %td\n",size_to_alloc_fourier);
-printf("size_to_alloc_pan     = %td\n",size_to_alloc_pan);
-printf("local_n0_fourier %td local_0_start_fourier %td\n",local_n0_fourier,local_0_start_fourier);
-printf("local_n0_pan %td local_0_start_pan %td\n",local_n0_pan,local_0_start_pan);
-printf("local_n0_fourier_xoffset  %td\n",local_n0_fourier_xoffset);
+ if ((local_0_start_fourier_return + local_n0_fourier_return - 1)%fdim==0){
+   abs_fourier_x_end = local_0_start_fourier_return + local_n0_fourier_return - 1;
+ }else{
+   abs_fourier_x_end = (local_0_start_fourier_return + local_n0_fourier_return - 1)-
+     ((local_0_start_fourier_return + local_n0_fourier_return - 1)%fdim);
+ };
+
+ if ((abs_fourier_x_end-abs_fourier_x_start)%fdim!=0) return (100036); 
+
+ local_0_start_pan = abs_fourier_x_start/fdim;
+ local_n0_pan      = 1 + (abs_fourier_x_end-abs_fourier_x_start)/fdim;
+
+ local_fourier_x_start = abs_fourier_x_start - local_0_start_fourier_return;
+ local_fourier_x_end   = abs_fourier_x_end   - local_0_start_fourier_return;
+
+const ptrdiff_t ndimens_alloc_pan[] = {N0_pan_grid, N0_pan_grid, N0_pan_grid+2}; 
+ howmany = ncopy;
+
+size_to_alloc_pan = howmany * local_n0_pan * N0_pan_grid * ( N0_pan_grid+2);
 
 
+//printf("size_to_alloc_fourier = %td\n",size_to_alloc_fourier);
+//printf("size_to_alloc_pan     = %td\n",size_to_alloc_pan);
 
  
  };
@@ -225,7 +229,7 @@ if (error = PANPHASIA_compute_coefficients_(&xorigin,&yorigin,&zorigin,&xextent,
 
 {
 
-if (N0_pan_grid<128){
+if (N0_pan_grid<-1){
  
 int rank;
   MPI_Comm_rank(MPI_COMM_WORLD,&rank);
@@ -242,7 +246,7 @@ int rank;
     for (int iy=0; iy < npan_dim; iy++)
       for (int iz=0; iz < npan_dim; iz++){
 	int index = ix*N0_pan_grid*(N0_pan_grid+2) + iy*(N0_pan_grid+2) + iz;
-        fprintf(fp,"%6ld%6d%6d %14.8lf %d\n",ix+local_0_start_pan,iy,iz,
+        fprintf(fp,"%6llu%6d%6d %14.8lf %d\n",ix+local_0_start_pan,iy,iz,
 		ptr_panphasia_coefficients[index],index);
 		      };
 
@@ -256,7 +260,7 @@ int rank;
 ////////////// Set up FTTW plan //////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////   
 
- printf("Making the plan ... \n");
+// printf("Making the plan ... \n");
 
 //////////////////// Make plan for ncopy interleaved FTs ///////////////////////////
 //////////////////////////////////////////////////////////////////////////   
@@ -280,13 +284,14 @@ int rank;
 
  };
 
-printf("Plan completed ... \n");
+//printf("Plan completed ... \n");
 
 //////////////////////////////////////////////////////////////////////////   
 //////////////////////////////////////////////////////////////////////////   
 //----------------------------------------------------------------------------------   
 
-memset(return_field, 0, local_n0_fourier_return*N0_fourier_grid *(N0_fourier_grid +2)/2 * sizeof(FFTW_COMPLEX));
+
+memset(return_field, 0, local_n0_fourier_return*N0_fourier_grid *(N0_fourier_grid +2) * sizeof(FFTW_REAL));
  
 
 for (int iter = 0;  iter < nsubdivide; iter++){
@@ -304,17 +309,17 @@ if (!SHARED_FOUR_PAN_SPACE){
 size_t index_p,index_f;
 int m;
 
-  for(int ix_p=0, ix_f = local_n0_fourier_xoffset; ix_p<local_n0_pan; ix_p++,ix_f+=fdim)
+ for (int ix_f = local_fourier_x_start, ix_p=0; ix_f <=local_fourier_x_end; ix_f+=fdim,ix_p++)
 #ifdef USE_OPENMP
 #pragma omp parallel for collapse(2) private (index_p,index_f,m)
 #endif
-    for(int iy_p=0, iy_f=0 ; iy_p<npan_dim;iy_p++,iy_f+=fdim)
-      for(int iz_p=0, iz_f=0; iz_p<npan_dim;iz_p++,iz_f+=fdim){
+
+   for(int iy_f=0, iy_p=0 ; iy_f<nfft_dim; iy_f+=fdim, iy_p++)
+     for(int iz_f=0, iz_p=0; iz_f<nfft_dim; iz_f+=fdim, iz_p++){
 	 index_p = ix_p*N0_pan_grid*(N0_pan_grid + 2) + iy_p*(N0_pan_grid + 2) + iz_p;
 	 index_f = ix_f*N0_fourier_grid*(N0_fourier_grid + 2) + iy_f*(N0_fourier_grid + 2) + iz_f;
 
           for (m=0; m<nchunk; m++){
-
           ptr_real_fourier_grid[nchunk*index_f + m] =
 	    ptr_panphasia_coefficients[ncopy*index_p + moffset + m];
 
@@ -366,7 +371,7 @@ int m;
 
 
  
- printf("Reached here 10!\n");
+// printf("Reached here 10!\n");
 
    //Add phase shift and normalise field
 {
@@ -394,9 +399,10 @@ int m;
         if ( (kx==nfft_dim/2)||(ky==nfft_dim/2)||(kz==nfft_dim/2)){
 	  // Set Nyquist modes to zero - not used by IC_Gen anyway.
           phase_shift_and_scale = 0.0; //1.0/pow((double)nfft_dim,1.5);  // No phase shift
+          ptr_mode_weightings[index1] = 0.0; // Set squared weight to zero
         }else{
 	  phase_shift_and_scale = sqrt( (double)(fdim*fdim*fdim))*
-              cexp( (double)fdim * (-I)*pi*(double)(kx + ky + kz)/
+              cexp( (double)fdim * (-I)*pi*(double)(kx + ky + kz)/sqrt(ptr_mode_weightings[index1])/
                           (double)nfft_dim)/pow((double)nfft_dim,1.5);
         };
 
@@ -406,12 +412,12 @@ int m;
      
       };
 
-  printf("Minimum weight %lf\n",sqrt(min_weight));
+  //  printf("Minimum weight %lf\n",sqrt(min_weight));
 
 
  };
 
- printf("Reached here 11!\n");
+// printf("Reached here 11!\n");
 
 
 
@@ -435,7 +441,7 @@ int m;
           ky = (iy > nfft_dim/2) ? iy-nfft_dim : iy;
           kz = (iz > nfft_dim/2) ? iz-nfft_dim : iz;
           ksquared = kx*kx + ky*ky + kz*kz;
-          if (ksquared<=descriptor_kk_limit){
+          if ((ksquared<=descriptor_kk_limit)&&(ksquared!=0)){
 	    index1 = ix*N0_fourier_grid*(N0_fourier_grid/2+1) + iy*(N0_fourier_grid/2+1) + iz;
             weight = cabs(return_field[index1]);
             return_field[index1] /= weight;   
@@ -444,7 +450,7 @@ int m;
 
  };
  
-printf("Reached here 12!\n");
+ //printf("Reached here 12!\n");
 
 
 int rank;
@@ -455,7 +461,7 @@ int rank;
 
 
 
-if (nfft_dim <128){
+if (nfft_dim <-1){
 
 
   
@@ -468,7 +474,7 @@ if (nfft_dim <128){
       for (int iz=0; iz <= nfft_dim/2; iz++){
 
 	int index = ix*N0_fourier_grid*(N0_fourier_grid/2+1) + iy*(N0_fourier_grid/2+1) + iz;
-        fprintf(fp,"%6ld%6d%6d %14.8lf %14.8lf %14.8lf \n",ix+local_0_start_fourier_return,iy,iz,
+        fprintf(fp,"%6llu%6d%6d %14.8lf %14.8lf %14.8lf \n",ix+local_0_start_fourier_return,iy,iz,
 		creal(return_field[index]),cimag(return_field[index]),sqrt(ptr_mode_weightings[index]));
 		//		ptr_mode_weightings[index]);
 		      };
@@ -485,7 +491,7 @@ if (nfft_dim <128){
       for (int iz=0; iz <= nfft_dim/2; iz++){
         if (ix+iy+iz+local_0_start_fourier_return<100){
 	int index = ix*N0_fourier_grid*(N0_fourier_grid/2+1) + iy*(N0_fourier_grid/2+1) + iz;
-        fprintf(fp,"%6ld%6d%6d %14.8lf %14.8lf %14.8lf \n",ix+local_0_start_fourier_return,iy,iz,
+        fprintf(fp,"%6llu%6d%6d %14.8lf %14.8lf %14.8lf \n",ix+local_0_start_fourier_return,iy,iz,
 		creal(return_field[index]),cimag(return_field[index]),sqrt(ptr_mode_weightings[index]));
 		//   ptr_mode_weightings[index]);
 		      };
@@ -496,9 +502,46 @@ if (nfft_dim <128){
  };
 
 
+// Transpose output field
+
+ {
+
+   FFTW_PLAN transpose_output_plan;
+   unsigned flags = FFTW_ESTIMATE;
+
+   void *ptr_inter = return_field;
+
+   FFTW_REAL  *ptr_return_as_real_field;
+   ptr_return_as_real_field = ptr_inter;
+   
+
+   int rank = 2;
+
+   ptrdiff_t size_to_transpose;
+   ptrdiff_t howmany = N0_fourier_grid + 2;
+   ptrdiff_t local_n0, local_0_start;
+   ptrdiff_t local_n1, local_1_start;
+
+   const ptrdiff_t ndimens[] = {N0_fourier_grid, N0_fourier_grid};
 
 
+ size_to_transpose = FFTW_MPI_LOCAL_SIZE_MANY_TRANSPOSED(rank, ndimens, howmany, 
+                 FFTW_MPI_DEFAULT_BLOCK, FFTW_MPI_DEFAULT_BLOCK, 
+                     MPI_COMM_WORLD,&local_n0, &local_0_start,&local_n1, &local_1_start);
 
+ // printf("size_to_transpose = %td\n",size_to_transpose);
+
+  transpose_output_plan = FFTW_MPI_PLAN_MANY_TRANSPOSE(N0_fourier_grid, N0_fourier_grid,
+                        howmany, FFTW_MPI_DEFAULT_BLOCK,FFTW_MPI_DEFAULT_BLOCK, 
+		     ptr_return_as_real_field, ptr_return_as_real_field,
+			MPI_COMM_WORLD, flags);
+
+  //printf("Transpose plan completed.\n");
+
+ FFTW_MPI_EXECUTE_R2R(transpose_output_plan,ptr_return_as_real_field,ptr_return_as_real_field);
+
+ //printf("Transpose completed.\n");
+ };
 
 
 
@@ -516,7 +559,7 @@ if (!SHARED_FOUR_PAN_SPACE) FFTW_FREE(fourier_grids);
 
 FFTW_DESTROY_PLAN(output_coeff_forward_plan);
 
-printf("Reached end of PANPHASIA_compute_kspace_field_\n");
+//printf("Reached end of PANPHASIA_compute_kspace_field_\n");
 return(0);
 
 

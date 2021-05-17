@@ -8,9 +8,6 @@
 #endif
 
 
-
-#define FOURIER_DOUBLE
-
 #ifdef FOURIER_DOUBLE
   #define FFTW_REAL double
   #define FFTW_PLAN                  fftw_plan
@@ -24,6 +21,9 @@
   #define FFTW_FREE                  fftw_free
   #define FFTW_ALLOC_COMPLEX         fftw_alloc_complex
   #define FFTW_MPI_LOCAL_SIZE_MANY   fftw_mpi_local_size_many
+  #define FFTW_MPI_LOCAL_SIZE_MANY_TRANSPOSED fftw_mpi_local_size_many_transposed
+  #define FFTW_MPI_PLAN_MANY_TRANSPOSE  fftw_mpi_plan_many_transpose
+  #define FFTW_MPI_EXECUTE_R2R       fftw_mpi_execute_r2r
   #define FFTW_PLAN_MANY_DFT         fftw_plan_many_dft
   #define FFTW_MPI_LOCAL_SIZE_3D     fftw_mpi_local_size_3d
   #define FFTW_MPI_PLAN_MANY_DTF     fftw_mpi_plan_many_dft
@@ -43,6 +43,9 @@
   #define FFTW_FREE                  fftwf_free
   #define FFTW_ALLOC_COMPLEX         fftwf_alloc_complex
   #define FFTW_MPI_LOCAL_SIZE_MANY   fftwf_mpi_local_size_many
+  #define FFTW_MPI_LOCAL_SIZE_MANY_TRANSPOSED fftwf_mpi_local_size_many_transposed
+  #define FFTW_MPI_PLAN_MANY_TRANSPOSE  fftwf_mpi_plan_many_transpose
+  #define FFTW_MPI_EXECUTE_R2R       fftwf_mpi_execute_r2r
   #define FFTW_PLAN_MANY_DFT         fftwf_plan_many_dft
   #define FFTW_MPI_LOCAL_SIZE_3D     fftwf_mpi_local_size_3d
   #define FFTW_MPI_PLAN_MANY_DTF     fftwf_mpi_plan_many_dft
