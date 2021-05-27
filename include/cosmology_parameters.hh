@@ -178,7 +178,10 @@ namespace cosmology
 
             pmap_["f_b"] = this->get("Omega_b") / this->get("Omega_m");
             pmap_["f_c"] = 1.0 - this->get("f_b"); // this means we add massive neutrinos to CDM here
+            
 
+            printf("Also f_b = %e and f_c = %e and f_nu = %e\n", pmap_["f_b"], this->get("Omega_c") / this->get("Omega_m"), this->get("Omega_nu_massive") / this->get("Omega_m"));
+            
 #if 1
             // assume zero curvature, take difference from dark energy
             pmap_["Omega_DE"] += 1.0 - this->get("Omega_m") - this->get("Omega_DE") - this->get("Omega_r");
