@@ -136,8 +136,7 @@ void RNG_panphasia_ho::Run_Panphasia_Highorder(Grid_FFT<real_t> &g)
 
   // Choose smallest value of level to equal of exceed grid_res_)
 
-  for (rel_level = 0; fdim * (PANPHASIA2::descriptor_base_size << (rel_level + 1)) <= grid_res_; rel_level++)
-    ;
+  for (rel_level = 0; fdim * (PANPHASIA2::descriptor_base_size <<rel_level) <  grid_res_; rel_level++);
 
   printf("Setting relative level = %lu\n", rel_level);
 
