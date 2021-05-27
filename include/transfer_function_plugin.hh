@@ -75,6 +75,11 @@ class TransferFunction_plugin
 
     //! return minimum wave number allowed
     virtual double get_kmin(void) const = 0;
+    
+    //! return growth factors
+    virtual double get_D_target(void) const = 0;
+    virtual double get_D_start(void) const = 0;
+    virtual double get_D_now(void) const = 0;
 
     //! return if density transfer function is distinct for baryons and DM
     bool tf_is_distinct(void)

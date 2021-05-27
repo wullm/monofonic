@@ -171,16 +171,25 @@ public:
         D_of_a_.set_data(tab_a,tab_D);
         f_of_a_.set_data(tab_a,tab_f);
         a_of_D_.set_data(tab_D,tab_a);
-        Dnow_ = D_of_a_(1.0);
-
-        Dplus_start_  = D_of_a_( astart_ ) / Dnow_;
-        Dplus_target_ = D_of_a_( atarget_ ) / Dnow_;
-
-        music::ilog << "Linear growth factors: D+_target = " << Dplus_target_ << ", D+_start = " << Dplus_start_ << std::endl;
 
         // set up transfer functions and compute normalisation
         transfer_function_ = std::move(select_TransferFunction_plugin(cf, cosmo_param_));
         transfer_function_->intialise();
+        
+        // get growth factors from plugin if possible
+        const bool bGrowthFactorFromTransfer = cf.get_value_safe<bool>("cosmology", "GrowthFactorsFromTransfer", false );
+        if (bGrowthFactorFromTransfer) {
+            Dnow_  = transfer_function_->get_D_now();
+            Dplus_start_  = transfer_function_->get_D_target() / Dnow_;
+            Dplus_target_ = transfer_function_->get_D_target() / Dnow_;
+        } else {
+            Dnow_ = D_of_a_(1.0);
+            Dplus_start_  = D_of_a_( astart_ ) / Dnow_;
+            Dplus_target_ = D_of_a_( atarget_ ) / Dnow_;
+        }
+        
+        music::ilog << "Linear growth factors: D+_target = " << Dplus_target_ << ", D+_start = " << Dplus_start_ << std::endl;
+        
         if( !transfer_function_->tf_isnormalised_ ){
             cosmo_param_.set("pnorm", this->compute_pnorm_from_sigma8() );
         }else{

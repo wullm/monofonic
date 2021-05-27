@@ -42,6 +42,7 @@ private:
   interpolated_function_1d<true, true, false> delta_c0_, delta_b0_, delta_n0_, delta_m0_, theta_c0_, theta_b0_, theta_n0_, theta_m0_;
 
   double zstart_, ztarget_, astart_, atarget_, kmax_, kmin_, h_, tnorm_;
+  double D_start_, D_target_, D_now_;
 
   ClassParams pars_;
   std::unique_ptr<ClassEngine> the_ClassEngine_;
@@ -233,6 +234,13 @@ public:
     this->init_ClassEngine();
     double A_s_ = the_ClassEngine_->get_A_s(); // this either the input one, or the one computed from sigma8
     
+    // get growth factors from CLASS
+    D_target_ = the_ClassEngine_->get_D(ztarget_);
+    D_start_ = the_ClassEngine_->get_D(zstart_);
+    D_now_ = the_ClassEngine_->get_D(0.0);
+    
+    music::ilog << "Growth factors from CLASS: D+_target = " << D_target_ << ", D+_start = " << D_start_ << "." << std::endl;
+    
     // compute the normalisation to interface with MUSIC
     double k_p = cosmo_params["k_p"] / cosmo_params["h"];
     tnorm_ = std::sqrt(2.0 * M_PI * M_PI * A_s_ * std::pow(1.0 / k_p, cosmo_params["n_s"] - 1) / std::pow(2.0 * M_PI, 3.0));
@@ -330,6 +338,9 @@ public:
 
   inline double get_kmin(void) const { return kmin_ / h_; }
   inline double get_kmax(void) const { return kmax_ / h_; }
+  inline double get_D_target(void) const { return D_target_; }
+  inline double get_D_start(void) const { return D_start_; }
+  inline double get_D_now(void) const { return D_now_; }
 };
 
 namespace

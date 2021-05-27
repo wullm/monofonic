@@ -226,6 +226,19 @@ public:
 
   //!< Return maximum k for which we can interpolate
   inline double get_kmax(void) const { return m_kmax; }
+  
+  inline double get_D_target(void) const {
+    throw std::runtime_error("Growth factors not implemented in transfer function plugin.");
+    return -1.0;
+  }
+  inline double get_D_start(void) const {
+    throw std::runtime_error("Growth factors not implemented in transfer function plugin.");
+    return -1.0;
+  }
+  inline double get_D_now(void) const {
+    throw std::runtime_error("Growth factors not implemented in transfer function plugin.");
+    return -1.0;
+  }
 };
 
 namespace
