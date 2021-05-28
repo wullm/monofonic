@@ -551,14 +551,14 @@ int run( config_file& the_config )
                     // real_t nu_corr = 0.;
                     // real_t matter = the_cosmo_calc->get_amplitude(k.norm(), delta_matter);
                     // real_t d_cb = f_b * d_b + (1-f_b) * d_c;
-                    
+                                        
                     real_t d_b = the_cosmo_calc->get_amplitude(k.norm(), delta_baryon);
                     real_t d_c = the_cosmo_calc->get_amplitude(k.norm(), delta_cdm);
                     real_t d_nu = the_cosmo_calc->get_amplitude(k.norm(), delta_nu);                
                     real_t d_cbnu = (O_b * d_b + O_c * d_c + O_nu * d_nu) / (O_b + O_c + O_nu);
-                    real_t d_mnu = d_cbnu - d_nu;
+                    real_t d_mnu = the_cosmo_calc->get_amplitude_delta_mnu(k.norm());
                     real_t nu_corr = bDoNeutrinoCorr ? O_nu / (O_b + O_c) * d_mnu : 0.;
-                    
+                                        
                     return wn * (C_species * d_bc + nu_corr);
                 }, wnoise );
                 rho.zero_DC_mode();

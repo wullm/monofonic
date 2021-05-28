@@ -180,7 +180,7 @@ public:
         const bool bGrowthFactorFromTransfer = cf.get_value_safe<bool>("cosmology", "GrowthFactorsFromTransfer", false );
         if (bGrowthFactorFromTransfer) {
             Dnow_  = transfer_function_->get_D_now();
-            Dplus_start_  = transfer_function_->get_D_target() / Dnow_;
+            Dplus_start_  = transfer_function_->get_D_start() / Dnow_;
             Dplus_target_ = transfer_function_->get_D_target() / Dnow_;
         } else {
             Dnow_ = D_of_a_(1.0);
@@ -410,6 +410,22 @@ public:
         const real_t tbc = transfer_function_->compute(k, theta_bc) * std::sqrt(Dratio);
         // need to multiply with Dplus_target since sqrtpnorm rescales like that
         return withvbc ? std::pow(k, 0.5 * m_n_s_) * tbc * (m_sqrtpnorm_ * Dplus_target_) : 0.0;
+    }
+    
+    //! Compute amplitude of the back-scaled delta_mnu mode
+    inline real_t get_amplitude_delta_mnu( const real_t k ) const
+    {
+        const real_t Dratio = Dplus_start_ / Dplus_target_;
+        const real_t O_b = cosmo_param_["Omega_b"];
+        const real_t O_c = cosmo_param_["Omega_c"];
+        const real_t O_nu = cosmo_param_["Omega_nu_massive"];
+        const real_t d_b = transfer_function_->compute(k, delta_baryon);
+        const real_t d_c = transfer_function_->compute(k, delta_cdm);
+        const real_t d_nu = transfer_function_->compute(k, delta_nu);            
+        const real_t d_m = (O_b * d_b + O_c * d_c + O_nu * d_nu) / (O_b + O_c + O_nu);
+        const real_t d_mnu = d_m - d_nu;
+        // need to multiply with Dplus_target since sqrtpnorm rescales like that
+        return std::pow(k, 0.5 * m_n_s_) * d_mnu * (m_sqrtpnorm_ * Dplus_target_) * Dratio;
     }
 
 
