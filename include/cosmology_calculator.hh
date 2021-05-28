@@ -93,17 +93,19 @@ private:
         using v_t = vec_t<3, double>;
 
         // set ICs, very deep in radiation domination
-        const double a0 = 1e-10;
+        const double a0 = 1e-8;
         const double D0 = a0;
         const double Dprime0 = 2.0 * D0 * H_of_a(a0) / std::pow(phys_const::c_SI, 2);
         const double t0 = 1.0 / (a0 * H_of_a(a0));
+        
+        printf("%e %e\n", Dprime0, t0);
 
         v_t y0({a0, D0, Dprime0});
 
         // set up integration
         double dt = 1e-9;
         double dtdid, dtnext;
-        const double amax = 2.0;
+        const double amax = 1.0;
 
         v_t yy(y0);
         double t = t0;
@@ -165,6 +167,13 @@ public:
         : cosmo_param_(cf), astart_( 1.0/(1.0+cf.get_value<double>("setup","zstart")) ),
             atarget_( 1.0/(1.0+cf.get_value_safe<double>("cosmology","ztarget",0.0)) )
     {
+        
+        // set up transfer functions and compute normalisation
+        transfer_function_ = std::move(select_TransferFunction_plugin(cf, cosmo_param_));
+        transfer_function_->intialise();
+        
+        std::cout << "Hallo " << transfer_function_->get_Hz(0.) / transfer_function_->get_Hz(0.) * cosmo_param_["H0"] << ", " <<transfer_function_->get_Hz(2.)  / transfer_function_->get_Hz(0.) * cosmo_param_["H0"]<< ", " << transfer_function_->get_Hz(1e6) / transfer_function_->get_Hz(0.) * cosmo_param_["H0"] << std::endl;
+        
         // pre-compute growth factors and store for interpolation
         std::vector<double> tab_a, tab_D, tab_f;
         this->compute_growth(tab_a, tab_D, tab_f);
@@ -172,9 +181,6 @@ public:
         f_of_a_.set_data(tab_a,tab_f);
         a_of_D_.set_data(tab_D,tab_a);
 
-        // set up transfer functions and compute normalisation
-        transfer_function_ = std::move(select_TransferFunction_plugin(cf, cosmo_param_));
-        transfer_function_->intialise();
         
         // get growth factors from plugin if possible
         const bool bGrowthFactorFromTransfer = cf.get_value_safe<bool>("cosmology", "GrowthFactorsFromTransfer", false );
@@ -311,6 +317,7 @@ public:
     //! return the value of the Hubble function H(a) = dloga/dt 
     inline double H_of_a(double a) const noexcept
     {
+        return transfer_function_->get_Hz(1./a-1.) / transfer_function_->get_Hz(0.) * cosmo_param_["H0"];
         double HH2 = 0.0;
         HH2 += cosmo_param_["Omega_r"] / (a * a * a * a);
         HH2 += cosmo_param_["Omega_m"] / (a * a * a);

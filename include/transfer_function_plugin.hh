@@ -80,6 +80,7 @@ class TransferFunction_plugin
     virtual double get_D_target(void) const = 0;
     virtual double get_D_start(void) const = 0;
     virtual double get_D_now(void) const = 0;
+    virtual double get_Hz(double) const = 0;
 
     //! return if density transfer function is distinct for baryons and DM
     bool tf_is_distinct(void)

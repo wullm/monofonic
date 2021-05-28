@@ -341,6 +341,7 @@ public:
   inline double get_D_target(void) const { return D_target_; }
   inline double get_D_start(void) const { return D_start_; }
   inline double get_D_now(void) const { return D_now_; }
+  inline double get_Hz(double z) const { return the_ClassEngine_->get_Hz(z); }
 };
 
 namespace

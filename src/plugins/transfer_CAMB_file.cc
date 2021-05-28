@@ -239,6 +239,10 @@ public:
     throw std::runtime_error("Growth factors not implemented in transfer function plugin.");
     return -1.0;
   }
+  inline double get_Hz(double) const {
+    throw std::runtime_error("Hubble rate not implemented in transfer function plugin.");
+    return -1.0;
+  }
 };
 
 namespace
