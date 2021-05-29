@@ -943,8 +943,8 @@ inline void HDFCreateEmptyDatasetVector( const std::string Filename, const std::
 
   if (filter)
     {
-      // 1MB chunking
-      hsize_t HDF_Dims[2] = {1024 * 1024 / sizeof(T), 3};
+      // ~1MB chunking
+      hsize_t HDF_Dims[2] = {256 * 1024 / sizeof(T), 3};
       H5Pset_chunk(HDF_Prop, 2, HDF_Dims);
 
       // md5 checksum
