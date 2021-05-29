@@ -247,10 +247,11 @@ public:
     npartTotal_[sid] = (uint32_t)(pc.get_global_num_particles());
     npartTotalHighWord_[sid] = (uint32_t)((pc.get_global_num_particles()) >> 32);
 
+    std::array<double,7> particle_masses;
     if( pc.bhas_individual_masses_ )
-      mass_[sid] = 0.0;
+      particle_masses[sid] = 0.0;
     else
-      mass_[sid] = Omega_species * munit_ / pc.get_global_num_particles();
+      particle_masses[sid] = Omega_species * munit_ / pc.get_global_num_particles();
 
     const size_t global_num_particles =  pc.get_global_num_particles();
 
@@ -275,12 +276,10 @@ public:
       else
 	HDFCreateEmptyDataset<uint32_t>(fname_, std::string("PartType") + std::to_string(sid) + std::string("/ParticleIDs"), global_num_particles);
 
-      if( pc.bhas_individual_masses_ ){
-	if (this->has_64bit_reals())
-	  HDFCreateEmptyDataset<double>(fname_, std::string("PartType") + std::to_string(sid) + std::string("/Masses"), global_num_particles);
-	else
-	  HDFCreateEmptyDataset<float>(fname_, std::string("PartType") + std::to_string(sid) + std::string("/Masses"), global_num_particles);      
-      }
+      if (this->has_64bit_reals())
+	HDFCreateEmptyDataset<double>(fname_, std::string("PartType") + std::to_string(sid) + std::string("/Masses"), global_num_particles);
+      else
+	HDFCreateEmptyDataset<float>(fname_, std::string("PartType") + std::to_string(sid) + std::string("/Masses"), global_num_particles);
 
       if( bdobaryons_ && s == cosmo_species::baryon) {
 
@@ -328,13 +327,22 @@ public:
 	  HDFWriteDatasetChunk(fname_, std::string("PartType") + std::to_string(sid) + std::string("/ParticleIDs"), pc.ids32_, offset);
 
 	//... write masses.....
-	if( pc.bhas_individual_masses_ ){
-	  if (this->has_64bit_reals()){
-	    HDFWriteDatasetChunk(fname_, std::string("PartType") + std::to_string(sid) + std::string("/Masses"), pc.mass64_, offset);
-	  }else{
-	    HDFWriteDatasetChunk(fname_, std::string("PartType") + std::to_string(sid) + std::string("/Masses"), pc.mass32_, offset);
+	if( pc.bhas_individual_masses_ )
+	  {
+	    if (this->has_64bit_reals())
+	      HDFWriteDatasetChunk(fname_, std::string("PartType") + std::to_string(sid) + std::string("/Masses"), pc.mass64_, offset);
+	    else
+	      HDFWriteDatasetChunk(fname_, std::string("PartType") + std::to_string(sid) + std::string("/Masses"), pc.mass32_, offset);
 	  }
-	}
+	else
+	  {
+	    std::vector<write_real_t> data( pc.get_local_num_particles(), particle_masses[sid]);
+
+	    if (this->has_64bit_reals())
+	      HDFWriteDatasetChunk(fname_, std::string("PartType") + std::to_string(sid) + std::string("/Masses"), data, offset);
+	    else
+	      HDFWriteDatasetChunk(fname_, std::string("PartType") + std::to_string(sid) + std::string("/Masses"), data, offset);
+	  }
 
 	// write GAS internal energy and smoothing length if baryons are enabled
 	if(bdobaryons_ && s == cosmo_species::baryon) {
