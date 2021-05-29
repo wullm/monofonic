@@ -887,16 +887,29 @@ inline void HDFWriteDatasetVector( const std::string Filename, const std::string
 }
 
 template< typename T >
-inline void HDFCreateEmptyDataset( const std::string Filename, const std::string ObjName, const size_t num_particles)
+inline void HDFCreateEmptyDataset( const std::string Filename, const std::string ObjName, const size_t num_particles, const bool filter = false)
 {
 
   hid_t
     HDF_FileID,
     HDF_DatasetID,
     HDF_DataspaceID,
-    HDF_Type;
+    HDF_Type,
+    HDF_Prop;
 
   hsize_t HDF_Dims;
+
+  HDF_Prop                = H5Pcreate(H5P_DATASET_CREATE);
+
+  if (filter)
+    {
+      // 1MB chunking
+      hsize_t HDF_Dims[1] = {1024 * 1024 / sizeof(T)};
+      H5Pset_chunk(HDF_Prop, 1, HDF_Dims);
+
+      // md5 checksum
+      H5Pset_fletcher32(HDF_Prop);
+    }
 
   HDF_FileID = H5Fopen( Filename.c_str(), H5F_ACC_RDWR, H5P_DEFAULT );
 
@@ -905,24 +918,38 @@ inline void HDFCreateEmptyDataset( const std::string Filename, const std::string
   HDF_Dims                = (hsize_t) (num_particles);
   HDF_DataspaceID         = H5Screate_simple(1, &HDF_Dims, NULL);
   HDF_DatasetID           = H5Dcreate( HDF_FileID, ObjName.c_str(), HDF_Type,
-                                       HDF_DataspaceID, H5P_DEFAULT );
+                                       HDF_DataspaceID, HDF_Prop );
   H5Dclose( HDF_DatasetID );
   H5Sclose( HDF_DataspaceID );
+  H5Pclose( HDF_Prop );
 
   H5Fclose( HDF_FileID );
 }
 
 template< typename T >
-inline void HDFCreateEmptyDatasetVector( const std::string Filename, const std::string ObjName, const size_t num_particles)
+inline void HDFCreateEmptyDatasetVector( const std::string Filename, const std::string ObjName, const size_t num_particles, const bool filter = false)
 {
 
     hid_t
     HDF_FileID,
     HDF_DatasetID,
     HDF_DataspaceID,
-    HDF_Type;
+    HDF_Type,
+    HDF_Prop;
 
   hsize_t HDF_Dims[2];
+
+  HDF_Prop                = H5Pcreate(H5P_DATASET_CREATE);
+
+  if (filter)
+    {
+      // 1MB chunking
+      hsize_t HDF_Dims[2] = {1024 * 1024 / sizeof(T), 3};
+      H5Pset_chunk(HDF_Prop, 2, HDF_Dims);
+
+      // md5 checksum
+      H5Pset_fletcher32(HDF_Prop);
+    }
 
   HDF_FileID = H5Fopen( Filename.c_str(), H5F_ACC_RDWR, H5P_DEFAULT );
 
@@ -933,11 +960,12 @@ inline void HDFCreateEmptyDatasetVector( const std::string Filename, const std::
   
   HDF_DataspaceID         = H5Screate_simple(2, HDF_Dims, NULL);
   HDF_DatasetID           = H5Dcreate( HDF_FileID, ObjName.c_str(), HDF_Type,
-                                       HDF_DataspaceID, H5P_DEFAULT );
+                                       HDF_DataspaceID, HDF_Prop );
   H5Dclose( HDF_DatasetID );
   H5Sclose( HDF_DataspaceID );
+  H5Pclose( HDF_Prop );
+
   H5Fclose( HDF_FileID );
-  
 }
 
 template< typename T >

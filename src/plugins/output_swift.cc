@@ -262,30 +262,30 @@ public:
 
       if (this->has_64bit_reals())
       {
-	HDFCreateEmptyDatasetVector<double>(fname_, std::string("PartType") + std::to_string(sid) + std::string("/Coordinates"), global_num_particles);
-	HDFCreateEmptyDatasetVector<double>(fname_, std::string("PartType") + std::to_string(sid) + std::string("/Velocities"), global_num_particles);
+	HDFCreateEmptyDatasetVector<double>(fname_, std::string("PartType") + std::to_string(sid) + std::string("/Coordinates"), global_num_particles, true);
+	HDFCreateEmptyDatasetVector<double>(fname_, std::string("PartType") + std::to_string(sid) + std::string("/Velocities"), global_num_particles, true);
       }
       else
       {
-	HDFCreateEmptyDatasetVector<float>(fname_, std::string("PartType") + std::to_string(sid) + std::string("/Coordinates"), global_num_particles);
-	HDFCreateEmptyDatasetVector<float>(fname_, std::string("PartType") + std::to_string(sid) + std::string("/Velocities"), global_num_particles);
+	HDFCreateEmptyDatasetVector<float>(fname_, std::string("PartType") + std::to_string(sid) + std::string("/Coordinates"), global_num_particles, true);
+	HDFCreateEmptyDatasetVector<float>(fname_, std::string("PartType") + std::to_string(sid) + std::string("/Velocities"), global_num_particles, true);
       }
 
       if (this->has_64bit_ids())
-	HDFCreateEmptyDataset<uint64_t>(fname_, std::string("PartType") + std::to_string(sid) + std::string("/ParticleIDs"), global_num_particles);
+	HDFCreateEmptyDataset<uint64_t>(fname_, std::string("PartType") + std::to_string(sid) + std::string("/ParticleIDs"), global_num_particles, true);
       else
-	HDFCreateEmptyDataset<uint32_t>(fname_, std::string("PartType") + std::to_string(sid) + std::string("/ParticleIDs"), global_num_particles);
+	HDFCreateEmptyDataset<uint32_t>(fname_, std::string("PartType") + std::to_string(sid) + std::string("/ParticleIDs"), global_num_particles, true);
 
       if (this->has_64bit_reals())
-	HDFCreateEmptyDataset<double>(fname_, std::string("PartType") + std::to_string(sid) + std::string("/Masses"), global_num_particles);
+	HDFCreateEmptyDataset<double>(fname_, std::string("PartType") + std::to_string(sid) + std::string("/Masses"), global_num_particles, true);
       else
-	HDFCreateEmptyDataset<float>(fname_, std::string("PartType") + std::to_string(sid) + std::string("/Masses"), global_num_particles);
+	HDFCreateEmptyDataset<float>(fname_, std::string("PartType") + std::to_string(sid) + std::string("/Masses"), global_num_particles, true);
 
       if( bdobaryons_ && s == cosmo_species::baryon) {
 
 	// note: despite this being a constant array we still need to handle it in a distributed way
-	HDFCreateEmptyDataset<write_real_t>(fname_, std::string("PartType") + std::to_string(sid) + std::string("/InternalEnergy"), global_num_particles);
-	HDFCreateEmptyDataset<write_real_t>(fname_, std::string("PartType") + std::to_string(sid) + std::string("/SmoothingLength"), global_num_particles);
+	HDFCreateEmptyDataset<write_real_t>(fname_, std::string("PartType") + std::to_string(sid) + std::string("/InternalEnergy"), global_num_particles, true);
+	HDFCreateEmptyDataset<write_real_t>(fname_, std::string("PartType") + std::to_string(sid) + std::string("/SmoothingLength"), global_num_particles, true);
       }
 
       music::ilog << "Created empty arrays for PartType" << std::to_string(sid) << " into file " << fname_ << "." << std::endl;
