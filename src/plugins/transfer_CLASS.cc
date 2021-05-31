@@ -304,6 +304,8 @@ public:
       val = delta_b_(k)-delta_c_(k); break;
     case theta_bc:
       val = theta_b_(k)-theta_c_(k); break;
+    case delta_nu:
+      val = delta_n_(k); break;
 
       // values at zstart:
     case delta_matter0:
@@ -318,6 +320,8 @@ public:
       val = theta_c0_(k); break;
     case theta_baryon0:
       val = theta_b0_(k); break;
+    case delta_nu0:
+      val = delta_n0_(k); break;
     default:
       throw std::runtime_error("Invalid type requested in transfer function evaluation");
     }

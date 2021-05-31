@@ -213,6 +213,10 @@ public:
     case theta_bc:
       return theta_b_(k)-theta_c_(k);
 
+    case delta_nu0:
+    case delta_nu:
+      return delta_n_(k);
+
     default:
       throw std::runtime_error("Invalid type requested in transfer function evaluation");
     }

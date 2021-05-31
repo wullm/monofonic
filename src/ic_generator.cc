@@ -98,6 +98,8 @@ int run( config_file& the_config )
     const bool bDoBaryons = the_config.get_value_safe<bool>("setup", "DoBaryons", false );
     //! exclude massive neutrinos from the total matter fluid?
     const bool bExcludeNeutrinos = the_config.get_value_safe<bool>("setup", "ExcludeNeutrinos", false );
+    //! correct for massive neutrinos in the initial density perturbations
+    const bool bDoNeutrinoCorr = the_config.get_value_safe<bool>("setup", "DoNeutrinoCorr", false );
     //! enable also back-scaled decaying relative velocity mode? only first order!
     const bool bDoLinearBCcorr = the_config.get_value_safe<bool>("setup", "DoBaryonVrel", false);
     // compute mass fractions 
@@ -500,7 +502,26 @@ int run( config_file& the_config )
         music::ilog << std::endl
                     << ">>> Computing ICs for species \'" << cosmo_species_name[this_species] << "\' <<<\n" << std::endl;
 
-        const real_t C_species = (this_species == cosmo_species::baryon)? (1.0-the_cosmo_calc->cosmo_param_["f_b"]) : -the_cosmo_calc->cosmo_param_["f_b"];
+        // total matter density, including massive neutrinos
+        const real_t O_m = the_cosmo_calc->cosmo_param_["Omega_m"];
+
+        // baryon, cdm, and massive neutrino fractions of the total matter density
+        const real_t f_b = the_cosmo_calc->cosmo_param_["Omega_b"] / O_m;
+        const real_t f_c = the_cosmo_calc->cosmo_param_["Omega_c"] / O_m;
+        const real_t f_nu = the_cosmo_calc->cosmo_param_["Omega_nu_massive"] / O_m;
+
+        // C factor for baryons and cdm
+        real_t C_species;
+        if (bDoBaryons && bDoNeutrinoCorr){
+            C_species = (this_species == cosmo_species::baryon)? (1.0-f_b / (f_b + f_c)) : -f_b / (f_b + f_c);
+        }else if (bDoBaryons && !bDoNeutrinoCorr){
+            C_species = (this_species == cosmo_species::baryon)? (1.0-f_b) : -f_b;
+        }else{
+            C_species = 0.;
+        }
+
+        // we output individual masses if we have baryons or do the neutrino correction
+        const bool bPerturbedMasses = (bDoBaryons || bDoNeutrinoCorr);
 
         // main loop block
         {
@@ -515,11 +536,11 @@ int run( config_file& the_config )
                 // allocate particle structure and generate particle IDs
                 particle_lattice_generator_ptr = 
                 std::make_unique<particle::lattice_generator<Grid_FFT<real_t>>>( lattice_type, the_output_plugin->has_64bit_reals(), the_output_plugin->has_64bit_ids(), 
-                    bDoBaryons, IDoffset, tmp, the_config );
+                    bPerturbedMasses, IDoffset, tmp, the_config );
             }
 
-            // set the perturbed particle masses if we have baryons
-            if( bDoBaryons && (the_output_plugin->write_species_as( this_species ) == output_type::particles
+            // set the perturbed particle masses if we have baryons or neutrinos
+            if( bPerturbedMasses && (the_output_plugin->write_species_as( this_species ) == output_type::particles
                 || the_output_plugin->write_species_as( this_species ) == output_type::field_lagrangian) ) 
             {
                 bool shifted_lattice = (this_species == cosmo_species::baryon &&
@@ -535,13 +556,16 @@ int run( config_file& the_config )
                 wnoise.FourierTransformForward();
                 rho.FourierTransformForward(false);
                 rho.assign_function_of_grids_kdep( [&]( auto k, auto wn ){
-                    return wn * the_cosmo_calc->get_amplitude_delta_bc(k.norm(),bDoLinearBCcorr);
+                    real_t d_bc = the_cosmo_calc->get_amplitude_delta_bc(k.norm(),bDoLinearBCcorr);
+                    real_t d_mnu = the_cosmo_calc->get_amplitude_delta_mnu(k.norm());
+                    real_t nu_correction = bDoNeutrinoCorr ? f_nu / (f_b + f_c) * d_mnu : 0.;
+                    return wn * (C_species * d_bc + nu_correction);
                 }, wnoise );
                 rho.zero_DC_mode();
                 rho.FourierTransformBackward();
 
                 rho.apply_function_r( [&]( auto prho ){
-                    return (1.0 + C_species * prho) * Omega[this_species] * munit;
+                    return (1.0 + prho) * Omega[this_species] * munit;
                 });
                 
                 if( the_output_plugin->write_species_as( this_species ) == output_type::particles ){
@@ -566,13 +590,16 @@ int run( config_file& the_config )
                 wnoise.FourierTransformForward();
                 rho.FourierTransformForward(false);
                 rho.assign_function_of_grids_kdep( [&]( auto k, auto wn ){
-                    return wn * the_cosmo_calc->get_amplitude_delta_bc(k.norm(), false);
+                    real_t d_bc = the_cosmo_calc->get_amplitude_delta_bc(k.norm(), false);
+                    real_t d_mnu = the_cosmo_calc->get_amplitude_delta_mnu(k.norm());
+                    real_t nu_correction = bDoNeutrinoCorr ? f_nu / (f_b + f_c) * d_mnu : 0.;
+                    return wn * (C_species * d_bc + nu_correction);
                 }, wnoise );
                 rho.zero_DC_mode();
                 rho.FourierTransformBackward();
                 
                 rho.apply_function_r( [&]( auto prho ){
-                    return std::sqrt( 1.0 + C_species * prho );
+                    return std::sqrt( 1.0 + prho );
                 });
 
                 //======================================================================
