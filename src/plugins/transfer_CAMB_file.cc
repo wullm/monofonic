@@ -223,6 +223,12 @@ public:
 
   //!< Return maximum k for which we can interpolate
   inline double get_kmax(void) const { return m_kmax; }
+
+  //!< return Hubble rate as a function of redshift
+  inline double get_Hz(double) const {
+    throw std::runtime_error("Hubble rate not implemented in transfer function plugin.");
+    return -1.0;
+  }
 };
 
 namespace

@@ -54,6 +54,7 @@ private:
     static constexpr double REL_PRECISION = 1e-10;
     interpolated_function_1d<true,true,false> D_of_a_, f_of_a_, a_of_D_;
     double Dnow_, Dplus_start_, Dplus_target_, astart_, atarget_;
+    bool bHubbleFromTransfer;
 
     double m_n_s_, m_sqrtpnorm_;
 
@@ -165,6 +166,13 @@ public:
         : cosmo_param_(cf), astart_( 1.0/(1.0+cf.get_value<double>("setup","zstart")) ),
             atarget_( 1.0/(1.0+cf.get_value_safe<double>("cosmology","ztarget",0.0)) )
     {
+        // take Hubble rate from the transfer function module?
+        bHubbleFromTransfer = cf.get_value_safe<bool>("cosmology", "HubbleFromTransfer", false );
+
+        // set up transfer functions
+        transfer_function_ = std::move(select_TransferFunction_plugin(cf, cosmo_param_));
+        transfer_function_->intialise();
+
         // pre-compute growth factors and store for interpolation
         std::vector<double> tab_a, tab_D, tab_f;
         this->compute_growth(tab_a, tab_D, tab_f);
@@ -178,9 +186,7 @@ public:
 
         music::ilog << "Linear growth factors: D+_target = " << Dplus_target_ << ", D+_start = " << Dplus_start_ << std::endl;
 
-        // set up transfer functions and compute normalisation
-        transfer_function_ = std::move(select_TransferFunction_plugin(cf, cosmo_param_));
-        transfer_function_->intialise();
+        // compute transfer function normalisation
         if( !transfer_function_->tf_isnormalised_ ){
             cosmo_param_.set("pnorm", this->compute_pnorm_from_sigma8() );
         }else{
@@ -302,12 +308,19 @@ public:
     //! return the value of the Hubble function H(a) = dloga/dt 
     inline double H_of_a(double a) const noexcept
     {
-        double HH2 = 0.0;
-        HH2 += cosmo_param_["Omega_r"] / (a * a * a * a);
-        HH2 += cosmo_param_["Omega_m"] / (a * a * a);
-        HH2 += cosmo_param_["Omega_k"] / (a * a);
-        HH2 += cosmo_param_["Omega_DE"] * std::pow(a, -3. * (1. + cosmo_param_["w_0"] + cosmo_param_["w_a"])) * exp(-3. * (1.0 - a) * cosmo_param_["w_a"]);
-        return cosmo_param_["H0"] * std::sqrt(HH2);
+        if (bHubbleFromTransfer && a < 1.0){
+            double z = 1.0/a - 1.0;
+            double Hz = transfer_function_->get_Hz(z);
+            double H0 = transfer_function_->get_Hz(0.);
+            return Hz/H0 * cosmo_param_["H0"];
+        }else{
+            double HH2 = 0.0;
+            HH2 += cosmo_param_["Omega_r"] / (a * a * a * a);
+            HH2 += cosmo_param_["Omega_m"] / (a * a * a);
+            HH2 += cosmo_param_["Omega_k"] / (a * a);
+            HH2 += cosmo_param_["Omega_DE"] * std::pow(a, -3. * (1. + cosmo_param_["w_0"] + cosmo_param_["w_a"])) * exp(-3. * (1.0 - a) * cosmo_param_["w_a"]);
+            return cosmo_param_["H0"] * std::sqrt(HH2);
+        }
     }
 
     //! Computes the linear theory growth factor D+, normalised to D+(a=1)=1

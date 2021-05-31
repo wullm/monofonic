@@ -250,6 +250,11 @@ public:
   {
     return 1.e4;
   }
+
+  inline double get_Hz(double) const {
+    throw std::runtime_error("Hubble rate not implemented in transfer function plugin.");
+    return -1.0;
+  }
 };
 
 #include <map>
@@ -346,6 +351,11 @@ public:
   {
     return 1.e4;
   }
+
+  inline double get_Hz(double) const {
+    throw std::runtime_error("Hubble rate not implemented in transfer function plugin.");
+    return -1.0;
+  }
 };
 
 // CDM Bino type WIMP small-scale damped spectrum from Green, Hofmann & Schwarz (2004)
@@ -404,6 +414,11 @@ public:
   inline double get_kmax(void) const
   {
     return 1.e8;
+  }
+
+  inline double get_Hz(double) const {
+    throw std::runtime_error("Hubble rate not implemented in transfer function plugin.");
+    return -1.0;
   }
 };
 

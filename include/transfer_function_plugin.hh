@@ -65,7 +65,7 @@ class TransferFunction_plugin
     //! initialise, i.e. prepare data for later usage 
     virtual void intialise( void ) {}
 
-    //! compute value of transfer function at waven umber
+    //! compute value of transfer function at wavenumber
     virtual double compute(double k, tf_type type) const = 0;
 
     //! return maximum wave number allowed
@@ -73,6 +73,9 @@ class TransferFunction_plugin
 
     //! return minimum wave number allowed
     virtual double get_kmin(void) const = 0;
+
+    //! return Hubble rate as a function of redshift
+    virtual double get_Hz(double) const = 0;
 
     //! return if density transfer function is distinct for baryons and DM
     bool tf_is_distinct(void)

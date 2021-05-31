@@ -326,6 +326,7 @@ public:
 
   inline double get_kmin(void) const { return kmin_ / h_; }
   inline double get_kmax(void) const { return kmax_ / h_; }
+  inline double get_Hz(double z) const { return the_ClassEngine_->get_Hz(z); }
 };
 
 namespace
