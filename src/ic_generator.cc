@@ -96,6 +96,8 @@ int run( config_file& the_config )
     //--------------------------------------------------------------------------------------------------------
     //! do baryon ICs?
     const bool bDoBaryons = the_config.get_value_safe<bool>("setup", "DoBaryons", false );
+    //! exclude massive neutrinos from the total matter fluid?
+    const bool bExcludeNeutrinos = the_config.get_value_safe<bool>("setup", "ExcludeNeutrinos", false );
     //! enable also back-scaled decaying relative velocity mode? only first order!
     const bool bDoLinearBCcorr = the_config.get_value_safe<bool>("setup", "DoBaryonVrel", false);
     // compute mass fractions 
@@ -109,6 +111,12 @@ int run( config_file& the_config )
         double Om = the_cosmo_calc->cosmo_param_["Omega_m"];
         Omega[cosmo_species::dm] = Om;
         Omega[cosmo_species::baryon] = 0.0;
+    }
+    
+    //! if necessary, subtract the massive neutrino density
+    if (bExcludeNeutrinos) {
+        double Onu = the_cosmo_calc->cosmo_param_["Omega_nu_massive"];
+        Omega[cosmo_species::dm] -= Onu;
     }
 
     //--------------------------------------------------------------------------------------------------------
