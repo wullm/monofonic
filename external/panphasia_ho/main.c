@@ -17,6 +17,8 @@ int threads_ok;
 int number_omp_threads = 1;
 #endif
 
+
+#if 0 // this is now unused since all this has been migrated to plugin!
 // does the same as the main below, but does not initialise MPI or FFTW (this should be done in MONOFONIC)
 int PANPHASIA_HO_main(const char *descriptor, size_t *ngrid_load)
 {
@@ -66,6 +68,7 @@ int PANPHASIA_HO_main(const char *descriptor, size_t *ngrid_load)
 
    return(0);
 }
+#endif
 
 #ifdef STANDALONE_PANPHASIA_HO
 int main(int argc, char **argv)
