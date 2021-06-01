@@ -2,6 +2,8 @@
 // between single/double precision FTs
 
 // include CMake controlled configuration settings
+#pragma once
+#include "cmake_config.hh"
 
 #if defined(USE_PRECISION_DOUBLE)
 #define FOURIER_DOUBLE
