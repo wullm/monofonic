@@ -1,10 +1,14 @@
 // Define macros for FFTW3 to allow swapping 
 // between single/double precision FTs
 
-#ifndef USE_PRECISION_FLOAT
+// include CMake controlled configuration settings
 
+#if defined(USE_PRECISION_DOUBLE)
 #define FOURIER_DOUBLE
+#endif
 
+#if defined(USE_PRECISION_LONGDOUBLE)
+#error "PANPHASIA-high-order does not currently support long double precision"
 #endif
 
 
