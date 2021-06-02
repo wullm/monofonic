@@ -196,7 +196,10 @@ public:
 
         // compute transfer function normalisation
         if( !transfer_function_->tf_isnormalised_ ){
-            cosmo_param_.set("pnorm", this->compute_pnorm_from_sigma8() );
+            if (cosmo_param_["A_s"] > -1.)
+                cosmo_param_.set("pnorm", this->compute_pnorm_from_sigma8() );
+            else
+                cosmo_param_.set("pnorm", this->compute_pnorm_from_As() );
         }else{
             cosmo_param_.set("pnorm", 1.0/Dplus_target_/Dplus_target_);
             auto sigma8 = this->compute_sigma8();
@@ -469,6 +472,16 @@ public:
     {
         auto measured_sigma8 = this->compute_sigma8();
         return cosmo_param_["sigma_8"] * cosmo_param_["sigma_8"] / (measured_sigma8  * measured_sigma8);
+    }
+    
+    //! Computes the normalization for the power spectrum
+    /*!
+     * just uses the scalar amplitude at the pivot scale, note that the
+     * pivot scale is in 1/Mpc
+     */
+    real_t compute_pnorm_from_As(void)
+    {        
+        return cosmo_param_["A_s"] * std::pow(cosmo_param_["k_p"], 1.0 - cosmo_param_["n_s"]) * M_PI * M_PI / (Dplus_target_ * Dplus_target_);
     }
 };
 
