@@ -126,7 +126,7 @@ void RNG_panphasia_ho::Run_Panphasia_Highorder(Grid_FFT<real_t> &g)
   int error;
   size_t x0 = 0, y0 = 0, z0 = 0;
   size_t rel_level;
-  int fdim = 1; //Option to scale Fourier grid dimension relative to Panphasia coefficient grid
+  int fdim = 2; //Option to scale Fourier grid dimension relative to Panphasia coefficient grid
 
   //char descriptor[300] = "[Panph6,L20,(424060,82570,148256),S1,KK0,CH-999,Auriga_100_vol2]";
 
