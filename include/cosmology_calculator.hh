@@ -181,8 +181,16 @@ public:
         a_of_D_.set_data(tab_D,tab_a);
         Dnow_ = D_of_a_(1.0);
 
-        Dplus_start_  = D_of_a_( astart_ ) / Dnow_;
-        Dplus_target_ = D_of_a_( atarget_ ) / Dnow_;
+        // did the user specify alternative growth factors?
+        const bool bSpecifyGrowthFactors = cf.get_value_safe<bool>("cosmology", "SpecifyGrowthFactors", false );
+
+        if (bSpecifyGrowthFactors) {
+            Dplus_start_ = cf.get_value<double>("cosmology", "D_start");
+            Dplus_target_ = cf.get_value<double>("cosmology", "D_target");
+        } else {
+            Dplus_start_  = D_of_a_( astart_ ) / Dnow_;
+            Dplus_target_ = D_of_a_( atarget_ ) / Dnow_;
+        }
 
         music::ilog << "Linear growth factors: D+_target = " << Dplus_target_ << ", D+_start = " << Dplus_start_ << std::endl;
 

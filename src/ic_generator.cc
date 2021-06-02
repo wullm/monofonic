@@ -171,8 +171,24 @@ int run( config_file& the_config )
     //--------------------------------------------------------------------
     // Compute LPT time coefficients
     //--------------------------------------------------------------------
-    const real_t Dplus0 = the_cosmo_calc->get_growth_factor(astart);
-    const real_t vfac   = the_cosmo_calc->get_vfact(astart);
+    real_t Dplus0 = the_cosmo_calc->get_growth_factor(astart);
+    real_t vfac = the_cosmo_calc->get_vfact(astart);
+
+    // did the user specify alternative growth factors and rates?
+    const bool bSpecifyGrowthFactors = the_config.get_value_safe<bool>("cosmology", "SpecifyGrowthFactors", false );
+
+    if (bSpecifyGrowthFactors) {
+        const real_t read_D = the_config.get_value<double>("cosmology", "D_start");
+        const real_t read_f = the_config.get_value<double>("cosmology", "f_start");
+        const real_t read_H = the_config.get_value<double>("cosmology", "H_start");
+
+        // override the default values with the user-specified values
+        Dplus0 = read_D;
+        vfac = astart * read_H * read_f / the_cosmo_calc->cosmo_param_["h"];
+
+        music::ilog << "Default values (D+_start, a*f*H/h) = (" << the_cosmo_calc->get_growth_factor(astart) << ", " << the_cosmo_calc->get_vfact(astart) << ")." << std::endl;
+        music::ilog << "Proceeding with user-specified growth factors (D+_start, a*f*H/h) = (" << Dplus0 << ", " << vfac << ")." << std::endl;
+    }
 
     const real_t g1  = -Dplus0;
     const real_t g2  = ((LPTorder>1)? -3.0/7.0*Dplus0*Dplus0 : 0.0);
