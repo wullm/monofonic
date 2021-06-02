@@ -196,10 +196,13 @@ public:
 
         // compute transfer function normalisation
         if( !transfer_function_->tf_isnormalised_ ){
-            if (cosmo_param_["A_s"] > -1.)
+            if (cosmo_param_["A_s"] > -1.) {
                 cosmo_param_.set("pnorm", this->compute_pnorm_from_sigma8() );
-            else
+                music::ilog << "Computed normalisation from A_s " <<  cosmo_param_["A_s"] << std::endl;
+            }else{
                 cosmo_param_.set("pnorm", this->compute_pnorm_from_As() );
+                music::ilog << "Computed normalisation from sigma_8 " <<  cosmo_param_["sigma_8"] << std::endl;
+            }
         }else{
             cosmo_param_.set("pnorm", 1.0/Dplus_target_/Dplus_target_);
             auto sigma8 = this->compute_sigma8();
