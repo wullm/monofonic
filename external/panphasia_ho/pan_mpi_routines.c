@@ -33,7 +33,7 @@ size_t copy_list[Nbasis];
 
 int pmax = 6;
 
- int nsubdivide = (pmax%2==0)?pmax+1:pmax+2;
+ int nsubdivide = 21; //(pmax%2==0)?pmax+1:pmax+2;
 
 size_t ncopy = (pmax+1)*(pmax+2)*(pmax+3)/6;
 
