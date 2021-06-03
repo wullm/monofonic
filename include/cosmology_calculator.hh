@@ -489,9 +489,7 @@ public:
     real_t compute_pnorm_from_As(void)
     {        
         real_t h = cosmo_param_["h"];
-        real_t h2 = h * h;
-        real_t h4 = h2 * h2;
-        return cosmo_param_["A_s"] * std::pow(cosmo_param_["k_p"] / h, 1.0 - cosmo_param_["n_s"]) * h4 / (4 * M_PI * Dplus_target_ * Dplus_target_);
+        return cosmo_param_["A_s"] * std::pow(cosmo_param_["k_p"] / h, 1.0 - cosmo_param_["n_s"]) * (h*h*h*h) / (4 * M_PI * Dplus_target_ * Dplus_target_);
     }
 };
 
