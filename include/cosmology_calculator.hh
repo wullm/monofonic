@@ -484,7 +484,7 @@ public:
      */
     real_t compute_pnorm_from_As(void)
     {        
-        return cosmo_param_["A_s"] * std::pow(cosmo_param_["k_p"], 1.0 - cosmo_param_["n_s"]) * M_PI * M_PI / (Dplus_target_ * Dplus_target_);
+        return cosmo_param_["A_s"] * std::pow(cosmo_param_["k_p"], 1.0 - cosmo_param_["n_s"]) / (4 * M_PI * Dplus_target_ * Dplus_target_);
     }
 };
 
