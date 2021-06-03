@@ -196,13 +196,18 @@ public:
 
         // compute transfer function normalisation
         if( !transfer_function_->tf_isnormalised_ ){
+            // is this a power spectrum at z_start that needs to be scaled back to z_target
+            const bool bRescaleFromStart = cf.get_value_safe<bool>("cosmology", "RescaleFromStart", false );    
+            const real_t scale_forward = bRescaleFromStart ? 1.0 / (Dplus_start_ * Dplus_start_) : 1.0;
+            
             if (cosmo_param_["A_s"] > -1.) {
-                cosmo_param_.set("pnorm", this->compute_pnorm_from_As() );
+                cosmo_param_.set("pnorm", this->compute_pnorm_from_As() * scale_forward);
                 music::ilog << "Computed normalisation from A_s = " <<  cosmo_param_["A_s"] << std::endl;
             }else{
-                cosmo_param_.set("pnorm", this->compute_pnorm_from_sigma8() );
+                cosmo_param_.set("pnorm", this->compute_pnorm_from_sigma8() * scale_forward);
                 music::ilog << "Computed normalisation from sigma_8 = " <<  cosmo_param_["sigma_8"] << std::endl;
             }
+                        
         }else{
             cosmo_param_.set("pnorm", 1.0/Dplus_target_/Dplus_target_);
             auto sigma8 = this->compute_sigma8();
@@ -409,10 +414,6 @@ public:
 	 */
     inline real_t get_amplitude( const real_t k, const tf_type type) const
     {
-        if (type==delta_matter && k < 1.1e-4) {
-            printf("%e %e\n", k, std::pow(k, 0.5 * m_n_s_) * transfer_function_->compute(k, type) * m_sqrtpnorm_);
-        }
-        
         return std::pow(k, 0.5 * m_n_s_) * transfer_function_->compute(k, type) * m_sqrtpnorm_;
     }
 
