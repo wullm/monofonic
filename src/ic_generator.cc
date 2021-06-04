@@ -100,6 +100,8 @@ int run( config_file& the_config )
     const bool bExcludeNeutrinos = the_config.get_value_safe<bool>("setup", "ExcludeNeutrinos", false );
     //! correct for massive neutrinos in the initial density perturbations
     const bool bDoNeutrinoCorr = the_config.get_value_safe<bool>("setup", "DoNeutrinoCorr", false );
+    //! enable back-scaled relative velocity mode between massive neutrinos and cdm + baryons?
+    const bool bDoNeutrinoVelCorr = the_config.get_value_safe<bool>("setup", "DoNeutrinoVelCorr", false );
     //! enable also back-scaled decaying relative velocity mode? only first order!
     const bool bDoLinearBCcorr = the_config.get_value_safe<bool>("setup", "DoBaryonVrel", false);
     // compute mass fractions 
@@ -827,6 +829,12 @@ int run( config_file& the_config )
                                 if( bDoBaryons & bDoLinearBCcorr ){
                                     real_t knorm = wnoise.get_k<real_t>(i,j,k).norm();
                                     tmp.kelem(idx) -= vfac1 * C_species * the_cosmo_calc->get_amplitude_theta_bc(knorm, bDoLinearBCcorr) * wnoise.kelem(i,j,k) * lg.gradient(idim,tmp.get_k3(i,j,k)) / (knorm*knorm);
+                                }
+
+                                // if massive neutrino cosmology, add the vmnu component
+                                if (bDoNeutrinoVelCorr) {
+                                    real_t knorm = wnoise.get_k<real_t>(i,j,k).norm();
+                                    tmp.kelem(idx) -= vfac1 * f_nu / (f_b + f_c) * the_cosmo_calc->get_amplitude_theta_mnu(knorm) * wnoise.kelem(i,j,k) * lg.gradient(idim,tmp.get_k3(i,j,k)) / (knorm*knorm);
                                 }
 
                                 // correct with interpolation kernel if we used interpolation to read out the positions (for glasses)

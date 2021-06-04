@@ -41,6 +41,8 @@ enum tf_type
     theta_baryon0,
     delta_nu,
     delta_nu0,
+    theta_nu,
+    theta_nu0,
 };
 
 class TransferFunction_plugin

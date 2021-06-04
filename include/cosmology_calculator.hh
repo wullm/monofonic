@@ -451,6 +451,22 @@ public:
         return std::pow(k, 0.5 * m_n_s_) * d_mnu * (m_sqrtpnorm_ * Dplus_target_);
     }
 
+    //! Compute amplitude of the back-scaled theta_mnu = theta_m - theta_nu mode
+    inline real_t get_amplitude_theta_mnu( const real_t k ) const
+    {
+        const real_t Dratio = Dplus_start_ / Dplus_target_;
+        const real_t O_b = cosmo_param_["Omega_b"];
+        const real_t O_c = cosmo_param_["Omega_c"];
+        const real_t O_nu = cosmo_param_["Omega_nu_massive"];
+        const real_t t_b = transfer_function_->compute(k, theta_baryon);
+        const real_t t_c = transfer_function_->compute(k, theta_cdm);
+        const real_t t_nu = transfer_function_->compute(k, theta_nu);
+        const real_t t_m = (O_b * t_b + O_c * t_c + O_nu * t_nu) / (O_b + O_c + O_nu);
+        const real_t t_mnu = (t_m - t_nu) * Dratio;
+        // need to multiply with Dplus_target since sqrtpnorm rescales like that
+        return std::pow(k, 0.5 * m_n_s_) * t_mnu * (m_sqrtpnorm_ * Dplus_target_);
+    }
+
     //! Computes the normalization for the power spectrum
     /*!
 	 * integrates the power spectrum to fix the normalization to that given

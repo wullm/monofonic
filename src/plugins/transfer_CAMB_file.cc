@@ -63,7 +63,7 @@ private:
 
         std::stringstream ss(line);
 
-        double Tk, Tdc, Tdb, Tdn, Tdm, Tvb, Tvc, dummy;
+        double Tk, Tdc, Tdb, Tdn, Tdm, Tvn, Tvb, Tvc, dummy;
 
         ss >> Tk;    // k
         ss >> Tdc;   // cdm
@@ -74,7 +74,7 @@ private:
         ss >> Tdm;   // total
         ss >> dummy; // no_nu
         ss >> dummy; // total_de
-        ss >> dummy; // Weyl
+        ss >> Tvn; // v_mass_nu
         ss >> Tvc;   // v_cdm
         ss >> Tvb;   // v_b
         ss >> dummy; // v_b-v_cdm
@@ -99,7 +99,7 @@ private:
         dm.push_back(Tdm);
         tc.push_back(Tvc);
         tb.push_back(Tvb);
-        tn.push_back(Tdm);
+        tn.push_back(Tvn);
         tm.push_back(Tdm);
         ++nlines;  
       }
@@ -216,6 +216,10 @@ public:
     case delta_nu0:
     case delta_nu:
       return delta_n_(k);
+
+    case theta_nu0:
+    case theta_nu:
+      return theta_n_(k);
 
     default:
       throw std::runtime_error("Invalid type requested in transfer function evaluation");
