@@ -74,7 +74,7 @@ private:
         ss >> Tdm;   // total
         ss >> dummy; // no_nu
         ss >> dummy; // total_de
-        ss >> Tvn; // v_mass_nu
+        ss >> Tvn;   // v_mass_nu
         ss >> Tvc;   // v_cdm
         ss >> Tvb;   // v_b
         ss >> dummy; // v_b-v_cdm
@@ -91,6 +91,17 @@ private:
         //   Tkvtot = cosmo_params_["f_c"] * Tkvc + cosmo_params_["f_b"]* Tkvb; 
 
         // m_linbaryoninterp |= Tkb < 0.0 || Tkvb < 0.0;
+
+        // Ensure that everything is positive to allow log-log interpolation
+        Tk = std::fabs(Tk);
+        Tdc = std::fabs(Tdc);
+        Tdb = std::fabs(Tdb);
+        Tdn = std::fabs(Tdn);
+        Tdm = std::fabs(Tdm);
+        Tvc = std::fabs(Tvc);
+        Tvb = std::fabs(Tvb);
+        Tvn = std::fabs(Tvn);
+        Tdm = std::fabs(Tdm);
 
         k.push_back(Tk);
         dc.push_back(Tdc);
