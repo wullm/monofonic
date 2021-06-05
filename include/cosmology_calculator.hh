@@ -462,7 +462,7 @@ public:
         const real_t t_c = transfer_function_->compute(k, theta_cdm);
         const real_t t_nu = transfer_function_->compute(k, theta_nu);
         const real_t t_m = (O_b * t_b + O_c * t_c + O_nu * t_nu) / (O_b + O_c + O_nu);
-        const real_t t_mnu = (t_m - t_nu) * Dratio;
+        const real_t t_mnu = (t_m - t_nu) * std::sqrt(Dratio);
         // need to multiply with Dplus_target since sqrtpnorm rescales like that
         return std::pow(k, 0.5 * m_n_s_) * t_mnu * (m_sqrtpnorm_ * Dplus_target_);
     }
