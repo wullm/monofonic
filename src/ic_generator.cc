@@ -575,7 +575,7 @@ int run( config_file& the_config )
                 rho.FourierTransformForward(false);
                 rho.assign_function_of_grids_kdep( [&]( auto k, auto wn ){
                     real_t d_bc = the_cosmo_calc->get_amplitude_delta_bc(k.norm(),bDoLinearBCcorr);
-                    real_t d_mnu = the_cosmo_calc->get_amplitude_delta_mnu(k.norm());
+                    real_t d_mnu = the_cosmo_calc->get_amplitude_delta_mnu(k.norm(), bDoNeutrinoVelCorr);
                     real_t nu_correction = bDoNeutrinoCorr ? f_nu / (f_b + f_c) * d_mnu : 0.;
                     return wn * (C_species * d_bc + nu_correction);
                 }, wnoise );
@@ -609,7 +609,7 @@ int run( config_file& the_config )
                 rho.FourierTransformForward(false);
                 rho.assign_function_of_grids_kdep( [&]( auto k, auto wn ){
                     real_t d_bc = the_cosmo_calc->get_amplitude_delta_bc(k.norm(), false);
-                    real_t d_mnu = the_cosmo_calc->get_amplitude_delta_mnu(k.norm());
+                    real_t d_mnu = the_cosmo_calc->get_amplitude_delta_mnu(k.norm(), false);
                     real_t nu_correction = bDoNeutrinoCorr ? f_nu / (f_b + f_c) * d_mnu : 0.;
                     return wn * (C_species * d_bc + nu_correction);
                 }, wnoise );

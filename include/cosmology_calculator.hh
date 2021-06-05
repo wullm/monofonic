@@ -436,7 +436,7 @@ public:
     }
 
     //! Compute amplitude of the back-scaled delta_mnu = delta_m - delta_nu mode
-    inline real_t get_amplitude_delta_mnu( const real_t k ) const
+    inline real_t get_amplitude_delta_mnu( const real_t k, bool withvmnu ) const
     {
         const real_t Dratio = Dplus_start_ / Dplus_target_;
         const real_t O_b = cosmo_param_["Omega_b"];
@@ -446,7 +446,15 @@ public:
         const real_t d_c = transfer_function_->compute(k, delta_cdm);
         const real_t d_nu = transfer_function_->compute(k, delta_nu);
         const real_t d_m = (O_b * d_b + O_c * d_c + O_nu * d_nu) / (O_b + O_c + O_nu);
-        const real_t d_mnu = (d_m - d_nu) * Dratio;
+        real_t d_mnu = (d_m - d_nu) * Dratio;
+        if (withvmnu) {
+            const real_t t_b = transfer_function_->compute(k, theta_baryon);
+            const real_t t_c = transfer_function_->compute(k, theta_cdm);
+            const real_t t_nu = transfer_function_->compute(k, theta_nu);
+            const real_t t_m = (O_b * t_b + O_c * t_c + O_nu * t_nu) / (O_b + O_c + O_nu);
+            const real_t t_mnu = (t_m - t_nu) * Dratio;
+            d_mnu += 2 * (1.0 / std::sqrt(Dratio) - 1.0) * t_mnu;
+        }
         // need to multiply with Dplus_target since sqrtpnorm rescales like that
         return std::pow(k, 0.5 * m_n_s_) * d_mnu * (m_sqrtpnorm_ * Dplus_target_);
     }
