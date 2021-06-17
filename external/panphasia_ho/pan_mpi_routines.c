@@ -441,13 +441,15 @@ int m;
           ky = (iy > nfft_dim/2) ? iy-nfft_dim : iy;
           kz = (iz > nfft_dim/2) ? iz-nfft_dim : iz;
           ksquared = kx*kx + ky*ky + kz*kz;
+          if ( (kx!=nfft_dim/2)&&(ky!=nfft_dim/2)&&(kz!=nfft_dim/2)){ //Omit Nyquist modes
+
           if ((ksquared<=descriptor_kk_limit)&&(ksquared!=0)){
 	    index1 = ix*N0_fourier_grid*(N0_fourier_grid/2+1) + iy*(N0_fourier_grid/2+1) + iz;
             weight = cabs(return_field[index1]);
             return_field[index1] /= weight;   
 	  }; 	
 	};
-
+	};
  };
  
  //printf("Reached here 12!\n");
