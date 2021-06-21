@@ -141,9 +141,6 @@ private:
     add_class_parameter("transfer_neglect_delta_k_S_e", 0.13);
     add_class_parameter("delta_l_max", 1000);
 
-    // fine sampling along the time dimension to allow accurate interpolation
-    add_class_parameter("perturb_sampling_stepsize", 0.005);
-
     int class_verbosity = 0;
 
     add_class_parameter("background_verbose", class_verbosity);
