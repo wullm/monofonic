@@ -421,7 +421,7 @@ public:
         const real_t d_m = (O_b * d_b + O_c * d_c + O_nu * d_nu) / (O_b + O_c + O_nu);
 
         // need to multiply with Dplus_target since sqrtpnorm rescales like that
-        return std::pow(k, 0.5 * m_n_s_) * d_m * (m_sqrtpnorm_ * Dplus_target_);
+        return std::pow(k, 0.5 * m_n_s_) * d_m * m_sqrtpnorm_;
     }
 
     //! Compute amplitude of the back-scaled delta_mnu = delta_m - delta_nu mode
