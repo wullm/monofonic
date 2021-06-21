@@ -104,6 +104,8 @@ int run( config_file& the_config )
     const bool bDoNeutrinoMassCorr = the_config.get_value_safe<bool>("setup", "DoNeutrinoMassCorr", false );
     //! correct for massive neutrinos in the velocities
     const bool bDoNeutrinoVelCorr = the_config.get_value_safe<bool>("setup", "DoNeutrinoVelCorr", false );
+    //! use matter only density to source the gravitational potential
+    const bool bMatterSourcesOnly = the_config.get_value_safe<bool>("setup", "MatterSourcesOnly", false);
     // compute mass fractions 
     std::map< cosmo_species, double > Omega;
     if( bDoBaryons ){
@@ -342,7 +344,9 @@ int run( config_file& the_config )
     phi.FourierTransformForward(false);
     phi.assign_function_of_grids_kdep([&](auto k, auto wn) {
         real_t kmod = k.norm();
-        ccomplex_t delta = wn * the_cosmo_calc->get_amplitude(kmod, delta_matter);
+        // get_amplitude(kmod, delta_matter) actually returns delta_tot, which includes radiation perturbations
+        ccomplex_t d_m = bMatterSourcesOnly ? the_cosmo_calc->get_amplitude_delta_matter_only(kmod) : the_cosmo_calc->get_amplitude(kmod, delta_matter);
+        ccomplex_t delta = wn * d_m;
         return -delta / (kmod * kmod);
     }, wnoise);
 
