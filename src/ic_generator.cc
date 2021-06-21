@@ -104,6 +104,8 @@ int run( config_file& the_config )
     const bool bDoNeutrinoMassCorr = the_config.get_value_safe<bool>("setup", "DoNeutrinoMassCorr", false );
     //! correct for massive neutrinos in the velocities
     const bool bDoNeutrinoVelCorr = the_config.get_value_safe<bool>("setup", "DoNeutrinoVelCorr", false );
+    //! correct for massive neutrinos in the velocities
+    const bool bDoDensityVelocityGaugeCorr = the_config.get_value_safe<bool>("setup", "DoDensityVelocityGaugeCorr", false );
     //! use matter only density to source the gravitational potential
     const bool bMatterSourcesOnly = the_config.get_value_safe<bool>("setup", "MatterSourcesOnly", false);
     // compute mass fractions 
@@ -823,6 +825,11 @@ int run( config_file& the_config )
                                 if (bDoNeutrinoVelCorr) {
                                     real_t knorm = wnoise.get_k<real_t>(i,j,k).norm();
                                     tmp.kelem(idx) -= vfac1 * f_nu / (f_b + f_c) * the_cosmo_calc->get_amplitude_theta_mnu(knorm) * wnoise.kelem(i,j,k) * lg.gradient(idim,tmp.get_k3(i,j,k)) / (knorm*knorm);
+                                }
+                                
+                                if (bDoDensityVelocityGaugeCorr) {
+                                    real_t knorm = wnoise.get_k<real_t>(i,j,k).norm();
+                                    tmp.kelem(idx) -= vfac1 * the_cosmo_calc->get_amplitude_theta_delta_m(knorm) * wnoise.kelem(i,j,k) * lg.gradient(idim,tmp.get_k3(i,j,k)) / (knorm*knorm);
                                 }
 
                                 // correct with interpolation kernel if we used interpolation to read out the positions (for glasses)
