@@ -40,6 +40,7 @@ private:
 
   interpolated_function_1d<true, true, false> delta_c_, delta_b_, delta_n_, delta_m_, theta_c_, theta_b_, theta_n_, theta_m_;
   interpolated_function_1d<true, true, false> delta_c0_, delta_b0_, delta_n0_, delta_m0_, theta_c0_, theta_b0_, theta_n0_, theta_m0_;
+  interpolated_function_1d<true, true, false> delta_c_start_, delta_b_start_, delta_n_start_, delta_m_start_, theta_c_start_, theta_b_start_, theta_n_start_, theta_m_start_;
 
   double zstart_, ztarget_, astart_, atarget_, kmax_, kmin_, h_, tnorm_;
 
@@ -250,7 +251,7 @@ public:
     delta_m0_.set_data(k, dm);
     theta_m0_.set_data(k, tm);
 
-     // compute the transfer function at z=z_target using CLASS engine
+    // compute the transfer function at z=z_target using CLASS engine
     this->run_ClassEngine(ztarget_, k, dc, tc, db, tb, dn, tn, dm, tm);
     delta_c_.set_data(k, dc);
     theta_c_.set_data(k, tc);
@@ -260,6 +261,17 @@ public:
     theta_n_.set_data(k, tn);
     delta_m_.set_data(k, dm);
     theta_m_.set_data(k, tm);
+    
+    // compute the transfer function at z=z_start using CLASS engine
+    this->run_ClassEngine(zstart_, k, dc, tc, db, tb, dn, tn, dm, tm);
+    delta_c_start_.set_data(k, dc);
+    theta_c_start_.set_data(k, tc);
+    delta_b_start_.set_data(k, db);
+    theta_b_start_.set_data(k, tb);
+    delta_n_start_.set_data(k, dn);
+    theta_n_start_.set_data(k, tn);
+    delta_m_start_.set_data(k, dm);
+    theta_m_start_.set_data(k, tm);
 
     kmin_ = k[0];
     kmax_ = k.back();
@@ -326,6 +338,24 @@ public:
       val = delta_n0_(k); break;
     case theta_nu0:
       val = theta_n0_(k); break;
+      
+      // values at zstart:
+    case delta_matter_start:
+      val = delta_m_start_(k); break;
+    case delta_cdm_start:
+      val = delta_c_start_(k); break;
+    case delta_baryon_start:
+      val = delta_b_start_(k); break;
+    case theta_matter_start:
+      val = theta_m_start_(k); break;
+    case theta_cdm_start:
+      val = theta_c_start_(k); break;
+    case theta_baryon_start:
+      val = theta_b_start_(k); break;
+    case delta_nu_start:
+      val = delta_n_start_(k); break;
+    case theta_nu_start:
+      val = theta_n_start_(k); break;
     default:
       throw std::runtime_error("Invalid type requested in transfer function evaluation");
     }

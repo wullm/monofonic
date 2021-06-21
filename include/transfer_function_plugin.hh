@@ -43,6 +43,14 @@ enum tf_type
     delta_nu0,
     theta_nu,
     theta_nu0,
+    delta_matter_start,
+    delta_cdm_start,
+    delta_baryon_start,
+    delta_nu_start,
+    theta_matter_start,
+    theta_cdm_start,
+    theta_baryon_start,
+    theta_nu_start,
 };
 
 class TransferFunction_plugin
