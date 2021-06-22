@@ -371,10 +371,10 @@ public:
     {
         if (k[i] < 1.0) continue; //ignore large scales
       
-        double Dcb = f_b * Db[i] + (1-f_b) * Dc[i];
-        double Dm = f_nu_nr_0 * Dn[i] + (1-f_nu_nr_0) * Dcb;
-        double gcb = (f_b * Db[i] * gb[i] + (1-f_b) * Dc[i] * gc[i]) / Dcb;
-        double gm = (f_nu_nr_0 * Dn[i] * gn[i] + (1-f_nu_nr_0) * Dcb * gcb) / Dm;
+        double Dcb = f_b * Db[i] + (1.0 - f_b) * Dc[i];
+        double Dm = f_nu_nr_0 * Dn[i] + (1.0 - f_nu_nr_0) * Dcb;
+        double gcb = (f_b * Db[i] * gb[i] + (1.0 - f_b) * Dc[i] * gc[i]) / Dcb;
+        double gm = (f_nu_nr_0 * Dn[i] * gn[i] + (1.0 - f_nu_nr_0) * Dcb * gcb) / Dm;
       
         Dm_sum += Dm;
         gm_sum += gm;
@@ -408,10 +408,10 @@ public:
         double dcb, tcb;
         
         // compute the mass-weighted average 
-        dcb = f_b * dc[i] + (1.0 - f_b) * db[i];
-        dm[i] = f_nu_nr_0 * dn[i] + (1-f_nu_nr_0) * dcb;
-        tcb = f_b * tc[i] + (1.0 - f_b) * tb[i];
-        tm[i] = f_nu_nr_0 * tn[i] + (1-f_nu_nr_0) * tcb;
+        dcb = f_b * db[i] + (1.0 - f_b) * dc[i];
+        dm[i] = f_nu_nr_0 * dn[i] + (1.0 - f_nu_nr_0) * dcb;
+        tcb = f_b * tb[i] + (1.0 - f_b) * tc[i];
+        tm[i] = f_nu_nr_0 * tn[i] + (1.0 - f_nu_nr_0) * tcb;
       
         // use the compensated (baryon-cdm) modes from the target redshift
         db[i] = dcb - f_b * (db_target[i] - dc_target[i]);
