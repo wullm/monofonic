@@ -138,6 +138,11 @@ find_package(HDF5 REQUIRED)
 mark_as_advanced(HDF5_C_LIBRARY_dl HDF5_C_LIBRARY_hdf5 HDF5_C_LIBRARY_m HDF5_C_LIBRARY_pthread HDF5_C_LIBRARY_z HDF5_C_LIBRARY_sz)
 
 ########################################################################################################################
+# 3FA
+option(ENABLE_3FA "Enable 3FA 3-fluid approximation model" ON)
+########################################################################################################################
+
+########################################################################################################################
 # PANPHASIA
 option(ENABLE_PANPHASIA "Enable PANPHASIA random number generator" ON)
 if(ENABLE_PANPHASIA)
@@ -272,4 +277,12 @@ if(ENABLE_GENERICIO)
   include(${CMAKE_CURRENT_SOURCE_DIR}/external/genericio.cmake)
   target_link_libraries(${PRGNAME} PRIVATE genericio::genericio_mpi)
   target_compile_definitions(${PRGNAME} PRIVATE "ENABLE_GENERICIO")
+endif()
+
+if(ENABLE_3FA)
+  file(GLOB 3FA_SOURCES ${PROJECT_SOURCE_DIR}/external/3fa/*.c)
+  add_library( 3FA STATIC ${3FA_SOURCES})
+  target_link_libraries( 3FA PRIVATE GSL::gsl)
+
+  target_link_libraries( ${PRGNAME} PRIVATE 3FA )
 endif()

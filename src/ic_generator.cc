@@ -177,8 +177,10 @@ int run( config_file& the_config )
     //--------------------------------------------------------------------
     // Compute LPT time coefficients
     //--------------------------------------------------------------------
-    const real_t Dplus0 = the_cosmo_calc->get_growth_factor(astart);
-    const real_t vfac   = the_cosmo_calc->get_vfact(astart);
+    const real_t Dplus0 = the_cosmo_calc->get_growth_factor_start();
+    const real_t vfac   = the_cosmo_calc->get_vfact_start();
+
+    music::ilog << "Using D+ = " << Dplus0 << ", vfac = " << vfac << std::endl;
 
     const real_t g1  = -Dplus0;
     const real_t g2  = ((LPTorder>1)? -3.0/7.0*Dplus0*Dplus0 : 0.0);

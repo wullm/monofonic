@@ -54,6 +54,7 @@ private:
     static constexpr double REL_PRECISION = 1e-10;
     interpolated_function_1d<true,true,false> D_of_a_, f_of_a_, a_of_D_;
     double Dnow_, Dplus_start_, Dplus_target_, astart_, atarget_;
+    double vfac_start_;
 
     double m_n_s_, m_sqrtpnorm_;
 
@@ -173,14 +174,25 @@ public:
         a_of_D_.set_data(tab_D,tab_a);
         Dnow_ = D_of_a_(1.0);
 
+        // set up transfer functions
+        transfer_function_ = std::move(select_TransferFunction_plugin(cf, cosmo_param_));
+        transfer_function_->intialise();
+
+        // compute growth factors
         Dplus_start_  = D_of_a_( astart_ ) / Dnow_;
         Dplus_target_ = D_of_a_( atarget_ ) / Dnow_;
 
+        // rescale growth factors using the asymptotic value from the transfer functions
+        if (transfer_function_->tf_has_asymptotic_growth_factors()) {
+            Dplus_start_ = Dplus_target_ * transfer_function_->get_Dm_asymptotic();
+            vfac_start_ = transfer_function_->get_vfac_asymptotic();
+        } else {
+            vfac_start_ = get_vfact( astart_ );
+        }
+
         music::ilog << "Linear growth factors: D+_target = " << Dplus_target_ << ", D+_start = " << Dplus_start_ << std::endl;
 
-        // set up transfer functions and compute normalisation
-        transfer_function_ = std::move(select_TransferFunction_plugin(cf, cosmo_param_));
-        transfer_function_->intialise();
+        // compute transfer function normalisation
         if( !transfer_function_->tf_isnormalised_ ){
             if (cosmo_param_["A_s"] > -1.) {
                 cosmo_param_.set("pnorm", this->compute_pnorm_from_As());
@@ -346,6 +358,21 @@ public:
         return f_of_a_(a) * a * H_of_a(a) / cosmo_param_["h"];
     }
 
+    //! Returns the linear theory growth factor D+ at a_start
+    real_t get_growth_factor_start() const noexcept
+    {
+        return Dplus_start_;
+    }
+
+    //! Return the factor relating particle displacement and velocity at a_start
+    /*! Function computes
+     *  vfac = a * (H(a)/h) * dlogD+ / dlog a
+     */
+    real_t get_vfact_start() const noexcept
+    {
+        return vfac_start_;
+    }
+
     //! Integrand for the sigma_8 normalization of the power spectrum
     /*! Returns the value of the primordial power spectrum multiplied with 
      the transfer function and the window function of 8 Mpc/h at wave number k */
@@ -427,14 +454,15 @@ public:
     //! Compute amplitude of the initial delta_mnu = delta_m - delta_nu mode
     inline real_t get_amplitude_delta_mnu( const real_t k ) const
     {
+        const real_t Dratio = Dplus_target_ / Dplus_start_;
         const real_t O_b = cosmo_param_["Omega_b"];
         const real_t O_c = cosmo_param_["Omega_c"];
         const real_t O_nu = cosmo_param_["Omega_nu_massive"];
-        const real_t d_b = transfer_function_->compute(k, delta_baryon_start);
-        const real_t d_c = transfer_function_->compute(k, delta_cdm_start);
-        const real_t d_nu = transfer_function_->compute(k, delta_nu_start);
+        const real_t d_b = transfer_function_->compute(k, delta_baryon);
+        const real_t d_c = transfer_function_->compute(k, delta_cdm);
+        const real_t d_nu = transfer_function_->compute(k, delta_nu);
         const real_t d_m = (O_b * d_b + O_c * d_c + O_nu * d_nu) / (O_b + O_c + O_nu);
-        const real_t d_mnu = (d_m - d_nu);
+        const real_t d_mnu = (d_m - d_nu) / Dratio;
 
         // need to multiply with Dplus_target since sqrtpnorm rescales like that
         return std::pow(k, 0.5 * m_n_s_) * d_mnu * (m_sqrtpnorm_ * Dplus_target_);
@@ -443,14 +471,15 @@ public:
     //! Compute amplitude of the initial theta_mnu = theta_m - theta_nu mode
     inline real_t get_amplitude_theta_mnu( const real_t k ) const
     {
+        const real_t Dratio = Dplus_target_ / Dplus_start_;
         const real_t O_b = cosmo_param_["Omega_b"];
         const real_t O_c = cosmo_param_["Omega_c"];
         const real_t O_nu = cosmo_param_["Omega_nu_massive"];
-        const real_t t_b = transfer_function_->compute(k, theta_baryon_start);
-        const real_t t_c = transfer_function_->compute(k, theta_cdm_start);
-        const real_t t_nu = transfer_function_->compute(k, theta_nu_start);
+        const real_t t_b = transfer_function_->compute(k, theta_baryon);
+        const real_t t_c = transfer_function_->compute(k, theta_cdm);
+        const real_t t_nu = transfer_function_->compute(k, theta_nu);
         const real_t t_m = (O_b * t_b + O_c * t_c + O_nu * t_nu) / (O_b + O_c + O_nu);
-        const real_t t_mnu = (t_m - t_nu);
+        const real_t t_mnu = (t_m - t_nu) / Dratio;
         // need to multiply with Dplus_target since sqrtpnorm rescales like that
         return std::pow(k, 0.5 * m_n_s_) * t_mnu * (m_sqrtpnorm_ * Dplus_target_);
     }

@@ -63,6 +63,7 @@ class TransferFunction_plugin
     bool tf_withtotal0_; //!< have the z=0 spectrum for normalisation purposes
     bool tf_velunits_;   //!< velocities are in velocity units (km/s)
     bool tf_isnormalised_; //!< assume that transfer functions come already correctly normalised and need be re-normalised to a specified value
+    bool tf_with_Dm_asymptotic_; //!< has asymptotic growth factor/rate at large k
     
   public:
     //! constructor
@@ -85,6 +86,21 @@ class TransferFunction_plugin
 
     //! return minimum wave number allowed
     virtual double get_kmin(void) const = 0;
+
+    //! return asymptotic growth factor at large k
+    virtual double get_Dm_asymptotic(void) const = 0;
+
+    //! return asymptotic growth rate at large k
+    virtual double get_fm_asymptotic(void) const = 0;
+
+    //! return asymptotic velocity factor vfac=aHf/h rate at large k
+    virtual double get_vfac_asymptotic(void) const = 0;
+
+    //! has asymptotic growth factor/rate
+    bool tf_has_asymptotic_growth_factors(void)
+    {
+        return tf_with_Dm_asymptotic_;
+    }
 
     //! return if density transfer function is distinct for baryons and DM
     bool tf_is_distinct(void)

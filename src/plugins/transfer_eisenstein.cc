@@ -232,6 +232,7 @@ public:
     
     tf_distinct_ = false;
     tf_withvel_ = false;
+    tf_with_Dm_asymptotic_ = false;
   }
 
   //! Computes the transfer function for k in Mpc/h by calling TFfit_onek
@@ -249,6 +250,16 @@ public:
   inline double get_kmax(void) const
   {
     return 1.e4;
+  }
+
+  inline double get_Dm_asymptotic(void) const {
+      throw std::runtime_error("Transfer function does not have asymptotic growth factrs.");
+  }
+  inline double get_fm_asymptotic(void) const {
+      throw std::runtime_error("Transfer function does not have asymptotic growth factrs.");
+  }
+  inline double get_vfac_asymptotic(void) const {
+      throw std::runtime_error("Transfer function does not have asymptotic growth factrs.");
   }
 };
 
@@ -346,6 +357,16 @@ public:
   {
     return 1.e4;
   }
+
+  inline double get_Dm_asymptotic(void) const {
+      throw std::runtime_error("Transfer function does not have asymptotic growth factrs.");
+  }
+  inline double get_fm_asymptotic(void) const {
+      throw std::runtime_error("Transfer function does not have asymptotic growth factrs.");
+  }
+  inline double get_vfac_asymptotic(void) const {
+      throw std::runtime_error("Transfer function does not have asymptotic growth factrs.");
+  }
 };
 
 // CDM Bino type WIMP small-scale damped spectrum from Green, Hofmann & Schwarz (2004)
@@ -404,6 +425,16 @@ public:
   inline double get_kmax(void) const
   {
     return 1.e8;
+  }
+
+  inline double get_Dm_asymptotic(void) const {
+      throw std::runtime_error("Transfer function does not have asymptotic growth factrs.");
+  }
+  inline double get_fm_asymptotic(void) const {
+      throw std::runtime_error("Transfer function does not have asymptotic growth factrs.");
+  }
+  inline double get_vfac_asymptotic(void) const {
+      throw std::runtime_error("Transfer function does not have asymptotic growth factrs.");
   }
 };
 
