@@ -343,7 +343,7 @@ public:
     {
         // initialise the input data for the fluid equations
         struct growth_factors gfac;
-        gfac.k = k[i];
+        gfac.k = k[i] * cosmo_params_.get("h"); // 3FA does not use h-units
         gfac.Dc = dc[i];
         gfac.Db = db[i];
         gfac.Dn = dn[i];
@@ -369,7 +369,7 @@ public:
     int count = 0;
     for (size_t i = 0; i < k.size(); ++i)
     {
-        if (k[i] < 1.0) continue; //ignore large scales
+        if (k[i] * cosmo_params_.get("h") < 1.0) continue; //ignore large scales
       
         double Dcb = f_b * Db[i] + (1.0 - f_b) * Dc[i];
         double Dm = f_nu_nr_0 * Dn[i] + (1.0 - f_nu_nr_0) * Dcb;
@@ -433,6 +433,7 @@ public:
     music::ilog << "Asymptotic Dm = " << Dm_asymptotic_ << std::endl;
     music::ilog << "Asymptotic fm = " << fm_asymptotic_ << std::endl;
     music::ilog << "Asymptotic aHf/h = " << vfac_asymptotic_ << std::endl;
+    music::ilog << "Rescaled the transfer functions with scale-dependent Dx(k), x = cdm,b,nu." << std::endl;
   
     // clean up 3FA
     free_cosmology_tables(&tab);
