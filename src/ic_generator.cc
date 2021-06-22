@@ -98,14 +98,6 @@ int run( config_file& the_config )
     const bool bDoBaryons = the_config.get_value_safe<bool>("setup", "DoBaryons", false );
     //! enable also back-scaled decaying relative velocity mode? only first order!
     const bool bDoLinearBCcorr = the_config.get_value_safe<bool>("setup", "DoBaryonVrel", false);
-    //! do not include massive neutrinos in the cdm fluid (use Omega_cdm not Omega_cdm + Omega_nu_massive)
-    const bool bExcludeNeutrinos = the_config.get_value_safe<bool>("setup", "ExcludeNeutrinos", false );
-    //! correct for massive neutrinos in the initial density perturbations
-    const bool bDoNeutrinoMassCorr = the_config.get_value_safe<bool>("setup", "DoNeutrinoMassCorr", false );
-    //! correct for massive neutrinos in the velocities
-    const bool bDoNeutrinoVelCorr = the_config.get_value_safe<bool>("setup", "DoNeutrinoVelCorr", false );
-    //! correct for the difference between delta_matter and theta_matter on large scales
-    const bool bDoDensityVelocityCorr = the_config.get_value_safe<bool>("setup", "DoDensityVelocityCorr", false );
     // compute mass fractions 
     std::map< cosmo_species, double > Omega;
     if( bDoBaryons ){
@@ -117,6 +109,29 @@ int run( config_file& the_config )
         double Om = the_cosmo_calc->cosmo_param_["Omega_m"];
         Omega[cosmo_species::dm] = Om;
         Omega[cosmo_species::baryon] = 0.0;
+    }
+    
+    //! master switch to activate the following neutrino corrections by default
+    const bool bWithNeutrinos = the_config.get_value_safe<bool>("setup", "WithNeutrinos", false );
+    
+    //! do not include massive neutrinos in the cdm fluid (use Omega_cdm not Omega_cdm + Omega_nu_massive)
+    const bool bExcludeNeutrinos = the_config.get_value_safe<bool>("setup", "ExcludeNeutrinos", bWithNeutrinos );
+    //! correct for massive neutrinos in the initial density perturbations
+    const bool bDoNeutrinoMassCorr = the_config.get_value_safe<bool>("setup", "DoNeutrinoMassCorr", bWithNeutrinos );
+    //! correct for massive neutrinos in the velocities
+    const bool bDoNeutrinoVelCorr = the_config.get_value_safe<bool>("setup", "DoNeutrinoVelCorr", bWithNeutrinos );
+    //! correct for the difference between delta_matter and theta_matter on large scales
+    const bool bDoDensityVelocityCorr = the_config.get_value_safe<bool>("setup", "DoDensityVelocityCorr", bWithNeutrinos );
+
+    //! which transfer function plugin was used
+    std::string tf = the_config.get_value<std::string>("cosmology", "transfer");
+    if (bExcludeNeutrinos && !bDoNeutrinoMassCorr && !bDoNeutrinoVelCorr) {
+        music::wlog << " ExcludeNeutrinos enabled, but not the 1st order neutrino corrections." << std::endl;
+        music::wlog << " These can be switched on with [setup] / WithNeutrinos = yes. See example.conf" << std::endl;
+    }
+    if (bWithNeutrinos && tf != "3FA_CLASS") {
+        music::wlog << " Neutrino corrections enabled. It is recommended to use the" << std::endl;
+        music::wlog << " 3FA_CLASS transfer function plugin for correct scale-dependent growth factors." << std::endl;
     }
 
     //! if necessary, subtract the massive neutrino density
