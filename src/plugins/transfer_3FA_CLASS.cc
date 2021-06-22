@@ -427,12 +427,12 @@ public:
     for (size_t i = 0; i < k.size(); ++i)
     {
         // scale back the density transfer functions from the target redshift
-        // to the starting redshift  using the scale-dependent growth factors
+        // to the starting redshift using the scale-dependent growth factors
         dc[i] = dc_target[i] * Dc[i];
         db[i] = db_target[i] * Db[i];
         dn[i] = dn_target[i] * Dn[i];
 
-        // scale the transfer functions forward with the total asymptotic factor
+        // scale all transfer functions forward with the total asymptotic factor
         dc[i] /= Dm_asymptotic_;
         db[i] /= Dm_asymptotic_;
         dn[i] /= Dm_asymptotic_;
@@ -449,11 +449,15 @@ public:
         dm[i] = f_nu_nr_0 * dn[i] + (1.0 - f_nu_nr_0) * dcb;
         tm[i] = f_nu_nr_0 * tn[i] + (1.0 - f_nu_nr_0) * tcb;
 
-        // use the (baryon-cdm) modes from the target redshift
-        dc[i] = dcb - f_b * (db_target[i] - dc_target[i]);
-        tc[i] = tcb - f_b * (tb_target[i] - tc_target[i]);
-        db[i] = dcb + (1.0 - f_b) * (db_target[i] - dc_target[i]);
-        tb[i] = tcb + (1.0 - f_b) * (tb_target[i] - tc_target[i]);
+        // the (baryon - cdm) difference evaluated at the target redshift
+        double dbc_target = db_target[i] - dc_target[i];
+        double tbc_target = -(tb_target[i] - tc_target[i]); //opposite sign velocity transfers
+
+        // add back the (baryon - cdm) difference evaluated at the target redshift
+        dc[i] = dcb - f_b * dbc_target;
+        tc[i] = tcb - f_b * tbc_target;
+        db[i] = dcb + (1.0 - f_b) * dbc_target;
+        tb[i] = tcb + (1.0 - f_b) * tbc_target;
     }
 
     // Store the rescaled transfer function data
