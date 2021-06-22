@@ -414,10 +414,10 @@ public:
         tm[i] = f_nu_nr_0 * tn[i] + (1.0 - f_nu_nr_0) * tcb;
       
         // use the compensated (baryon-cdm) modes from the target redshift
-        db[i] = dcb - f_b * (db_target[i] - dc_target[i]);
-        dc[i] = dcb + (1.0 - f_b) * (db_target[i] - dc_target[i]);
-        tb[i] = tcb - f_b * (tb_target[i] - tc_target[i]);
-        tc[i] = tcb + (1.0 - f_b) * (tb_target[i] - tc_target[i]);
+        dc[i] = dcb - f_b * (db_target[i] - dc_target[i]);
+        db[i] = dcb + (1.0 - f_b) * (db_target[i] - dc_target[i]);
+        tc[i] = tcb - f_b * (tb_target[i] - tc_target[i]);
+        tb[i] = tcb + (1.0 - f_b) * (tb_target[i] - tc_target[i]);
     }
   
     // Store the rescaled transfer function data
