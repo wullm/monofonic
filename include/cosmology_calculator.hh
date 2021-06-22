@@ -486,19 +486,20 @@ public:
     
     inline real_t get_amplitude_theta_delta_m( const real_t k ) const
     {
+        const real_t Dratio = Dplus_target_ / Dplus_start_;
         const real_t O_b = cosmo_param_["Omega_b"];
         const real_t O_c = cosmo_param_["Omega_c"];
         const real_t O_nu = cosmo_param_["Omega_nu_massive"];
-        const real_t t_b = transfer_function_->compute(k, theta_baryon_start);
-        const real_t t_c = transfer_function_->compute(k, theta_cdm_start);
-        const real_t t_nu = transfer_function_->compute(k, theta_nu_start);
+        const real_t t_b = transfer_function_->compute(k, theta_baryon);
+        const real_t t_c = transfer_function_->compute(k, theta_cdm);
+        const real_t t_nu = transfer_function_->compute(k, theta_nu);
         const real_t t_m = (O_b * t_b + O_c * t_c + O_nu * t_nu) / (O_b + O_c + O_nu);
-        const real_t d_b = transfer_function_->compute(k, delta_baryon_start);
-        const real_t d_c = transfer_function_->compute(k, delta_cdm_start);
-        const real_t d_nu = transfer_function_->compute(k, delta_nu_start);
+        const real_t d_b = transfer_function_->compute(k, delta_baryon);
+        const real_t d_c = transfer_function_->compute(k, delta_cdm);
+        const real_t d_nu = transfer_function_->compute(k, delta_nu);
         const real_t d_m = (O_b * d_b + O_c * d_c + O_nu * d_nu) / (O_b + O_c + O_nu);
 
-        const real_t td_m = (t_m - d_m);
+        const real_t td_m = (t_m - d_m) / Dratio;
         // need to multiply with Dplus_target since sqrtpnorm rescales like that
         return std::pow(k, 0.5 * m_n_s_) * td_m * (m_sqrtpnorm_ * Dplus_target_);
     }
