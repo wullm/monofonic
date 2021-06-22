@@ -425,10 +425,10 @@ public:
     delta_b_.set_data(k, db);
     delta_n_.set_data(k, dn);
     delta_m_.set_data(k, dm);
-    theta_c_.set_data(k, dc);
-    theta_b_.set_data(k, db);
-    theta_n_.set_data(k, dn);
-    theta_m_.set_data(k, dm);  
+    theta_c_.set_data(k, tc);
+    theta_b_.set_data(k, tb);
+    theta_n_.set_data(k, tn);
+    theta_m_.set_data(k, tm);  
   
     music::ilog << "Asymptotic Dm = " << Dm_asymptotic_ << std::endl;
     music::ilog << "Asymptotic fm = " << fm_asymptotic_ << std::endl;
