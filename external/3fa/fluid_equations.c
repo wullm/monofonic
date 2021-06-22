@@ -70,23 +70,9 @@ void integrate_fluid_equations(struct model *m, struct units *us,
                                struct growth_factors *gfac,
                                double a_start, double a_final) {
 
-    /* We will differentiate the density perturbations at a_start */
-    double log_a_start = log(a_start);
-    double delta_log_a = 0.002;
-
-    /* Nearby scale factors */
-    double a_mm = exp(log_a_start - 2.0 * delta_log_a);
-    double a_m = exp(log_a_start - 1.0 * delta_log_a);
-    double a_p = exp(log_a_start + 1.0 * delta_log_a);
-    double a_pp = exp(log_a_start + 2.0 * delta_log_a);
-
     /* Create a scale factor spline for the cosmological tables */
     struct strooklat spline_tab = {tab->avec, tab->size};
     init_strooklat_spline(&spline_tab, 100);
-
-    /* Compute the Hubble ratio */
-    double H_start = strooklat_interp(&spline_tab, tab->Hvec, a_start);
-    double H_final = strooklat_interp(&spline_tab, tab->Hvec, a_final);
 
     /* Prepare the parameters for the fluid ODEs */
     struct ode_params odep;
@@ -100,14 +86,14 @@ void integrate_fluid_equations(struct model *m, struct units *us,
     odep.k = k;
 
     /* Find the values at the starting redshift and normalize */
-    double Dc = gfac->Dc;
-    double Db = gfac->Db;
-    double Dn = gfac->Dn;
+    double delta_c = gfac->delta_c;
+    double delta_b = gfac->delta_b;
+    double delta_n = gfac->delta_n;
 
-    /* Initial conditions */
-    double beta_c = Dc / Dc;
-    double beta_b = Db / Dc;
-    double beta_n = Dn / Dc;
+    /* Initial conditions, normalized by the cdm density */
+    double beta_c = delta_c / delta_c;
+    double beta_b = delta_b / delta_c;
+    double beta_n = delta_n / delta_c;
 
     /* Growth rates at a_start */
     double gc = gfac->gc;
@@ -127,15 +113,12 @@ void integrate_fluid_equations(struct model *m, struct units *us,
     gsl_odeiv2_driver_apply(d, &loga, loga_final, y);
     gsl_odeiv2_driver_free(d);
 
-    /* Extract the result */
+    /* Extract the final densities */
     double Dc_final = y[0];
     double Db_final = y[2];
     double Dn_final = y[4];
-    double gc_final = -y[1]/y[0];
-    double gb_final = -y[3]/y[2];
-    double gn_final = -y[5]/y[4];
 
-    /* Store the results (relative density and velocity transfer functions)*/
+    /* Store the relative growth factors between a_start and a_final */
     gfac->Dc = beta_c / Dc_final;
     gfac->Db = beta_b / Db_final;
     gfac->Dn = beta_n / Dn_final;

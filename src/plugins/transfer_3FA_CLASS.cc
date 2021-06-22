@@ -51,7 +51,8 @@ private:
   double Dm_asymptotic_, fm_asymptotic_, vfac_asymptotic_;
 
   ClassParams pars_;
-  std::unique_ptr<ClassEngine> the_ClassEngine_;
+  std::unique_ptr<ClassEngine> the_ClassEngine_; //synchronous gauge
+  std::unique_ptr<ClassEngine> the_ClassEngine_Nbody_; //N-body gauge
   std::ofstream ofs_class_input_;
 
   template <typename T>
@@ -153,10 +154,16 @@ private:
       zlist << std::max(ztarget_, zstart_) << ", " << std::min(ztarget_, zstart_) << ", 0.0";
     add_class_parameter("z_pk", zlist.str());
 
-    music::ilog << "Computing transfer function via ClassEngine..." << std::endl;
+    music::ilog << "Computing transfer function via ClassEngine... (synchronous gauge)" << std::endl;
     double wtime = get_wtime();
 
     the_ClassEngine_ = std::move(std::make_unique<ClassEngine>(pars_, false));
+
+    music::ilog << "Computing transfer function via ClassEngine... (N-body gauge)" << std::endl;
+
+    // do the calculation again, but now exporting N-body gauge transfer functions
+    add_class_parameter("Nbody gauge transfer functions", "yes");
+    the_ClassEngine_Nbody_ = std::move(std::make_unique<ClassEngine>(pars_, false));
 
     wtime = get_wtime() - wtime;
     music::ilog << "CLASS took " << wtime << " s." << std::endl;
@@ -170,23 +177,51 @@ private:
     dc.clear(); db.clear(); dn.clear(); dm.clear();
     tc.clear(); tb.clear(); tn.clear(); tm.clear();
     
+    // extra vectors for the N-body gauge quantities
+    std::vector<double> k_Nb, dc_Nb, tc_Nb, db_Nb, tb_Nb, dn_Nb, tn_Nb, dm_Nb, tm_Nb;
+
     the_ClassEngine_->getTk(z, k, dc, db, dn, dm, tc, tb, tn, tm);
+    the_ClassEngine_Nbody_->getTk(z, k_Nb, dc_Nb, db_Nb, dn_Nb, dm_Nb, tc_Nb, tb_Nb, tn_Nb, tm_Nb);
 
     const double h  = cosmo_params_.get("h");
 
     for (size_t i = 0; i < k.size(); ++i)
     {
+      // Note that ClassEngine uses the opposite sign for the gauge shift
+      // from synchronous to conformal Newtonian gauge compared to CLASS,
+      // possibly in error. We will follow CLASS conventions here.
+
+      // the N-body gauge shift (neglecting only H_T_Nb_prime)
+      real_t theta_shift = tb_Nb[i] - tb[i];
+      // the approximate N-body gauge shift used by ClassEngine (-alpha * k^2)
+      real_t theta_shift_approx = tc[i];
+
+      // undo the approximate N-body gauge transformation done by the ClassEngine
+      tb_Nb[i] = -(tb_Nb[i] - theta_shift_approx);
+      tn_Nb[i] = -(tn_Nb[i] - theta_shift_approx);
+      tm_Nb[i] = -(tm_Nb[i] - theta_shift_approx);
+      // theta_cdm = 0 in synchronous gauge, so exactly equal to -theta_shift
+      tc_Nb[i] = -theta_shift;
+
+      // monofonic requires negative velocity transfer functions here, so
+      // we need to truncate the neutrino velocity transfer function when
+      // errors at large k send theta_ncdm positive (no less accurate)
+      if (tn_Nb[i] >= 0) {
+          tn_Nb[i] = -FLT_MIN;
+      }
+
+      // finally, export N-body gauge quantities
       // convert to 'CAMB' format, since we interpolate loglog and
       // don't want negative numbers...
       auto ik2 = 1.0 / (k[i] * k[i]) * h * h;
-      dc[i] = -dc[i] * ik2;
-      db[i] = -db[i] * ik2;
-      dn[i] = -dn[i] * ik2;
-      dm[i] = -dm[i] * ik2;
-      tc[i] = -tc[i] * ik2;
-      tb[i] = -tb[i] * ik2;
-      tn[i] = -tn[i] * ik2;
-      tm[i] = -tm[i] * ik2;
+      dc[i] = -dc_Nb[i] * ik2;
+      db[i] = -db_Nb[i] * ik2;
+      dn[i] = -dn_Nb[i] * ik2;
+      dm[i] = -dm_Nb[i] * ik2;
+      tc[i] = -tc_Nb[i] * ik2;
+      tb[i] = -tb_Nb[i] * ik2;
+      tn[i] = -tn_Nb[i] * ik2;
+      tm[i] = -tm_Nb[i] * ik2;
     }
   }
 
@@ -343,10 +378,10 @@ public:
     {
         // initialise the input data for the fluid equations
         struct growth_factors gfac;
-        gfac.k = k[i] * cosmo_params_.get("h"); // 3FA does not use h-units
-        gfac.Dc = dc[i];
-        gfac.Db = db[i];
-        gfac.Dn = dn[i];
+        gfac.k = k[i]; // like CLASS, 3FA does not use h-units
+        gfac.delta_c = dc[i];
+        gfac.delta_b = db[i];
+        gfac.delta_n = dn[i];
         gfac.gc = gc[i];
         gfac.gb = gb[i];
         gfac.gn = gn[i];
@@ -369,7 +404,7 @@ public:
     int count = 0;
     for (size_t i = 0; i < k.size(); ++i)
     {
-        if (k[i] * cosmo_params_.get("h") < 1.0) continue; //ignore large scales
+        if (k[i] < 1.0) continue; //ignore large scales
       
         double Dcb = f_b * Db[i] + (1.0 - f_b) * Dc[i];
         double Dm = f_nu_nr_0 * Dn[i] + (1.0 - f_nu_nr_0) * Dcb;
@@ -405,21 +440,22 @@ public:
         tb[i] /= Dm_asymptotic_;
         tn[i] /= Dm_asymptotic_;
       
+        // mass-weighted cdm+baryon density and velocity transfer functions
         double dcb, tcb;
         
         // compute the mass-weighted average 
         dcb = f_b * db[i] + (1.0 - f_b) * dc[i];
-        dm[i] = f_nu_nr_0 * dn[i] + (1.0 - f_nu_nr_0) * dcb;
         tcb = f_b * tb[i] + (1.0 - f_b) * tc[i];
+        dm[i] = f_nu_nr_0 * dn[i] + (1.0 - f_nu_nr_0) * dcb;
         tm[i] = f_nu_nr_0 * tn[i] + (1.0 - f_nu_nr_0) * tcb;
       
         // use the compensated (baryon-cdm) modes from the target redshift
         dc[i] = dcb - f_b * (db_target[i] - dc_target[i]);
-        db[i] = dcb + (1.0 - f_b) * (db_target[i] - dc_target[i]);
         tc[i] = tcb - f_b * (tb_target[i] - tc_target[i]);
+        db[i] = dcb + (1.0 - f_b) * (db_target[i] - dc_target[i]);
         tb[i] = tcb + (1.0 - f_b) * (tb_target[i] - tc_target[i]);
     }
-  
+
     // Store the rescaled transfer function data
     delta_c_.set_data(k, dc);
     delta_b_.set_data(k, db);
@@ -434,7 +470,7 @@ public:
     music::ilog << "Asymptotic fm = " << fm_asymptotic_ << std::endl;
     music::ilog << "Asymptotic aHf/h = " << vfac_asymptotic_ << " km/s/Mpc" << std::endl;
     music::ilog << "Rescaled the transfer functions with scale-dependent Dx(k), x = cdm,b,nu." << std::endl;
-  
+
     // clean up 3FA
     free_cosmology_tables(&tab);
     

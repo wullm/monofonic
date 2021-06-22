@@ -28,16 +28,20 @@ extern "C" {
 #include "cosmology_tables.h"
 
 struct growth_factors {
-    /* Wavenumber */
+    /* Wavenumber (input) */
     double k;
-    /* Density transfer function ratios D_start(k) / D_final(k) */
-    double Dc;
-    double Db;
-    double Dn;
-    /* Growth rates at a_start */
+    /* Density transfer functions at a_start (input) */
+    double delta_c;
+    double delta_b;
+    double delta_n;
+    /* Growth rates at a_start: g = f = dlog(D)/dlog(a) (input)*/
     double gc;
     double gb;
     double gn;
+    /* Relative growth factors between a_start and a_final */
+    double Dc;
+    double Db;
+    double Dn;
 };
 
 void integrate_fluid_equations(struct model *m, struct units *us,
