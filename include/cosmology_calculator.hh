@@ -182,7 +182,7 @@ public:
         Dplus_start_  = D_of_a_( astart_ ) / Dnow_;
         Dplus_target_ = D_of_a_( atarget_ ) / Dnow_;
 
-        // rescale growth factors using the asymptotic value from the transfer functions
+        // if needed, rescale growth factors using the asymptotic value from the transfer functions
         if (transfer_function_->tf_has_asymptotic_growth_factors()) {
             Dplus_start_ = Dplus_target_ * transfer_function_->get_Dm_asymptotic();
             vfac_start_ = transfer_function_->get_vfac_asymptotic();
@@ -365,7 +365,7 @@ public:
     }
 
     //! Return the factor relating particle displacement and velocity at a_start
-    /*! Function computes
+    /*! This is
      *  vfac = a * (H(a)/h) * dlogD+ / dlog a
      */
     real_t get_vfact_start() const noexcept
@@ -468,7 +468,7 @@ public:
         // need to multiply with Dplus_target since sqrtpnorm rescales like that
         return std::pow(k, 0.5 * m_n_s_) * t_mnu * (m_sqrtpnorm_ * Dplus_target_);
     }
-    
+
     inline real_t get_amplitude_theta_delta_m( const real_t k ) const
     {
         const real_t Dratio = Dplus_target_ / Dplus_start_;

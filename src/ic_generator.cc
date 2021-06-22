@@ -110,10 +110,10 @@ int run( config_file& the_config )
         Omega[cosmo_species::dm] = Om;
         Omega[cosmo_species::baryon] = 0.0;
     }
-    
+
     //! master switch to activate the following neutrino corrections by default
     const bool bWithNeutrinos = the_config.get_value_safe<bool>("setup", "WithNeutrinos", false );
-    
+
     //! do not include massive neutrinos in the cdm fluid (use Omega_cdm not Omega_cdm + Omega_nu_massive)
     const bool bExcludeNeutrinos = the_config.get_value_safe<bool>("setup", "ExcludeNeutrinos", bWithNeutrinos );
     //! correct for massive neutrinos in the initial density perturbations
@@ -123,12 +123,12 @@ int run( config_file& the_config )
     //! correct for the difference between delta_matter and theta_matter on large scales
     const bool bDoDensityVelocityCorr = the_config.get_value_safe<bool>("setup", "DoDensityVelocityCorr", bWithNeutrinos );
 
-    //! which transfer function plugin was used
-    std::string tf = the_config.get_value<std::string>("cosmology", "transfer");
     if (bExcludeNeutrinos && !bDoNeutrinoMassCorr && !bDoNeutrinoVelCorr) {
         music::wlog << " ExcludeNeutrinos enabled, but not the 1st order neutrino corrections." << std::endl;
         music::wlog << " These can be switched on with [setup] / WithNeutrinos = yes. See example.conf" << std::endl;
     }
+    //! which transfer function plugin was used
+    std::string tf = the_config.get_value<std::string>("cosmology", "transfer");
     if (bWithNeutrinos && tf != "3FA_CLASS") {
         music::wlog << " Neutrino corrections enabled. It is recommended to use the" << std::endl;
         music::wlog << " 3FA_CLASS transfer function plugin for correct scale-dependent growth factors." << std::endl;
@@ -560,7 +560,7 @@ int run( config_file& the_config )
                     bPerturbedMasses, IDoffset, tmp, the_config );
             }
 
-            // set the perturbed particle masses if we have baryons or neutrinos
+            // set the perturbed particle masses if needed
             if( bPerturbedMasses && (the_output_plugin->write_species_as( this_species ) == output_type::particles
                 || the_output_plugin->write_species_as( this_species ) == output_type::field_lagrangian) ) 
             {
@@ -839,7 +839,7 @@ int run( config_file& the_config )
                                     real_t knorm = wnoise.get_k<real_t>(i,j,k).norm();
                                     tmp.kelem(idx) += vfac1 * f_nu / (f_b + f_c) * the_cosmo_calc->get_amplitude_theta_mnu(knorm) * wnoise.kelem(i,j,k) * lg.gradient(idim,tmp.get_k3(i,j,k)) / (knorm*knorm);
                                 }
-                                
+
                                 // option to account for the difference between delta_m and theta_m / (afH) on large scales
                                 if (bDoDensityVelocityCorr) {
                                     real_t knorm = wnoise.get_k<real_t>(i,j,k).norm();

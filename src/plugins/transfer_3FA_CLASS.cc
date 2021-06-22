@@ -2,17 +2,17 @@
 // A software package to generate ICs for cosmological simulations
 // Copyright (C) 2020 by Oliver Hahn
 // Copyright (C) 2021 by Willem Elbers
-// 
+//
 // monofonIC is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
-// 
+//
 // monofonIC is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
-// 
+//
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
@@ -39,14 +39,14 @@
 class transfer_3FA_CLASS_plugin : public TransferFunction_plugin
 {
 private:
-  
+
   using TransferFunction_plugin::cosmo_params_;
 
   interpolated_function_1d<true, true, false> delta_c_, delta_b_, delta_n_, delta_m_, theta_c_, theta_b_, theta_n_, theta_m_;
   interpolated_function_1d<true, true, false> delta_c0_, delta_b0_, delta_n0_, delta_m0_, theta_c0_, theta_b0_, theta_n0_, theta_m0_;
 
   double zstart_, ztarget_, astart_, atarget_, kmax_, kmin_, h_, tnorm_;
-  
+
   // asymptotic growth factor and growth rates at large k
   double Dm_asymptotic_, fm_asymptotic_, vfac_asymptotic_;
 
@@ -173,10 +173,10 @@ private:
   void run_ClassEngine(double z, std::vector<double> &k, std::vector<double> &dc, std::vector<double> &tc, std::vector<double> &db, std::vector<double> &tb,
                        std::vector<double> &dn, std::vector<double> &tn, std::vector<double> &dm, std::vector<double> &tm)
   {
-    k.clear(); 
+    k.clear();
     dc.clear(); db.clear(); dn.clear(); dm.clear();
     tc.clear(); tb.clear(); tn.clear(); tm.clear();
-    
+
     // extra vectors for the N-body gauge quantities
     std::vector<double> k_Nb, dc_Nb, tc_Nb, db_Nb, tb_Nb, dn_Nb, tn_Nb, dm_Nb, tm_Nb;
 
@@ -234,14 +234,14 @@ public:
     ofs_class_input_.open("input_class_parameters.ini", std::ios::trunc);
 
     // all cosmological parameters need to be passed through the_cosmo_calc
-    
+
     ztarget_ = pcf_->get_value_safe<double>("cosmology", "ztarget", 0.0);
     atarget_ = 1.0 / (1.0 + ztarget_);
     zstart_ = pcf_->get_value<double>("setup", "zstart");
     astart_ = 1.0 / (1.0 + zstart_);
 
     h_ = cosmo_params_["h"];
-    
+
     if (cosmo_params_["A_s"] > 0.0) {
       music::ilog << "CLASS: Using A_s=" << cosmo_params_["A_s"] << " to normalise the transfer function." << std::endl;
     }else{
@@ -260,7 +260,7 @@ public:
     // initialise CLASS and get the normalisation
     this->init_ClassEngine();
     double A_s_ = the_ClassEngine_->get_A_s(); // this either the input one, or the one computed from sigma8
-    
+
     // compute the normalisation to interface with MUSIC
     double k_p = cosmo_params["k_p"] / cosmo_params["h"];
     tnorm_ = std::sqrt(2.0 * M_PI * M_PI * A_s_ * std::pow(1.0 / k_p, cosmo_params["n_s"] - 1) / std::pow(2.0 * M_PI, 3.0));
@@ -278,13 +278,13 @@ public:
     delta_m0_.set_data(k, dm);
     theta_m0_.set_data(k, tm);
 
-    // compute the transfer function at z=z_target using CLASS engine    
+    // compute the transfer function at z=z_target using CLASS engine
     std::vector<double> dc_target, tc_target, db_target, tb_target, dn_target, tn_target, dm_target, tm_target;
     this->run_ClassEngine(ztarget_, k, dc_target, tc_target, db_target, tb_target, dn_target, tn_target, dm_target, tm_target);
-    
+
     // compute the transfer function at z=z_start using CLASS engine
     this->run_ClassEngine(zstart_, k, dc, tc, db, tb, dn, tn, dm, tm);
-    
+
     // evaluate transfer functions at a_min < a_start and a_plus > a_start
     const double delta_log_a = 0.002;
     const double log_astart_ = log(astart_);
@@ -295,11 +295,11 @@ public:
 
     std::vector<double> dc_min, tc_min, db_min, tb_min, dn_min, tn_min, dm_min, tm_min;
     std::vector<double> dc_pls, tc_pls, db_pls, tb_pls, dn_pls, tn_pls, dm_pls, tm_pls;
-    
+
     // compute the transfer functions at z=z_min and z=z_plus using CLASS engine
     this->run_ClassEngine(z_min, k, dc_min, tc_min, db_min, tb_min, dn_min, tn_min, dm_min, tm_min);
     this->run_ClassEngine(z_pls, k, dc_pls, tc_pls, db_pls, tb_pls, dn_pls, tn_pls, dm_pls, tm_pls);
-    
+
     // compute the logarithmic growth rates at z=z_start using CLASS engine
     std::vector<double> gc, gb, gn;
     for (size_t i = 0; i < k.size(); ++i)
@@ -308,17 +308,17 @@ public:
       gb.push_back((db_pls[i] - db_min[i]) / (2.0 * delta_log_a) / db[i]);
       gn.push_back((dn_pls[i] - dn_min[i]) / (2.0 * delta_log_a) / dn[i]);
     }
-    
+
     kmin_ = k[0];
     kmax_ = k.back();
 
     music::ilog << "CLASS table contains k = " << this->get_kmin() << " to " << this->get_kmax() << " h Mpc-1." << std::endl;
-    
+
     // array of neutrino masses in eV needed by 3FA
     const int N_nu = cosmo_params_.get("N_nu_massive");
     std::vector<double> M_nu;
     std::vector<double> deg_nu; //degeneracies
-    
+
     if( cosmo_params_.get("N_nu_massive") > 0 ){
         if( cosmo_params_.get("m_nu1") > 1e-9 ) {
             M_nu.push_back(cosmo_params_.get("m_nu1"));
@@ -333,7 +333,7 @@ public:
             deg_nu.push_back(1.0);
         }
     }
-  
+
     // Set up 3FA cosmological parameters
     struct model m;
     m.h = cosmo_params_.get("h");
@@ -369,7 +369,7 @@ public:
     // extract the present-day neutrino fraction and the baryon fraction
     const double f_nu_nr_0 = tab.f_nu_nr[tab.size-1];
     const double f_b = m.Omega_b / (m.Omega_b + m.Omega_c);
-  
+
     music::ilog << "Integrating fluid equations with 3FA." << std::endl;
 
     // compute the scale-dependent growth factors in the 3-fluid approximation
@@ -385,15 +385,15 @@ public:
         gfac.gc = gc[i];
         gfac.gb = gb[i];
         gfac.gn = gn[i];
-    
+
         integrate_fluid_equations(&m, &us, &tab, &gfac, astart_, atarget_);
-    
+
         // store the relative growth factors between the target and starting redshifts
         Dc.push_back(gfac.Dc);
         Db.push_back(gfac.Db);
-        Dn.push_back(gfac.Dn); 
+        Dn.push_back(gfac.Dn);
     }
-  
+
     wtime = get_wtime() - wtime;
     music::ilog << "3FA took " << wtime << " s." << std::endl;
 
@@ -405,33 +405,33 @@ public:
     for (size_t i = 0; i < k.size(); ++i)
     {
         if (k[i] < 1.0) continue; //ignore large scales
-      
+
         double Dcb = f_b * Db[i] + (1.0 - f_b) * Dc[i];
         double Dm = f_nu_nr_0 * Dn[i] + (1.0 - f_nu_nr_0) * Dcb;
         double gcb = (f_b * Db[i] * gb[i] + (1.0 - f_b) * Dc[i] * gc[i]) / Dcb;
         double gm = (f_nu_nr_0 * Dn[i] * gn[i] + (1.0 - f_nu_nr_0) * Dcb * gcb) / Dm;
-      
+
         Dm_sum += Dm;
         gm_sum += gm;
-        count++;      
+        count++;
     }
-  
+
     // normalize the Hubble rate at astart_
     real_t H_start = get_H_of_a(&tab, astart_) / get_H_of_a(&tab, 1.0) * cosmo_params_.get("H0");
-    
+
     Dm_asymptotic_ = Dm_sum / count;
     fm_asymptotic_ = gm_sum / count;
     vfac_asymptotic_ = astart_ * H_start * fm_asymptotic_ / cosmo_params_.get("h");
-  
+
     // now scale forward with the asymptotic growth factor, as assumed in the ic generator
     for (size_t i = 0; i < k.size(); ++i)
     {
         // scale back the density transfer functions from the target redshift
-        // to the starting redshift  using the scale-dependent growth factors 
+        // to the starting redshift  using the scale-dependent growth factors
         dc[i] = dc_target[i] * Dc[i];
         db[i] = db_target[i] * Db[i];
         dn[i] = dn_target[i] * Dn[i];
-        
+
         // scale the transfer functions forward with the total asymptotic factor
         dc[i] /= Dm_asymptotic_;
         db[i] /= Dm_asymptotic_;
@@ -439,17 +439,17 @@ public:
         tc[i] /= Dm_asymptotic_;
         tb[i] /= Dm_asymptotic_;
         tn[i] /= Dm_asymptotic_;
-      
+
         // mass-weighted cdm+baryon density and velocity transfer functions
         double dcb, tcb;
-        
-        // compute the mass-weighted average 
+
+        // compute the mass-weighted average
         dcb = f_b * db[i] + (1.0 - f_b) * dc[i];
         tcb = f_b * tb[i] + (1.0 - f_b) * tc[i];
         dm[i] = f_nu_nr_0 * dn[i] + (1.0 - f_nu_nr_0) * dcb;
         tm[i] = f_nu_nr_0 * tn[i] + (1.0 - f_nu_nr_0) * tcb;
-      
-        // use the compensated (baryon-cdm) modes from the target redshift
+
+        // use the (baryon-cdm) modes from the target redshift
         dc[i] = dcb - f_b * (db_target[i] - dc_target[i]);
         tc[i] = tcb - f_b * (tb_target[i] - tc_target[i]);
         db[i] = dcb + (1.0 - f_b) * (db_target[i] - dc_target[i]);
@@ -464,8 +464,8 @@ public:
     theta_c_.set_data(k, tc);
     theta_b_.set_data(k, tb);
     theta_n_.set_data(k, tn);
-    theta_m_.set_data(k, tm);  
-  
+    theta_m_.set_data(k, tm);
+
     music::ilog << "Asymptotic Dm = " << Dm_asymptotic_ << std::endl;
     music::ilog << "Asymptotic fm = " << fm_asymptotic_ << std::endl;
     music::ilog << "Asymptotic aHf/h = " << vfac_asymptotic_ << " km/s/Mpc" << std::endl;
@@ -473,7 +473,7 @@ public:
 
     // clean up 3FA
     free_cosmology_tables(&tab);
-    
+
     tf_with_Dm_asymptotic_ = true;
     tf_distinct_ = true;
     tf_withvel_ = true;
