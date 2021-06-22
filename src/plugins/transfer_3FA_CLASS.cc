@@ -432,7 +432,7 @@ public:
   
     music::ilog << "Asymptotic Dm = " << Dm_asymptotic_ << std::endl;
     music::ilog << "Asymptotic fm = " << fm_asymptotic_ << std::endl;
-    music::ilog << "Asymptotic aHf/h = " << vfac_asymptotic_ << std::endl;
+    music::ilog << "Asymptotic aHf/h = " << vfac_asymptotic_ << " km/s/Mpc" << std::endl;
     music::ilog << "Rescaled the transfer functions with scale-dependent Dx(k), x = cdm,b,nu." << std::endl;
   
     // clean up 3FA
