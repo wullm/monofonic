@@ -104,10 +104,8 @@ int run( config_file& the_config )
     const bool bDoNeutrinoMassCorr = the_config.get_value_safe<bool>("setup", "DoNeutrinoMassCorr", false );
     //! correct for massive neutrinos in the velocities
     const bool bDoNeutrinoVelCorr = the_config.get_value_safe<bool>("setup", "DoNeutrinoVelCorr", false );
-    //! correct for massive neutrinos in the velocities
-    const bool bDoDensityVelocityGaugeCorr = the_config.get_value_safe<bool>("setup", "DoDensityVelocityGaugeCorr", false );
-    //! use matter only density to source the gravitational potential
-    const bool bMatterSourcesOnly = the_config.get_value_safe<bool>("setup", "MatterSourcesOnly", false);
+    //! correct for the difference between delta_matter and theta_matter on large scales
+    const bool bDoDensityVelocityCorr = the_config.get_value_safe<bool>("setup", "DoDensityVelocityCorr", false );
     // compute mass fractions 
     std::map< cosmo_species, double > Omega;
     if( bDoBaryons ){
@@ -348,9 +346,7 @@ int run( config_file& the_config )
     phi.FourierTransformForward(false);
     phi.assign_function_of_grids_kdep([&](auto k, auto wn) {
         real_t kmod = k.norm();
-        // get_amplitude(kmod, delta_matter) actually returns delta_tot, which includes radiation perturbations
-        ccomplex_t d_m = bMatterSourcesOnly ? the_cosmo_calc->get_amplitude_delta_matter_only(kmod) : the_cosmo_calc->get_amplitude(kmod, delta_matter);
-        ccomplex_t delta = wn * d_m;
+        ccomplex_t delta = wn * the_cosmo_calc->get_amplitude(kmod, delta_matter);
         return -delta / (kmod * kmod);
     }, wnoise);
 
@@ -826,12 +822,13 @@ int run( config_file& the_config )
                                 // for massive neutrino cosmologies, we have the option to add the vmnu component
                                 if (bDoNeutrinoVelCorr) {
                                     real_t knorm = wnoise.get_k<real_t>(i,j,k).norm();
-                                    tmp.kelem(idx) -= vfac1 * f_nu / (f_b + f_c) * the_cosmo_calc->get_amplitude_theta_mnu(knorm) * wnoise.kelem(i,j,k) * lg.gradient(idim,tmp.get_k3(i,j,k)) / (knorm*knorm);
+                                    tmp.kelem(idx) += vfac1 * f_nu / (f_b + f_c) * the_cosmo_calc->get_amplitude_theta_mnu(knorm) * wnoise.kelem(i,j,k) * lg.gradient(idim,tmp.get_k3(i,j,k)) / (knorm*knorm);
                                 }
                                 
-                                if (bDoDensityVelocityGaugeCorr) {
+                                // option to account for the difference between delta_m and theta_m / (afH) on large scales
+                                if (bDoDensityVelocityCorr) {
                                     real_t knorm = wnoise.get_k<real_t>(i,j,k).norm();
-                                    tmp.kelem(idx) -= vfac1 * the_cosmo_calc->get_amplitude_theta_delta_m(knorm) * wnoise.kelem(i,j,k) * lg.gradient(idim,tmp.get_k3(i,j,k)) / (knorm*knorm);
+                                    tmp.kelem(idx) += vfac1 * the_cosmo_calc->get_amplitude_theta_delta_m(knorm) * wnoise.kelem(i,j,k) * lg.gradient(idim,tmp.get_k3(i,j,k)) / (knorm*knorm);
                                 }
 
                                 // correct with interpolation kernel if we used interpolation to read out the positions (for glasses)
