@@ -100,8 +100,6 @@ private:
       if( cosmo_params_.get("m_nu3") > 1e-9 ) sstr << ", " << cosmo_params_.get("m_nu3");
       add_class_parameter("m_ncdm", sstr.str().c_str());
     }
-    
-#endif
 
     //--- cosmological parameters, primordial -------------------------
     add_class_parameter("P_k_ini type", "analytic_Pk");
