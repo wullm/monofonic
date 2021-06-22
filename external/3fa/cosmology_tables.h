@@ -39,7 +39,7 @@ struct model {
     double T_CMB_0;
     double w0;
     double wa;
-    
+
     /* Do the simulation particles not have masses that vary with w_nu(a)? */
     int sim_neutrino_nonrel_masses;
 };
