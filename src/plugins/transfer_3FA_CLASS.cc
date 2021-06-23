@@ -65,6 +65,15 @@ private:
   //! Set up class parameters from MUSIC cosmological parameters
   void init_ClassEngine(void)
   {
+    // Before starting, throw an error if ZeroRadiation is used, because
+    // that choice implies a simplified manner of backscaling
+    if (pcf_->get_value_safe<bool>("cosmology", "ZeroRadiation", false))
+    {
+        throw std::runtime_error("Using ZeroRadiation=true for simplified backscaling, in which case 3FA is not needed.");
+    }
+
+    music::wlog << " Make sure that your sim code can handle massive neutrinos in its background FLRW model." << std::endl;
+
     //--- general parameters ------------------------------------------
     add_class_parameter("z_max_pk", std::max(std::max(zstart_, ztarget_),199.0)); // use 1.2 as safety
     add_class_parameter("P_k_max_h/Mpc", std::max(2.0,kmax_));
@@ -478,10 +487,9 @@ public:
     theta_n_.set_data(k, tn);
     theta_m_.set_data(k, tm);
 
-    music::ilog << "Asymptotic Dm = " << Dm_asymptotic_ << std::endl;
-    music::ilog << "Asymptotic fm = " << fm_asymptotic_ << std::endl;
-    music::ilog << "Asymptotic aHf/h = " << vfac_asymptotic_ << " km/s/Mpc" << std::endl;
-    music::ilog << "Rescaled the transfer functions with scale-dependent Dx(k), x = cdm,b,nu." << std::endl;
+    music::ilog << "Asymptotic Dm_start = " << Dm_asymptotic_ << " * Dm_target" << std::endl;
+    music::ilog << "Asymptotic fm_start = " << fm_asymptotic_ << std::endl;
+    music::ilog << "Asymptotic aHfm/h = " << vfac_asymptotic_ << " km/s/Mpc at a_start" << std::endl;
 
     // clean up 3FA
     free_cosmology_tables(&tab);
