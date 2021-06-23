@@ -16,6 +16,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+#ifdef USE_3FA
 #ifdef USE_CLASS
 
 #include <cmath>
@@ -24,6 +25,7 @@
 #include <memory>
 #include <sstream>
 
+#include <3fa.h>
 #include <ClassEngine.hh>
 
 #include <general.hh>
@@ -33,8 +35,6 @@
 
 #include <math/interpolate.hh>
 
-#include "../../external/3fa/cosmology_tables.h"
-#include "../../external/3fa/fluid_equations.h"
 
 class transfer_3FA_CLASS_plugin : public TransferFunction_plugin
 {
@@ -372,6 +372,11 @@ public:
 
     music::ilog << "Integrating fluid equations with 3FA." << std::endl;
 
+    // prepare fluid equation integration
+    double tol = 1e-12;
+    double hstart = 1e-12;
+    prepare_fluid_integration(&m, &us, &tab, tol, hstart);
+
     // compute the scale-dependent growth factors in the 3-fluid approximation
     std::vector<double> Dc, Db, Dn;
     for (size_t i = 0; i < k.size(); ++i)
@@ -393,6 +398,9 @@ public:
         Db.push_back(gfac.Db);
         Dn.push_back(gfac.Dn);
     }
+
+    // done with fluid integration
+    clean_fluid_integration();
 
     wtime = get_wtime() - wtime;
     music::ilog << "3FA took " << wtime << " s." << std::endl;
@@ -559,3 +567,4 @@ TransferFunction_plugin_creator_concrete<transfer_3FA_CLASS_plugin> creator("3FA
 }
 
 #endif // USE_CLASS
+#endif // USE_3FA

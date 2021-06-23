@@ -1,17 +1,17 @@
 # This file is part of monofonIC (MUSIC2)
 # A software package to generate ICs for cosmological simulations
 # Copyright (C) 2020 by Oliver Hahn
-# 
+#
 # monofonIC is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
-# 
+#
 # monofonIC is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
@@ -172,7 +172,7 @@ file( GLOB PLUGINS
 )
 
 if(ENABLE_PANPHASIA)
-list (APPEND SOURCES 
+list (APPEND SOURCES
   ${PROJECT_SOURCE_DIR}/external/panphasia/panphasia_routines.f
   ${PROJECT_SOURCE_DIR}/external/panphasia/generic_lecuyer.f90
 )
@@ -224,15 +224,15 @@ if(CODE_PRECISION STREQUAL "FLOAT")
     target_link_libraries(${PRGNAME} PRIVATE FFTW3::FFTW3_SINGLE_THREADS)
     target_compile_definitions(${PRGNAME} PRIVATE "USE_FFTW_THREADS")
   endif()
-  target_link_libraries(${PRGNAME} PRIVATE FFTW3::FFTW3_SINGLE_SERIAL) 
+  target_link_libraries(${PRGNAME} PRIVATE FFTW3::FFTW3_SINGLE_SERIAL)
 elseif(CODE_PRECISION STREQUAL "DOUBLE")
-  if(FFTW3_DOUBLE_THREADS_FOUND) 
+  if(FFTW3_DOUBLE_THREADS_FOUND)
     target_link_libraries(${PRGNAME} PRIVATE FFTW3::FFTW3_DOUBLE_THREADS)
     target_compile_definitions(${PRGNAME} PRIVATE "USE_FFTW_THREADS")
   endif()
-  target_link_libraries(${PRGNAME} PRIVATE FFTW3::FFTW3_DOUBLE_SERIAL) 
+  target_link_libraries(${PRGNAME} PRIVATE FFTW3::FFTW3_DOUBLE_SERIAL)
 elseif(CODE_PRECISION STREQUAL "LONGDOUBLE")
-  if(FFTW3_LONGDOUBLE_THREADS_FOUND) 
+  if(FFTW3_LONGDOUBLE_THREADS_FOUND)
     target_link_libraries(${PRGNAME} PRIVATE FFTW3::FFTW3_LONGDOUBLE_THREADS)
     target_compile_definitions(${PRGNAME} PRIVATE "USE_FFTW_THREADS")
   endif()
@@ -261,7 +261,7 @@ target_link_libraries(${PRGNAME} PRIVATE GSL::gsl)
 ########################################################################################################################
 # include CLASS
 option(ENABLE_CLASS "Enable CLASS support (as a submodule)." ON)
-  
+
 if(ENABLE_CLASS)
   include(${CMAKE_CURRENT_SOURCE_DIR}/external/class.cmake)
   target_link_libraries(${PRGNAME} PRIVATE class::libclass_cpp)
@@ -280,9 +280,13 @@ if(ENABLE_GENERICIO)
 endif()
 
 if(ENABLE_3FA)
-  file(GLOB 3FA_SOURCES ${PROJECT_SOURCE_DIR}/external/3fa/*.c)
-  add_library( 3FA STATIC ${3FA_SOURCES})
-  target_link_libraries( 3FA PRIVATE GSL::gsl)
+  #file(GLOB 3FA_SOURCES ${PROJECT_SOURCE_DIR}/external/3fa/*.c)
+  #add_library( 3FA STATIC ${3FA_SOURCES})
+  #target_link_libraries( 3FA PRIVATE GSL::gsl)
 
-  target_link_libraries( ${PRGNAME} PRIVATE 3FA )
+  #target_link_libraries( ${PRGNAME} PRIVATE 3FA )
+
+  include(${CMAKE_CURRENT_SOURCE_DIR}/external/3fa.cmake)
+  target_link_libraries(${PRGNAME} PRIVATE 3fa::lib3fa)
+  target_compile_definitions(${PRGNAME} PRIVATE "USE_3FA")
 endif()
