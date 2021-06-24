@@ -65,14 +65,6 @@ private:
   //! Set up class parameters from MUSIC cosmological parameters
   void init_ClassEngine(void)
   {
-    // Before starting, throw an error if ZeroRadiation is used, because
-    // that choice implies a simplified manner of backscaling
-    if (pcf_->get_value_safe<bool>("cosmology", "ZeroRadiation", false))
-    {
-        throw std::runtime_error("Using ZeroRadiation=true for simplified backscaling, in which case 3FA is not needed.");
-    }
-
-    music::wlog << " Make sure that your sim code can handle massive neutrinos in its background FLRW model." << std::endl;
 
     //--- general parameters ------------------------------------------
     add_class_parameter("z_max_pk", std::max(std::max(zstart_, ztarget_),199.0)); // use 1.2 as safety
@@ -238,8 +230,17 @@ public:
   explicit transfer_3FA_CLASS_plugin(config_file &cf, const cosmology::parameters& cosmo_params)
       : TransferFunction_plugin(cf,cosmo_params)
   {
-    this->tf_isnormalised_ = true;
+    // Before starting, throw an error if ZeroRadiation is used, because
+    // that choice implies a simplified manner of backscaling
+    if (pcf_->get_value_safe<bool>("cosmology", "ZeroRadiation", false))
+    {
+        throw std::runtime_error("Using ZeroRadiation=true for simplified backscaling, in which case 3FA is not needed.");
+    }
+    
+    music::wlog << " Make sure that your sim code can handle massive neutrinos in its background FLRW model." << std::endl;
 
+    this->tf_isnormalised_ = true;
+  
     ofs_class_input_.open("input_class_parameters.ini", std::ios::trunc);
 
     // all cosmological parameters need to be passed through the_cosmo_calc
@@ -309,7 +310,7 @@ public:
     this->run_ClassEngine(z_min, k, dc_min, tc_min, db_min, tb_min, dn_min, tn_min, dm_min, tm_min);
     this->run_ClassEngine(z_pls, k, dc_pls, tc_pls, db_pls, tb_pls, dn_pls, tn_pls, dm_pls, tm_pls);
 
-    // compute the logarithmic growth rates at z=z_start using CLASS engine
+    // compute the scale-dependent logarithmic growth rates at z=z_start
     std::vector<double> gc, gb, gn;
     for (size_t i = 0; i < k.size(); ++i)
     {
@@ -318,6 +319,7 @@ public:
       gn.push_back((dn_pls[i] - dn_min[i]) / (2.0 * delta_log_a) / dn[i]);
     }
 
+    // wavenumbers in 1/Mpc
     kmin_ = k[0];
     kmax_ = k.back();
 
@@ -342,9 +344,14 @@ public:
             deg_nu.push_back(1.0);
         }
     }
+    
+    // 3FA structures
+    struct model m;
+    struct units us;
+    struct cosmology_tables tab;
+    struct growth_factors gfac;
 
     // Set up 3FA cosmological parameters
-    struct model m;
     m.h = cosmo_params_.get("h");
     m.Omega_b = cosmo_params_.get("Omega_b");
     m.Omega_c = cosmo_params_.get("Omega_c");
@@ -353,17 +360,17 @@ public:
     m.N_nu = N_nu;
     m.M_nu = M_nu.data();
     m.deg_nu = deg_nu.data();
-    m.T_nu_0 = 1.951757805; //default CLASS value
+    m.T_nu_0 = cosmo_params_.get("Tcmb") * 0.71611; //default CLASS value
     m.T_CMB_0 = cosmo_params_.get("Tcmb");
     m.w0 = -1.0;
     m.wa = 0.0;
+    // Does the cosmological sim use constant mass energy for the neutrinos?
     m.sim_neutrino_nonrel_masses = 1; //TODO: make parameter
 
     // Set up 3FA unit system
-    struct units us;
-    us.UnitLengthMetres = 3.085677581491e+022; //Mpc
-    us.UnitTimeSeconds = 3.153600000000e+016; //Gyr
-    us.UnitMassKilogram = 1.988435e40; //1e10 M_sol
+    us.UnitLengthMetres = MPC_METRES;
+    us.UnitTimeSeconds = 1.0;
+    us.UnitMassKilogram = 1.0;
     us.UnitTemperatureKelvin = 1.0;
     us.UnitCurrentAmpere = 1.0;
     set_physical_constants(&us);
@@ -372,7 +379,6 @@ public:
     music::ilog << "Integrating cosmological tables with 3FA." << std::endl;
 
     // Integrate the cosmological tables with 3FA (correctly accounting for neutrinos)
-    struct cosmology_tables tab;
     integrate_cosmology_tables(&m, &us, &tab, 1000);
 
     // extract the present-day neutrino fraction and the baryon fraction
@@ -382,9 +388,9 @@ public:
     music::ilog << "Integrating fluid equations with 3FA." << std::endl;
 
     // prepare fluid equation integration
-    double tol = 1e-12;
-    double hstart = 1e-12;
-    prepare_fluid_integration(&m, &us, &tab, tol, hstart);
+    const double tol = 1e-12;
+    const double hstart = 1e-12;
+    prepare_fluid_integrator(&m, &us, &tab, tol, hstart);
 
     // compute the scale-dependent growth factors in the 3-fluid approximation
     std::vector<double> Dc, Db, Dn;
@@ -392,7 +398,7 @@ public:
     {
         // initialise the input data for the fluid equations
         struct growth_factors gfac;
-        gfac.k = k[i]; // like CLASS, 3FA does not use h-units
+        gfac.k = k[i]; // in 1/Mpc -- like CLASS, 3FA does not use h-units
         gfac.delta_c = dc[i];
         gfac.delta_b = db[i];
         gfac.delta_n = dn[i];
@@ -409,7 +415,7 @@ public:
     }
 
     // done with fluid integration
-    clean_fluid_integration();
+    free_fluid_integrator();
 
     wtime = get_wtime() - wtime;
     music::ilog << "3FA took " << wtime << " s." << std::endl;
