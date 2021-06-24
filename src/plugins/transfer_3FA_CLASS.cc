@@ -204,12 +204,11 @@ private:
       // theta_cdm = 0 in synchronous gauge, so exactly equal to -theta_shift
       tc_Nb[i] = -theta_shift;
 
-      // monofonic requires negative velocity transfer functions here, so
-      // we need to truncate the neutrino velocity transfer function when
-      // errors at large k send theta_ncdm positive (no less accurate)
-      if (tn_Nb[i] >= 0) {
-          tn_Nb[i] = -FLT_MIN;
-      }
+      // monofonic requires negative transfer functions here, so we need
+      // to truncate the neutrino transfer functions when errors at large
+      // k send delta_ncdm or theta_ncdm positive
+      dn_Nb[i] = fmin(-FLT_MIN, dn_Nb[i]);
+      tn_Nb[i] = fmin(-FLT_MIN, tn_Nb[i]);
 
       // finally, export N-body gauge quantities
       // convert to 'CAMB' format, since we interpolate loglog and
@@ -486,6 +485,12 @@ public:
         tc[i] = tcb - f_b * tbc_target;
         db[i] = dcb + (1.0 - f_b) * dbc_target;
         tb[i] = tcb + (1.0 - f_b) * tbc_target;
+
+        // monofonic requires positive transfer functions here, so we need
+        // to truncate the neutrino transfer functions when errors at large
+        // k send delta_ncdm or theta_ncdm negative
+        dn[i] = fmax(FLT_MIN, dn[i]);
+        tn[i] = fmax(FLT_MIN, tn[i]);
     }
 
     // Store the rescaled transfer function data
