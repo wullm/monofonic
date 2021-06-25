@@ -487,7 +487,10 @@ int run( config_file& the_config )
     if (testing != "none")
     {
         music::wlog << "you are running in testing mode. No ICs, only diagnostic output will be written out!" << std::endl;
-        if (testing == "potentials_and_densities"){
+        if (testing == "white_noise"){
+            testing::output_white_noise(the_config, ngrid, boxlen, wnoise);
+        }
+        else if (testing == "potentials_and_densities"){
             testing::output_potentials_and_densities(the_config, ngrid, boxlen, phi, phi2, phi3, A3);
         }
         else if (testing == "velocity_displacement_symmetries"){
