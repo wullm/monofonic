@@ -250,7 +250,7 @@ public:
     delta_m0_.set_data(k, dm);
     theta_m0_.set_data(k, tm);
 
-     // compute the transfer function at z=z_target using CLASS engine
+    // compute the transfer function at z=z_target using CLASS engine
     this->run_ClassEngine(ztarget_, k, dc, tc, db, tb, dn, tn, dm, tm);
     delta_c_.set_data(k, dc);
     theta_c_.set_data(k, tc);
@@ -269,6 +269,7 @@ public:
     tf_distinct_ = true;
     tf_withvel_ = true;
     tf_withtotal0_ = true;
+    tf_with_Dm_asymptotic_ = false;
   }
 
   ~transfer_CLASS_plugin()
@@ -304,6 +305,10 @@ public:
       val = delta_b_(k)-delta_c_(k); break;
     case theta_bc:
       val = theta_b_(k)-theta_c_(k); break;
+    case delta_nu:
+      val = delta_n_(k); break;
+    case theta_nu:
+      val = theta_n_(k); break;
 
       // values at zstart:
     case delta_matter0:
@@ -318,6 +323,10 @@ public:
       val = theta_c0_(k); break;
     case theta_baryon0:
       val = theta_b0_(k); break;
+    case delta_nu0:
+      val = delta_n0_(k); break;
+    case theta_nu0:
+      val = theta_n0_(k); break;
     default:
       throw std::runtime_error("Invalid type requested in transfer function evaluation");
     }
@@ -326,6 +335,16 @@ public:
 
   inline double get_kmin(void) const { return kmin_ / h_; }
   inline double get_kmax(void) const { return kmax_ / h_; }
+
+  inline double get_Dm_asymptotic(void) const {
+      throw std::runtime_error("Transfer function does not have asymptotic growth factrs.");
+  }
+  inline double get_fm_asymptotic(void) const {
+      throw std::runtime_error("Transfer function does not have asymptotic growth factrs.");
+  }
+  inline double get_vfac_asymptotic(void) const {
+      throw std::runtime_error("Transfer function does not have asymptotic growth factrs.");
+  }
 };
 
 namespace

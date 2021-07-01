@@ -168,6 +168,7 @@ public:
     tf_distinct_ = true; // different density between CDM v.s. Baryon
     tf_withvel_ = true;  // using velocity transfer function
     tf_withtotal0_ = false; // only have 1 file for the moment
+    tf_with_Dm_asymptotic_ = false; // no asymptotic growth factors
   }
 
   ~transfer_CAMB_file_plugin()
@@ -213,6 +214,14 @@ public:
     case theta_bc:
       return theta_b_(k)-theta_c_(k);
 
+    case delta_nu0:
+    case delta_nu:
+      return delta_n_(k);
+
+    case theta_nu0:
+    case theta_nu:
+      return theta_n_(k);
+
     default:
       throw std::runtime_error("Invalid type requested in transfer function evaluation");
     }
@@ -223,6 +232,16 @@ public:
 
   //!< Return maximum k for which we can interpolate
   inline double get_kmax(void) const { return m_kmax; }
+
+  inline double get_Dm_asymptotic(void) const {
+      throw std::runtime_error("Transfer function does not have asymptotic growth factrs.");
+  }
+  inline double get_fm_asymptotic(void) const {
+      throw std::runtime_error("Transfer function does not have asymptotic growth factrs.");
+  }
+  inline double get_vfac_asymptotic(void) const {
+      throw std::runtime_error("Transfer function does not have asymptotic growth factrs.");
+  }
 };
 
 namespace
