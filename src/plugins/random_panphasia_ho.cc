@@ -74,7 +74,7 @@ public:
 
     descriptor_string_ = pcf_->get_value<std::string>("random", "descriptor");
     grid_res_ = pcf_->get_value<size_t>("setup", "GridRes");
-    boxlength_ = pcf_->get_value<size_t>("setup", "BoxLength");
+    boxlength_ = pcf_->get_value<real_t>("setup", "BoxLength");
 
     if( pcf_->get_value<bool>("setup", "DoFixing") ){
       music::flog << "Fixing all the modes to the mean power negates any advantage of using the Panphasia field.\n";
