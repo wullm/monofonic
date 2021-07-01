@@ -154,8 +154,11 @@ elseif("${CMAKE_Fortran_COMPILER_ID}" MATCHES "GNU")
 endif()
 endif(ENABLE_PANPHASIA)
 ########################################################################################################################
+# PANPHASIA HO (High-Order, new version)
+option(ENABLE_PANPHASIA_HO "Enable PANPHASIA-HO random number generator" ON)
+########################################################################################################################
 # INCLUDES
-include_directories(${PROJECT_SOURCE_DIR}/include)
+include_directories(${PROJECT_SOURCE_DIR}/include ${PROJECT_SOURCE_DIR}/external)
 
 # SOURCES
 # get all the *.cc files in the subfolders
@@ -176,6 +179,16 @@ list (APPEND SOURCES
   ${PROJECT_SOURCE_DIR}/external/panphasia/panphasia_routines.f
   ${PROJECT_SOURCE_DIR}/external/panphasia/generic_lecuyer.f90
 )
+endif()
+
+if(ENABLE_PANPHASIA_HO)
+list (APPEND SOURCES
+  ${PROJECT_SOURCE_DIR}/external/panphasia_ho/main.c
+  ${PROJECT_SOURCE_DIR}/external/panphasia_ho/high_order_panphasia_routines.c
+  ${PROJECT_SOURCE_DIR}/external/panphasia_ho/pan_mpi_routines.c
+  ${PROJECT_SOURCE_DIR}/external/panphasia_ho/uniform_rand_threefry4x64.c
+)
+# target_include_directories(${PRGNAME} PRIVATE ${PROJECT_SOURCE_DIR}/external/panphasia_ho)
 endif()
 
 # project configuration header
@@ -250,6 +263,10 @@ endif(HDF5_FOUND)
 if(ENABLE_PANPHASIA)
   target_compile_definitions(${PRGNAME} PRIVATE "USE_PANPHASIA")
 endif(ENABLE_PANPHASIA)
+
+if(ENABLE_PANPHASIA_HO)
+  target_compile_definitions(${PRGNAME} PRIVATE "USE_PANPHASIA_HO")
+endif(ENABLE_PANPHASIA_HO)
 
 if(ENABLE_PLT)
   target_compile_definitions(${PRGNAME} PRIVATE "ENABLE_PLT")
