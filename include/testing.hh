@@ -23,6 +23,11 @@
 #include <cosmology_calculator.hh>
 
 namespace testing{
+    void output_white_noise(
+        config_file& the_config,
+        size_t ngrid, real_t boxlen,
+        Grid_FFT<real_t>& wn );
+
     void output_potentials_and_densities( 
         config_file& the_config,
         size_t ngrid, real_t boxlen,
