@@ -122,6 +122,10 @@ int run( config_file& the_config )
     const bool bDoNeutrinoVelCorr = the_config.get_value_safe<bool>("setup", "DoNeutrinoVelCorr", bWithNeutrinos );
     //! correct for the difference between delta_matter and theta_matter on large scales
     const bool bDoDensityVelocityCorr = the_config.get_value_safe<bool>("setup", "DoDensityVelocityCorr", bWithNeutrinos );
+    //! option to exclude massive neutrinos from delta_matter
+    const bool bCDMBaryonMatterOnly = the_config.get_value_safe<bool>("setup", "CDMBaryonMatterOnly", 0 );
+    //! option to import the second order potential and overwrite the internal calculation
+    const bool bImportPhi2 = the_config.get_value_safe<bool>("setup", "ImportPhi2", 0 );
 
     if (bExcludeNeutrinos && !bDoNeutrinoMassCorr && !bDoNeutrinoVelCorr) {
         music::wlog << " ExcludeNeutrinos enabled, but not the 1st order neutrino corrections." << std::endl;
@@ -475,6 +479,25 @@ int run( config_file& the_config )
         (*A3[2]) *= g3c;
     }
 
+    music::ilog << "-------------------------------------------------------------------------------" << std::endl;
+    if (bImportPhi2) {
+        music::ilog << "Importing second order grid" << std::endl;
+
+        Grid_FFT<real_t,false> phi2_read({ngrid,ngrid,ngrid}, {boxlen,boxlen,boxlen});
+        phi2_read.Read_from_HDF5( the_config.get_value<std::string>("setup", "Phi2FieldFile"),
+                the_config.get_value<std::string>("setup", "Phi2FieldName") );
+
+        // copy over into phi2
+        phi2.FourierTransformBackward();
+        for (size_t i = 0; i < ngrid; i++) {
+            for (size_t j = 0; j < ngrid; j++) {
+                for (size_t k = 0; k < ngrid; k++) {
+                    phi2.relem(i,j,k) = phi2_read.relem(i,j,k);
+                }
+            }
+        }
+        phi2.FourierTransformForward();
+    }
     music::ilog << "-------------------------------------------------------------------------------" << std::endl;
 
     ///////////////////////////////////////////////////////////////////////
@@ -846,7 +869,7 @@ int run( config_file& the_config )
                                 // option to account for the difference between delta_m and theta_m / (afH) on large scales
                                 if (bDoDensityVelocityCorr) {
                                     real_t knorm = wnoise.get_k<real_t>(i,j,k).norm();
-                                    tmp.kelem(idx) += vfac1 * the_cosmo_calc->get_amplitude_theta_delta_m(knorm) * wnoise.kelem(i,j,k) * lg.gradient(idim,tmp.get_k3(i,j,k)) / (knorm*knorm);
+                                    tmp.kelem(idx) += vfac1 * the_cosmo_calc->get_amplitude_theta_delta_m(knorm, bCDMBaryonMatterOnly) * wnoise.kelem(i,j,k) * lg.gradient(idim,tmp.get_k3(i,j,k)) / (knorm*knorm);
                                 }
 
                                 // correct with interpolation kernel if we used interpolation to read out the positions (for glasses)
