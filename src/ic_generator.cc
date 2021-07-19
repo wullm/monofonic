@@ -492,7 +492,7 @@ int run( config_file& the_config )
         for (size_t i = 0; i < ngrid; i++) {
             for (size_t j = 0; j < ngrid; j++) {
                 for (size_t k = 0; k < ngrid; k++) {
-                    phi2.relem(i,j,k) = phi2_read.relem(i,j,k);
+                    phi2.relem(i,j,k) += phi2_read.relem(i,j,k);
                 }
             }
         }
