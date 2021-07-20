@@ -48,7 +48,7 @@ private:
   double zstart_, ztarget_, astart_, atarget_, kmax_, kmin_, h_, tnorm_;
 
   // asymptotic growth factor and growth rates at large k
-  double Dm_asymptotic_, fm_asymptotic_, vfac_asymptotic_;
+  double Dm_asymptotic_, fm_asymptotic_, fcb_asymptotic_, vfac_asymptotic_;
 
   ClassParams pars_;
   std::unique_ptr<ClassEngine> the_ClassEngine_; //synchronous gauge
@@ -439,6 +439,7 @@ public:
     // over small scales modes (k > 1/Mpc)
     double Dm_sum = 0.;
     double gm_sum = 0.;
+    double gcb_sum = 0.;
     int count = 0;
     for (size_t i = 0; i < k.size(); ++i)
     {
@@ -451,13 +452,20 @@ public:
 
         Dm_sum += Dm;
         gm_sum += gm;
+        gcb_sum += gcb;
         count++;
     }
 
 
     Dm_asymptotic_ = Dm_sum / count;
     fm_asymptotic_ = gm_sum / count;
+    fcb_asymptotic_ = gcb_sum / count;
+
+    // The total matter velocity field is proportional to f_m, but we want
+    // the cb velocity field, which requires rescaling by f_cb / f_m. Since
+    // all velocity terms are proportional to vfac, we simply rescale here.
     vfac_asymptotic_ = astart_ * H_start * H_units * fm_asymptotic_ / cosmo_params_.get("h");
+    vfac_asymptotic_ *= fcb_asymptotic_ / fm_asymptotic_;
 
     // now scale forward with the asymptotic growth factor, as assumed in the ic generator
     for (size_t i = 0; i < k.size(); ++i)
@@ -521,8 +529,8 @@ public:
     theta_m_.set_data(k, tm);
 
     music::ilog << "Asymptotic Dm_start = " << Dm_asymptotic_ << " * Dm_target" << std::endl;
-    music::ilog << "Asymptotic fm_start = " << fm_asymptotic_ << std::endl;
-    music::ilog << "Asymptotic aHfm/h = " << vfac_asymptotic_ << " km/s/Mpc at a_start" << std::endl;
+    music::ilog << "Asymptotic fcb_start = " << fcb_asymptotic_ << std::endl;
+    music::ilog << "Asymptotic aHfcb/h = " << vfac_asymptotic_ << " km/s/Mpc at a_start" << std::endl;
 
     // export a table with Hubble rates for cosmological sims that require this
     std::string fname_hubble = "input_hubble.txt";
