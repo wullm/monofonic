@@ -387,14 +387,17 @@ public:
     music::ilog << "Integrating cosmological tables with 3FA." << std::endl;
 
     // Integrate the cosmological tables with 3FA (accounting for neutrinos)
-    integrate_cosmology_tables(&m, &us, &tab, astart_, atarget_, 1000);
+    const double tab_a_start = astart_ * 0.99;
+    const double tab_a_final = atarget_ * 1.01;
+    integrate_cosmology_tables(&m, &us, &tab, tab_a_start, tab_a_final, 1000);
 
     // extract the present-day neutrino fraction and the baryon fraction
-    const double f_nu_nr_0 = tab.f_nu_nr[tab.size-1];
+    const double atoday_ = 1.0;
+    const double f_nu_nr_0 = get_f_nu_nr_of_a(&tab, atoday_);
     const double f_b = m.Omega_b / (m.Omega_b + m.Omega_c);
     // extract the Hubble rate at a_start and normalize by H0
     const double H_start = get_H_of_a(&tab, astart_); // in 3FA units
-    const double H_0 = get_H_of_a(&tab, 1.0); // in 3FA units
+    const double H_0 = get_H_of_a(&tab, atoday_); // in 3FA units
     const double H_units = cosmo_params_.get("H0") / H_0;
 
     music::ilog << "Integrating fluid equations with 3FA." << std::endl;
