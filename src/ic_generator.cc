@@ -553,6 +553,15 @@ int run( config_file& the_config )
                 real_t factor = 1.0 / (f_c + f_b + f_nu * ratio);
                 return (ratio > 0.) ? x * factor : 0.;
             }, phi3);
+
+            for (int idim = 0; idim < 3; ++idim)
+            {
+                A3[idim]->assign_function_of_grids_kdep([&](auto k, auto x) {
+                    real_t ratio = the_cosmo_calc->get_amplitude_ratio_nu(k.norm());
+                    real_t factor = 1.0 / (f_c + f_b + f_nu * ratio);
+                    return (ratio > 0.) ? x * factor : 0.;
+                }, *A3[idim]);
+            }
         }
 
         music::ilog << std::setw(20) << std::setfill(' ') << std::right << "took " << get_wtime() - wtime << "s" << std::endl;
