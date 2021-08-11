@@ -118,6 +118,8 @@ int run( config_file& the_config )
     const bool bExcludeNeutrinos = the_config.get_value_safe<bool>("setup", "ExcludeNeutrinos", bWithNeutrinos );
     //! correct for massive neutrinos in the initial density perturbations
     const bool bDoNeutrinoMassCorr = the_config.get_value_safe<bool>("setup", "DoNeutrinoMassCorr", bWithNeutrinos );
+    //! option to do a linear response correction immediately after computing the potentials
+    const bool bDoNeutrinoPotentialCorr = the_config.get_value_safe<bool>("setup", "DoNeutrinoPotentialCorr", 0 );
     //! correct for massive neutrinos in the velocities
     const bool bDoNeutrinoVelCorr = the_config.get_value_safe<bool>("setup", "DoNeutrinoVelCorr", bWithNeutrinos );
     //! correct for the difference between delta_matter and theta_matter on large scales
@@ -127,7 +129,7 @@ int run( config_file& the_config )
     //! option to import the second order potential and overwrite the internal calculation
     const bool bImportPhi2 = the_config.get_value_safe<bool>("setup", "ImportPhi2", 0 );
 
-    if (bExcludeNeutrinos && !bDoNeutrinoMassCorr && !bDoNeutrinoVelCorr) {
+    if (bExcludeNeutrinos && !bDoNeutrinoMassCorr && !bDoNeutrinoVelCorr && !bDoNeutrinoPotentialCorr) {
         music::wlog << " ExcludeNeutrinos enabled, but not the 1st order neutrino corrections." << std::endl;
         music::wlog << " These can be switched on with [setup] / WithNeutrinos = yes. See example.conf" << std::endl;
     }
@@ -136,6 +138,10 @@ int run( config_file& the_config )
     if (bWithNeutrinos && tf != "3FA_CLASS") {
         music::wlog << " Neutrino corrections enabled. It is recommended to use the 3FA_CLASS" << std::endl;
         music::wlog << " transfer function plugin for correct scale-dependent growth factors." << std::endl;
+    }
+    if (bDoNeutrinoPotentialCorr && (bDoNeutrinoMassCorr || bDoNeutrinoVelCorr)) {
+        music::wlog << " Both DoNeutrinoPotentialCorr and DoNeutrinoMassCorr or DoDensityVelocityCorr enabled." << std::endl;
+        music::wlog << " This implies doing neutrino corrections twice!" << std::endl;
     }
 
     //! if necessary, subtract the massive neutrino density
@@ -511,6 +517,46 @@ int run( config_file& the_config )
         }
         phi2.FourierTransformForward();
     }
+
+    if (bDoNeutrinoPotentialCorr) {
+        music::ilog << "Doing neutrino potential correction" << std::flush;
+
+        // total matter density at z=0, including massive neutrinos
+        const real_t O_m = the_cosmo_calc->cosmo_param_["Omega_m"];
+
+        // baryon, cdm, and massive neutrino fractions of the total matter density (z=0)
+        const real_t f_b = the_cosmo_calc->cosmo_param_["Omega_b"] / O_m;
+        const real_t f_c = the_cosmo_calc->cosmo_param_["Omega_c"] / O_m;
+        const real_t f_nu = the_cosmo_calc->cosmo_param_["Omega_nu_massive"] / O_m;
+
+        wtime = get_wtime();
+
+        phi.assign_function_of_grids_kdep([&](auto k, auto x) {
+            real_t ratio = the_cosmo_calc->get_amplitude_ratio_nu(k.norm());
+            real_t factor = 1.0 / (f_c + f_b + f_nu * ratio);
+            return (ratio > 0.) ? x * factor : 0.;
+        }, phi);
+
+        if (LPTorder > 1)
+        {
+            phi2.assign_function_of_grids_kdep([&](auto k, auto x) {
+                real_t ratio = the_cosmo_calc->get_amplitude_ratio_nu(k.norm());
+                real_t factor = 1.0 / (f_c + f_b + f_nu * ratio);
+                return (ratio > 0.) ? x * factor : 0.;
+            }, phi2);
+        }
+
+        if (LPTorder > 2)
+        {
+            phi3.assign_function_of_grids_kdep([&](auto k, auto x) {
+                real_t ratio = the_cosmo_calc->get_amplitude_ratio_nu(k.norm());
+                real_t factor = 1.0 / (f_c + f_b + f_nu * ratio);
+                return (ratio > 0.) ? x * factor : 0.;
+            }, phi3);
+        }
+
+        music::ilog << std::setw(20) << std::setfill(' ') << std::right << "took " << get_wtime() - wtime << "s" << std::endl;
+    }
     music::ilog << "-------------------------------------------------------------------------------" << std::endl;
 
     ///////////////////////////////////////////////////////////////////////
@@ -572,9 +618,9 @@ int run( config_file& the_config )
 
         // C factor for baryons and cdm
         real_t C_species;
-        if (bDoBaryons && bDoNeutrinoMassCorr){
+        if (bDoBaryons && bExcludeNeutrinos){
             C_species = (this_species == cosmo_species::baryon)? (1.0-f_b / (f_b + f_c)) : -f_b / (f_b + f_c);
-        }else if (bDoBaryons && !bDoNeutrinoMassCorr){
+        }else if (bDoBaryons && !bExcludeNeutrinos){
             C_species = (this_species == cosmo_species::baryon)? (1.0-f_b) : -f_b;
         }else{
             C_species = 0.;

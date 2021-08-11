@@ -453,6 +453,20 @@ public:
         return std::pow(k, 0.5 * m_n_s_) * d_mnu * (m_sqrtpnorm_ * Dplus_target_);
     }
 
+    //! Compute the linear transfer function ratio delta_nu/delta_cb
+    inline real_t get_amplitude_ratio_nu( const real_t k ) const
+    {
+        const real_t O_b = cosmo_param_["Omega_b"];
+        const real_t O_c = cosmo_param_["Omega_c"];
+        const real_t d_b = transfer_function_->compute(k, delta_baryon);
+        const real_t d_c = transfer_function_->compute(k, delta_cdm);
+        const real_t d_nu = transfer_function_->compute(k, delta_nu);
+        const real_t d_cb = (O_b * d_b + O_c * d_c) / (O_b + O_c);
+        const real_t ratio = d_nu / d_cb;
+
+        return ratio;
+    }
+
     //! Compute amplitude of the initial theta_mnu = theta_m - theta_nu mode
     inline real_t get_amplitude_theta_mnu( const real_t k ) const
     {
