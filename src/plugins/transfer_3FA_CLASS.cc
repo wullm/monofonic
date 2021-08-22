@@ -490,8 +490,6 @@ public:
         // compute the mass-weighted average
         dcb = f_b * db[i] + (1.0 - f_b) * dc[i];
         tcb = f_b * tb[i] + (1.0 - f_b) * tc[i];
-        // dm[i] = f_nu_nr_0 * dn[i] + (1.0 - f_nu_nr_0) * dcb;
-        // tm[i] = f_nu_nr_0 * tn[i] + (1.0 - f_nu_nr_0) * tcb;
 
         if (bCDMBaryonMatterOnly) {
             dm[i] = dcb;
