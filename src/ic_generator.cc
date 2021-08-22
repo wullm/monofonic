@@ -139,7 +139,7 @@ int run( config_file& the_config )
         music::wlog << " Neutrino corrections enabled. It is recommended to use the 3FA_CLASS" << std::endl;
         music::wlog << " transfer function plugin for correct scale-dependent growth factors." << std::endl;
     }
-    if (bDoNeutrinoPotentialCorr && (bDoNeutrinoMassCorr || bDoNeutrinoVelCorr)) {
+    if (bDoNeutrinoPotentialCorr && bDoNeutrinoMassCorr) {
         music::wlog << " Both DoNeutrinoPotentialCorr and DoNeutrinoMassCorr or DoDensityVelocityCorr enabled." << std::endl;
         music::wlog << " This implies doing neutrino corrections twice!" << std::endl;
     }
@@ -247,6 +247,7 @@ int run( config_file& the_config )
     Grid_FFT<real_t> A3x({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen}, false);  //   ..
     Grid_FFT<real_t> A3y({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen}, false);  //   ..
     Grid_FFT<real_t> A3z({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen}, false);  //   ..
+    Grid_FFT<real_t> neutrino_shift({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen}, false); // ..
 
     //... array [.] access to components of A3:
     std::array<Grid_FFT<real_t> *, 3> A3({&A3x, &A3y, &A3z});
@@ -485,7 +486,6 @@ int run( config_file& the_config )
         (*A3[2]) *= g3c;
     }
 
-    music::ilog << "-------------------------------------------------------------------------------" << std::endl;
     if (bImportPhi2) {
         //! rescaling factor for the internally computed phi2
         const real_t Phi2RescaleFact = the_config.get_value_safe<real_t>("setup", "Phi2RescaleFact", 1.0 );
@@ -517,9 +517,10 @@ int run( config_file& the_config )
         }
         phi2.FourierTransformForward();
     }
+    music::ilog << "-------------------------------------------------------------------------------" << std::endl;
 
     if (bDoNeutrinoPotentialCorr) {
-        music::ilog << "Doing neutrino potential correction" << std::flush;
+        music::ilog << std::setw(40) << std::setfill('.') << std::left << "Computing neutrino potential correction" << std::flush;
 
         // total matter density at z=0, including massive neutrinos
         const real_t O_m = the_cosmo_calc->cosmo_param_["Omega_m"];
@@ -531,68 +532,21 @@ int run( config_file& the_config )
 
         wtime = get_wtime();
 
-        // phi.assign_function_of_grids_kdep([&](auto k, auto x) {
-        //     real_t ratio = the_cosmo_calc->get_amplitude_ratio_nu(k.norm());
-        //     real_t factor = 1.0 / (f_c + f_b + f_nu * ratio);
-        //     return (ratio > 0.) ? x * factor : 0.;
-        // }, phi);
-        // 
-        // if (LPTorder > 1)
-        // {
-        //     phi2.assign_function_of_grids_kdep([&](auto k, auto x) {
-        //         real_t ratio = the_cosmo_calc->get_amplitude_ratio_nu(k.norm());
-        //         real_t factor = 1.0 / (f_c + f_b + f_nu * ratio);
-        //         return (ratio > 0.) ? x * factor : 0.;
-        //     }, phi2);
-        // }
-        // 
-        // if (LPTorder > 2)
-        // {
-        //     phi3.assign_function_of_grids_kdep([&](auto k, auto x) {
-        //         real_t ratio = the_cosmo_calc->get_amplitude_ratio_nu(k.norm());
-        //         real_t factor = 1.0 / (f_c + f_b + f_nu * ratio);
-        //         return (ratio > 0.) ? x * factor : 0.;
-        //     }, phi3);
-        // 
-        //     for (int idim = 0; idim < 3; ++idim)
-        //     {
-        //         A3[idim]->assign_function_of_grids_kdep([&](auto k, auto x) {
-        //             real_t ratio = the_cosmo_calc->get_amplitude_ratio_nu(k.norm());
-        //             real_t factor = 1.0 / (f_c + f_b + f_nu * ratio);
-        //             return (ratio > 0.) ? x * factor : 0.;
-        //         }, *A3[idim]);
-        //     }
-        // }
-
-        Grid_FFT<real_t> neutrino_shift({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
-
         wnoise.FourierTransformForward();
+        neutrino_shift.allocate();
         neutrino_shift.FourierTransformForward(false);
         neutrino_shift.assign_function_of_grids_kdep([&](auto k, auto wn) {
             real_t kmod = k.norm();
             real_t d_mnu = the_cosmo_calc->get_amplitude_delta_mnu(k.norm());
-            real_t nu_correction = bDoNeutrinoMassCorr ? f_nu / (f_b + f_c) * d_mnu : 0.;
+            real_t nu_correction = f_nu / (f_b + f_c) * d_mnu;
             return -wn * nu_correction / (kmod * kmod);
         }, wnoise);
 
         neutrino_shift.zero_DC_mode();
 
-        #pragma omp parallel for
-            for (size_t i = 0; i < phi.size(0); ++i)
-            {
-                for (size_t j = 0; j < phi.size(1); ++j)
-                {
-                    for (size_t k = 0; k < phi.size(2); ++k)
-                    {
-                        size_t idx = phi.get_idx(i, j, k);
-                        phi.kelem(idx) -= neutrino_shift.kelem(idx);
-                    }
-                }
-            }
-
         music::ilog << std::setw(20) << std::setfill(' ') << std::right << "took " << get_wtime() - wtime << "s" << std::endl;
+        music::ilog << "-------------------------------------------------------------------------------" << std::endl;
     }
-    music::ilog << "-------------------------------------------------------------------------------" << std::endl;
 
     ///////////////////////////////////////////////////////////////////////
     // we store the densities here if we compute them
@@ -851,6 +805,9 @@ int run( config_file& the_config )
                 grid_interpolate<1,Grid_FFT<real_t>> interp( tmp );
 
                 phi.FourierTransformForward();
+                if (bDoNeutrinoPotentialCorr) {
+                    neutrino_shift.FourierTransformForward();
+                }
                 if( LPTorder > 1 ){
                     phi2.FourierTransformForward();
                 }
@@ -877,6 +834,10 @@ int run( config_file& the_config )
                             for (size_t k = 0; k < phi.size(2); ++k) {
                                 size_t idx = phi.get_idx(i,j,k);
                                 auto phitot = phi.kelem(idx);
+
+                                if (bDoNeutrinoPotentialCorr) {
+                                    phitot -= neutrino_shift.kelem(idx);
+                                }
 
                                 if( LPTorder > 1 ){
                                     phitot += phi2.kelem(idx);
