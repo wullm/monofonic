@@ -369,7 +369,7 @@ public:
 
 namespace
 {
-output_plugin_creator_concrete<swift_output_plugin<float>> creator1("SWIFT");
+output_plugin_creator_concrete<swift_output_plugin<double>> creator1("SWIFT");
 } // namespace
 
 #endif
