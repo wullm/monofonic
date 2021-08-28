@@ -124,9 +124,14 @@ int run( config_file& the_config )
     const bool bDoDensityVelocityCorr = the_config.get_value_safe<bool>("setup", "DoDensityVelocityCorr", bWithNeutrinos );
     //! option to exclude massive neutrinos from delta_matter
     const bool bCDMBaryonMatterOnly = the_config.get_value_safe<bool>("setup", "CDMBaryonMatterOnly", 0 );
+    //! option to import a grid and add it on top of the second order potential calculated internally
+    const bool bImportPhi2 = the_config.get_value_safe<bool>("setup", "ImportPhi2", 0 );
     //! option to do the second order neutrino correction
     const bool bDoNeutrinoPhi2Corr = the_config.get_value_safe<bool>("setup", "DoNeutrinoPhi2Corr", 0 );
 
+    if (bImportPhi2 && bDoNeutrinoPhi2Corr) {
+        music::wlog << " Using both ImportPhi2 and DoNeutrinoPhi2Corr, which was not intended." << std::endl;
+    }
     if (bExcludeNeutrinos && !bDoNeutrinoMassCorr && !bDoNeutrinoVelCorr && !bCDMBaryonMatterOnly) {
         music::wlog << " ExcludeNeutrinos enabled, but not the 1st order neutrino corrections." << std::endl;
         music::wlog << " These can be switched on with [setup] / WithNeutrinos = yes. See example.conf" << std::endl;
@@ -499,6 +504,38 @@ int run( config_file& the_config )
                 }
             }
         }
+    }
+
+    if (bImportPhi2) {
+        //! rescaling factor for the internally computed phi2
+        const real_t Phi2RescaleFact = the_config.get_value_safe<real_t>("setup", "Phi2RescaleFact", 1.0 );
+        music::ilog << "Rescaling internal second order grid by " << Phi2RescaleFact << std::endl;
+
+        // rescale phi2
+        phi2.FourierTransformBackward();
+        for (size_t i = 0; i < ngrid; i++) {
+            for (size_t j = 0; j < ngrid; j++) {
+                for (size_t k = 0; k < ngrid; k++) {
+                    phi2.relem(i,j,k) *= Phi2RescaleFact;
+                }
+            }
+        }
+
+        music::ilog << "Adding import file contribution to second order grid" << std::endl;
+
+        Grid_FFT<real_t,false> phi2_read({ngrid,ngrid,ngrid}, {boxlen,boxlen,boxlen});
+        phi2_read.Read_from_HDF5( the_config.get_value<std::string>("setup", "Phi2FieldFile"),
+                the_config.get_value<std::string>("setup", "Phi2FieldName") );
+
+        // add contribution to phi2
+        for (size_t i = 0; i < ngrid; i++) {
+            for (size_t j = 0; j < ngrid; j++) {
+                for (size_t k = 0; k < ngrid; k++) {
+                    phi2.relem(i,j,k) += phi2_read.relem(i,j,k);
+                }
+            }
+        }
+        phi2.FourierTransformForward();
     }
 
     music::ilog << "-------------------------------------------------------------------------------" << std::endl;
