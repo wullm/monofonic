@@ -124,6 +124,8 @@ int run( config_file& the_config )
     const bool bDoDensityVelocityCorr = the_config.get_value_safe<bool>("setup", "DoDensityVelocityCorr", bWithNeutrinos );
     //! option to exclude massive neutrinos from delta_matter
     const bool bCDMBaryonMatterOnly = the_config.get_value_safe<bool>("setup", "CDMBaryonMatterOnly", 0 );
+    //! option to do the second order neutrino correction
+    const bool bDoNeutrinoPhi2Corr = the_config.get_value_safe<bool>("setup", "DoNeutrinoPhi2Corr", 0 );
 
     if (bExcludeNeutrinos && !bDoNeutrinoMassCorr && !bDoNeutrinoVelCorr && !bCDMBaryonMatterOnly) {
         music::wlog << " ExcludeNeutrinos enabled, but not the 1st order neutrino corrections." << std::endl;
@@ -478,6 +480,25 @@ int run( config_file& the_config )
         (*A3[0]) *= g3c;
         (*A3[1]) *= g3c;
         (*A3[2]) *= g3c;
+    }
+
+    //! analytical rescaling factor for phi2
+    if (bDoNeutrinoPhi2Corr && LPTorder > 1) {
+        const real_t O_m = the_cosmo_calc->cosmo_param_["Omega_m"];
+        const real_t f_nu = the_cosmo_calc->cosmo_param_["Omega_nu_massive"] / O_m;
+        const real_t Phi2RescaleFact = 14 * (1 - f_nu) / (19 - 18 * f_nu - sqrt(25 - 24 * f_nu));
+
+        music::ilog << std::endl;
+        music::ilog << "Rescaling phi(2) by " << Phi2RescaleFact << std::endl;
+
+        phi2.FourierTransformBackward();
+        for (size_t i = 0; i < ngrid; i++) {
+            for (size_t j = 0; j < ngrid; j++) {
+                for (size_t k = 0; k < ngrid; k++) {
+                    phi2.relem(i,j,k) *= Phi2RescaleFact;
+                }
+            }
+        }
     }
 
     music::ilog << "-------------------------------------------------------------------------------" << std::endl;
