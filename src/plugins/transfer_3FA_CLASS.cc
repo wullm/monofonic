@@ -48,7 +48,7 @@ private:
   double zstart_, ztarget_, astart_, atarget_, kmax_, kmin_, h_, tnorm_;
 
   // asymptotic growth factor and growth rates at large k
-  double Dm_asymptotic_, fm_asymptotic_, vfac_asymptotic_;
+  double Dm_asymptotic_, fm_asymptotic_, fcb_asymptotic_, vfac_asymptotic_;
 
   ClassParams pars_;
   std::unique_ptr<ClassEngine> the_ClassEngine_; //synchronous gauge
@@ -264,6 +264,12 @@ public:
       music::ilog << "CLASS: Using sigma8_ =" << sigma8<< " to normalise the transfer function." << std::endl;
     }
 
+    //! option to exclude massive neutrinos from delta_matter
+    const bool bCDMBaryonMatterOnly = pcf_->get_value_safe<bool>("setup", "CDMBaryonMatterOnly", 0 );
+    if (bCDMBaryonMatterOnly){
+        music::ilog << "Using delta_matter = delta_cb." << std::endl;
+    }
+
     // determine highest k we will need for the resolution selected
     double lbox = pcf_->get_value<double>("setup", "BoxLength");
     int nres = pcf_->get_value<double>("setup", "GridRes");
@@ -381,14 +387,17 @@ public:
     music::ilog << "Integrating cosmological tables with 3FA." << std::endl;
 
     // Integrate the cosmological tables with 3FA (accounting for neutrinos)
-    integrate_cosmology_tables(&m, &us, &tab, astart_, atarget_, 1000);
+    const double tab_a_start = astart_ * 0.99;
+    const double tab_a_final = atarget_ * 1.01;
+    integrate_cosmology_tables(&m, &us, &tab, tab_a_start, tab_a_final, 1000);
 
     // extract the present-day neutrino fraction and the baryon fraction
-    const double f_nu_nr_0 = tab.f_nu_nr[tab.size-1];
+    const double atoday_ = 1.0;
+    const double f_nu_nr_0 = get_f_nu_nr_of_a(&tab, atoday_);
     const double f_b = m.Omega_b / (m.Omega_b + m.Omega_c);
     // extract the Hubble rate at a_start and normalize by H0
     const double H_start = get_H_of_a(&tab, astart_); // in 3FA units
-    const double H_0 = get_H_of_a(&tab, 1.0); // in 3FA units
+    const double H_0 = get_H_of_a(&tab, atoday_); // in 3FA units
     const double H_units = cosmo_params_.get("H0") / H_0;
 
     music::ilog << "Integrating fluid equations with 3FA." << std::endl;
@@ -430,6 +439,7 @@ public:
     // over small scales modes (k > 1/Mpc)
     double Dm_sum = 0.;
     double gm_sum = 0.;
+    double gcb_sum = 0.;
     int count = 0;
     for (size_t i = 0; i < k.size(); ++i)
     {
@@ -442,13 +452,19 @@ public:
 
         Dm_sum += Dm;
         gm_sum += gm;
+        gcb_sum += gcb;
         count++;
     }
 
 
     Dm_asymptotic_ = Dm_sum / count;
     fm_asymptotic_ = gm_sum / count;
+    fcb_asymptotic_ = gcb_sum / count;
+
     vfac_asymptotic_ = astart_ * H_start * H_units * fm_asymptotic_ / cosmo_params_.get("h");
+    if (bCDMBaryonMatterOnly){
+        vfac_asymptotic_ *= fcb_asymptotic_ / fm_asymptotic_;
+    }
 
     // now scale forward with the asymptotic growth factor, as assumed in the ic generator
     for (size_t i = 0; i < k.size(); ++i)
@@ -473,8 +489,14 @@ public:
         // compute the mass-weighted average
         dcb = f_b * db[i] + (1.0 - f_b) * dc[i];
         tcb = f_b * tb[i] + (1.0 - f_b) * tc[i];
-        dm[i] = f_nu_nr_0 * dn[i] + (1.0 - f_nu_nr_0) * dcb;
-        tm[i] = f_nu_nr_0 * tn[i] + (1.0 - f_nu_nr_0) * tcb;
+
+        if (bCDMBaryonMatterOnly) {
+            dm[i] = dcb;
+            tm[i] = tcb;
+        } else {
+            dm[i] = f_nu_nr_0 * dn[i] + (1.0 - f_nu_nr_0) * dcb;
+            tm[i] = f_nu_nr_0 * tn[i] + (1.0 - f_nu_nr_0) * tcb;
+        }
 
         // the (baryon - cdm) difference evaluated at the target redshift
         double dbc_target = db_target[i] - dc_target[i];
@@ -505,7 +527,8 @@ public:
 
     music::ilog << "Asymptotic Dm_start = " << Dm_asymptotic_ << " * Dm_target" << std::endl;
     music::ilog << "Asymptotic fm_start = " << fm_asymptotic_ << std::endl;
-    music::ilog << "Asymptotic aHfm/h = " << vfac_asymptotic_ << " km/s/Mpc at a_start" << std::endl;
+    music::ilog << "Asymptotic fcb_start = " << fcb_asymptotic_ << std::endl;
+    music::ilog << "Asymptotic vfac = " << vfac_asymptotic_ << " km/s/Mpc at a_start" << std::endl;
 
     // export a table with Hubble rates for cosmological sims that require this
     std::string fname_hubble = "input_hubble.txt";

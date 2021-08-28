@@ -122,10 +122,15 @@ int run( config_file& the_config )
     const bool bDoNeutrinoVelCorr = the_config.get_value_safe<bool>("setup", "DoNeutrinoVelCorr", bWithNeutrinos );
     //! correct for the difference between delta_matter and theta_matter on large scales
     const bool bDoDensityVelocityCorr = the_config.get_value_safe<bool>("setup", "DoDensityVelocityCorr", bWithNeutrinos );
+    //! option to exclude massive neutrinos from delta_matter
+    const bool bCDMBaryonMatterOnly = the_config.get_value_safe<bool>("setup", "CDMBaryonMatterOnly", 0 );
 
-    if (bExcludeNeutrinos && !bDoNeutrinoMassCorr && !bDoNeutrinoVelCorr) {
+    if (bExcludeNeutrinos && !bDoNeutrinoMassCorr && !bDoNeutrinoVelCorr && !bCDMBaryonMatterOnly) {
         music::wlog << " ExcludeNeutrinos enabled, but not the 1st order neutrino corrections." << std::endl;
         music::wlog << " These can be switched on with [setup] / WithNeutrinos = yes. See example.conf" << std::endl;
+    }
+    if (bCDMBaryonMatterOnly && (bDoNeutrinoMassCorr || bDoNeutrinoVelCorr)) {
+        music::wlog << " Using CDMBaryonMatteOnly, so first order neutrino corrections are not needed!" << std::endl;
     }
     //! which transfer function plugin was used
     std::string tf = the_config.get_value<std::string>("cosmology", "transfer");
@@ -846,7 +851,7 @@ int run( config_file& the_config )
                                 // option to account for the difference between delta_m and theta_m / (afH) on large scales
                                 if (bDoDensityVelocityCorr) {
                                     real_t knorm = wnoise.get_k<real_t>(i,j,k).norm();
-                                    tmp.kelem(idx) += vfac1 * the_cosmo_calc->get_amplitude_theta_delta_m(knorm) * wnoise.kelem(i,j,k) * lg.gradient(idim,tmp.get_k3(i,j,k)) / (knorm*knorm);
+                                    tmp.kelem(idx) += vfac1 * the_cosmo_calc->get_amplitude_theta_delta_m(knorm, bCDMBaryonMatterOnly) * wnoise.kelem(i,j,k) * lg.gradient(idim,tmp.get_k3(i,j,k)) / (knorm*knorm);
                                 }
 
                                 // correct with interpolation kernel if we used interpolation to read out the positions (for glasses)
