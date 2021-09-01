@@ -162,6 +162,8 @@ void RNG_panphasia::Run_Panphasia_Highorder(Grid_FFT<real_t> &g)
 
   Grid_FFT<real_t> pan_grid({{N0, N0, N0}}, {{boxlength_, boxlength_, boxlength_}});
 
+  _unused(alloc_local);
+
   assert(pan_grid.n_[0] == N0);
   assert(pan_grid.n_[1] == N0);
   assert(pan_grid.n_[2] == N0);

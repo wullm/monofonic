@@ -195,7 +195,7 @@ for (i=0; i<8*Nbasis; i++) output_vec_children[i] = work_vec2[i];
 
 void box_muller_(PAN_REAL *unif_rand, PAN_REAL *gvar)
 {
-  int i, j, k, count;
+  int i, count;
 
   const PAN_REAL pi = 4.0 * atan(1.0);
   const PAN_REAL two_pi = 2.0 * pi;
@@ -264,7 +264,7 @@ void speed_test2_()
   size_t N_cells = 1e6;
 
   PAN_REAL parent[Nbasis];
-  PAN_REAL child[8 * Nbasis];
+  // PAN_REAL child[8 * Nbasis];
   PAN_REAL output[8 * Nbasis];
 
   //ticks tick_start = getticks();
@@ -285,7 +285,7 @@ void speed_test2_()
 
   //tic_total = getticks() - tick_start;
   //printf("Computed %ld cells in time %.3f %s\n",N_cells,clocks_from_ticks(tic_total),clocks_getunit());
-};
+}
 
 //===================================================================================
 void compute_all_properties_of_a_panphasia_cell_(size_t *level, size_t *j1, size_t *j2, size_t *j3,
@@ -326,7 +326,7 @@ void compute_all_properties_of_a_panphasia_cell_(size_t *level, size_t *j1, size
   //
   //
   // };
-};
+}
 
 //==================================================================================
 void test_random_dist_(size_t ishift)
@@ -369,8 +369,8 @@ void test_random_dist_(size_t ishift)
 
   char str1[100], str2[100];
 
-  sprintf(str1, "Gaussian_random_distribution_%llu.dat", ishift);
-  sprintf(str2, "Log_uniform_random_distribution_%llu.dat", ishift);
+  sprintf(str1, "Gaussian_random_distribution_%lu.dat", ishift);
+  sprintf(str2, "Log_uniform_random_distribution_%lu.dat", ishift);
 
   FILE *file = fopen(str1, "w");
   FILE *file2 = fopen(str2, "w");
@@ -378,7 +378,7 @@ void test_random_dist_(size_t ishift)
   for (size_t j3 = 0; j3 < NC; j3++)
   {
     if (j3 % 10000000 == 0)
-      printf("Looped over %lld\n", j3);
+      printf("Looped over %ld\n", j3);
 
     return_uniform_pseudo_rands_threefry4x64_(l, j1, j2, j3, unif_randoms, seed_value, allow_non_zero_seed_saftey_catch);
 
@@ -402,9 +402,9 @@ void test_random_dist_(size_t ishift)
 
   rms_value = sqrt(sum_squares / (double)nrand);
 
-  printf("Number of rands %ld  RMS = %12.10lg   Deviation %lg \n",
+  printf("Number of rands %lld  RMS = %12.10lg   Deviation %lg \n",
          nrand, rms_value, (rms_value - 1.0) * sqrt((double)nrand));
-  fprintf(file, "Number of rands %ld  RMS = %12.10lg   Deviation %lg \n",
+  fprintf(file, "Number of rands %lld  RMS = %12.10lg   Deviation %lg \n",
           nrand, rms_value, (rms_value - 1.0) * sqrt((double)nrand));
 
   for (int i = 0; i < 100; i++)
@@ -414,9 +414,9 @@ void test_random_dist_(size_t ishift)
     {
       g_expected = 0.5 * (erf(0.2 * sqrt(0.5) * ((PAN_REAL)(i - array_offset) + 0.5)) - erf(0.2 * sqrt(0.5) * ((PAN_REAL)(i - array_offset) - 0.5))) * (PAN_REAL)nrand;
 
-      printf("%d  %ld  %f %f \n", i - array_offset, gauss_dist[i], g_expected, (gauss_dist[i] - g_expected) / sqrt(gauss_dist[i]));
+      printf("%d  %lld  %f %f \n", i - array_offset, gauss_dist[i], g_expected, (gauss_dist[i] - g_expected) / sqrt(gauss_dist[i]));
 
-      fprintf(file, "%d  %ld  %f %f \n", i - array_offset, gauss_dist[i], g_expected, (gauss_dist[i] - g_expected) / sqrt(gauss_dist[i]));
+      fprintf(file, "%d  %lld  %f %f \n", i - array_offset, gauss_dist[i], g_expected, (gauss_dist[i] - g_expected) / sqrt(gauss_dist[i]));
     };
     if (log_uniform_dist[i] != 0)
     {
@@ -612,20 +612,20 @@ int demo_descriptor_()
   //   char str[200] = "[Panph6,L21,(1136930,890765,1847934),S3,CH2414478110,Auriga_volume2]";
   //  char str[200] = "[Panph6,L21,(1136930,890765,1847934),S3,CH-999,Auriga_volume2]";
 
-  char copy[200];
-  const char s[20] = "[,L,(),S,CH,]";
-  char *token;
+  // char copy[200];
+  // const char s[20] = "[,L,(),S,CH,]";
+  // char *token;
 
-  size_t desc_level, desc_x, desc_y, desc_z, desc_size;
-  long long int desc_ch;
-  char desc_name[100];
-  char desc_iden[8];
+  // size_t desc_level, desc_x, desc_y, desc_z, desc_size;
+  // long long int desc_ch;
+  // char desc_name[100];
+  // char desc_iden[8];
   int error_code;
   int pan_mode;
 
   descriptor_read_in = 0;
 
-  if (error_code = parse_and_validate_descriptor_(str,&pan_mode))
+  if ((error_code = parse_and_validate_descriptor_(str, &pan_mode)))
   {
 
     printf("Invalid descriptor %s\n", str);
@@ -639,12 +639,12 @@ int demo_descriptor_()
   if (descriptor_read_in)
   {
     printf("-----------------------------------------\n");
-    printf("Descriptor order:      %llu\n", descriptor_order);
-    printf("Descriptor base level: %llu\n", descriptor_base_level);
-    printf("Descriptor x-origin:   %llu\n", descriptor_xorigin);
-    printf("Descriptor y-origin:   %llu\n", descriptor_yorigin);
-    printf("Descriptor z-origin:   %llu\n", descriptor_zorigin);
-    printf("Descriptor base size:  %llu\n", descriptor_base_size);
+    printf("Descriptor order:      %lu\n", descriptor_order);
+    printf("Descriptor base level: %lu\n", descriptor_base_level);
+    printf("Descriptor x-origin:   %lu\n", descriptor_xorigin);
+    printf("Descriptor y-origin:   %lu\n", descriptor_yorigin);
+    printf("Descriptor z-origin:   %lu\n", descriptor_zorigin);
+    printf("Descriptor base size:  %lu\n", descriptor_base_size);
     printf("Descriptor check digit:%lld\n", descriptor_check_digit);
     printf("Descriptor name        %s\n", descriptor_name);
     printf("-----------------------------------------\n");
@@ -674,8 +674,8 @@ int demo_descriptor_()
 
   verbose = 0;
 
-  if (error_code = PANPHASIA_init_level_(&rel_lev,
-                                         &rel_orig_x, &rel_orig_y, &rel_orig_z, &verbose))
+  if ((error_code = PANPHASIA_init_level_(&rel_lev,
+                                          &rel_orig_x, &rel_orig_y, &rel_orig_z, &verbose)))
   {
     printf("Error %d in initialing PANPHASIA_init_level_\n",
            error_code);
@@ -704,9 +704,9 @@ int demo_descriptor_()
   for (int i = 0; i < Nbasis / 3; i++)
     copy_list[i] = 3 * i;
 
-  if (error_code = PANPHASIA_compute_coefficients_(&xstart, &ystart, &zstart,
-                                                   &xextent, &yextent, &zextent, copy_list, &ncopy,
-                                                   output_values, &flag_output_mode, &verbose))
+  if ((error_code = PANPHASIA_compute_coefficients_(&xstart, &ystart, &zstart,
+                                                    &xextent, &yextent, &zextent, copy_list, &ncopy,
+                                                    output_values, &flag_output_mode, &verbose)))
   {
 
     printf("Error %d in PANPHASIA_compute_coefficients \n", error_code);
@@ -721,13 +721,13 @@ int demo_descriptor_()
     for (size_t xco = 0; xco < xextent; xco++)
       for (size_t yco = 0; yco < yextent; yco++)
         for (size_t zco = 0; zco < zextent; zco++)
-          fprintf(file, "%llu %llu %llu %f\n", xco, yco, zco, output_values[ncopy * (xco * yextent * zextent + yco * zextent + zco)]);
+          fprintf(file, "%lu %lu %lu %f\n", xco, yco, zco, output_values[ncopy * (xco * yextent * zextent + yco * zextent + zco)]);
 
     fclose(file);
   };
 
   return (0);
-};
+}
 
 int PANPHASIA_init_descriptor_(const char *descriptor, int *verbose)
 {
@@ -758,7 +758,7 @@ int PANPHASIA_init_descriptor_(const char *descriptor, int *verbose)
   check_panphasia_key_(verb);
 
   int pan_mode;
-  if (error = parse_and_validate_descriptor_(descriptor,&pan_mode))
+  if ((error = parse_and_validate_descriptor_(descriptor, &pan_mode)))
   {
     printf("-----------------------------------------\n");
     printf("Error initating start-up Panphasia routines \n");
@@ -771,7 +771,7 @@ int PANPHASIA_init_descriptor_(const char *descriptor, int *verbose)
   if (*verbose)
     printf("Sucessfully started Panphasia with the descriptor:\n%s\n", descriptor);
   return (0);
-};
+}
 
 /////////////////////////////////////////////////////////////////////////////////
 
@@ -838,7 +838,7 @@ void PANPHASIA_init_descriptor_checks()
   printf("===================================================\n");
 
   panphasia_rel_origin_set = 0; // Force user to set rel origin themselves.
-};
+}
 
 int PANPHASIA_init_level_(size_t *rel_lev,
                           size_t *rel_orig_x, size_t *rel_orig_y,
@@ -869,16 +869,16 @@ int PANPHASIA_init_level_(size_t *rel_lev,
   {
     printf("-----------------------------------------------------------------\n");
     printf("Initialising a Panphasia subgrid\n");
-    printf("Relative level %llu\n", rel_level);
-    printf("Relative origin (%llu,%llu,%llu)\n", rel_origin_x, rel_origin_y, rel_origin_z);
-    printf("The maximum possible extent of this subgrid is %llu cells\n", rel_coord_max);
+    printf("Relative level %lu\n", rel_level);
+    printf("Relative origin (%lu,%lu,%lu)\n", rel_origin_x, rel_origin_y, rel_origin_z);
+    printf("The maximum possible extent of this subgrid is %lu cells\n", rel_coord_max);
     printf("-----------------------------------------------------------------\n");
   };
 
   panphasia_rel_origin_set = 1;
 
   return (0);
-};
+}
 
 //======================================================================================
 //======================================================================================
@@ -910,9 +910,12 @@ int PANPHASIA_compute_coefficients_(size_t *xstart, size_t *ystart, size_t *zsta
   if (*zstart >= rel_coord_max)
     return (203);
 
-  if (*xextent > rel_coord_max) return (204);
-  if (*yextent > rel_coord_max) return (205);
-  if (*zextent > rel_coord_max) return (206);
+  if (*xextent > rel_coord_max)
+    return (204);
+  if (*yextent > rel_coord_max)
+    return (205);
+  if (*zextent > rel_coord_max)
+    return (206);
 
   if ((*ncopy < 0) || (*ncopy > Nbasis))
     return (207);
@@ -920,7 +923,8 @@ int PANPHASIA_compute_coefficients_(size_t *xstart, size_t *ystart, size_t *zsta
   if ((copy_list[0] < 0) || (copy_list[*ncopy - 1] >= Nbasis))
     return (208);
 
-  if ((*xextent==0)||(*yextent==0)||(*zextent==0)) return(0);
+  if ((*xextent == 0) || (*yextent == 0) || (*zextent == 0))
+    return (0);
 
   for (int i = 1; i < *ncopy; i++)
     if (copy_list[i] <= copy_list[i - 1])
@@ -1009,17 +1013,17 @@ int PANPHASIA_compute_coefficients_(size_t *xstart, size_t *ystart, size_t *zsta
   {
     int error_code;
 
-    if (error_code = return_binary_tree_cell_lists(level_max, list_cell_x_coord,
-                                                   *xextent, ret_x_list_coords, nreturn_x, child_pointer_x,
-                                                   level_count_x, level_begin_x, index_perm_x))
+    if ((error_code = return_binary_tree_cell_lists(level_max, list_cell_x_coord,
+                                                    *xextent, ret_x_list_coords, nreturn_x, child_pointer_x,
+                                                    level_count_x, level_begin_x, index_perm_x)))
       return (error_code);
-    if (error_code = return_binary_tree_cell_lists(level_max, list_cell_y_coord,
-                                                   *yextent, ret_y_list_coords, nreturn_y, child_pointer_y,
-                                                   level_count_y, level_begin_y, index_perm_y))
+    if ((error_code = return_binary_tree_cell_lists(level_max, list_cell_y_coord,
+                                                    *yextent, ret_y_list_coords, nreturn_y, child_pointer_y,
+                                                    level_count_y, level_begin_y, index_perm_y)))
       return (error_code);
-    if (error_code = return_binary_tree_cell_lists(level_max, list_cell_z_coord,
-                                                   *zextent, ret_z_list_coords, nreturn_z, child_pointer_z,
-                                                   level_count_z, level_begin_z, index_perm_z))
+    if ((error_code = return_binary_tree_cell_lists(level_max, list_cell_z_coord,
+                                                    *zextent, ret_z_list_coords, nreturn_z, child_pointer_z,
+                                                    level_count_z, level_begin_z, index_perm_z)))
       return (error_code);
   };
   //===================================================================
@@ -1035,7 +1039,7 @@ int PANPHASIA_compute_coefficients_(size_t *xstart, size_t *ystart, size_t *zsta
     };
 
     if (*verbose)
-      printf("Total number cells: %llu \n", number_of_cells);
+      printf("Total number cells: %lu \n", number_of_cells);
 
     cell_memory_to_allocate = sizeof(PAN_REAL) * number_of_cells * Nbasis;
   };
@@ -1047,13 +1051,13 @@ int PANPHASIA_compute_coefficients_(size_t *xstart, size_t *ystart, size_t *zsta
   //========================================================================================
   // Loop over octree starting at the root, for all relevant cells at each level
   //========================================================================================
-  size_t total_number_cells = 0;
-  size_t num_cell_compute = 0;
-  size_t num_level_max_cells = 0;
-  size_t total_num_children = 0;
+  // size_t total_number_cells = 0;
+  // size_t num_cell_compute = 0;
+  // size_t num_level_max_cells = 0;
+  // size_t total_num_children = 0;
   {
     size_t cell_index, j1, j2, j3;
-    size_t child_cells[8];
+    // size_t child_cells[8];
     size_t xoffset, yoffset, zoffset;
     size_t ix, iy, iz;
     size_t xco, yco, zco;
@@ -1135,7 +1139,7 @@ int PANPHASIA_compute_coefficients_(size_t *xstart, size_t *ystart, size_t *zsta
                 }; // end loop over possible children
 
             if (*verbose > 1)
-              printf("Cell: L%llu %llu %llu %llu\n", level, j1, j2, j3);
+              printf("Cell: L%lu %lu %lu %lu\n", level, j1, j2, j3);
 
           }; // z/y/x-coordinate/level
 
@@ -1262,31 +1266,31 @@ int parse_and_validate_descriptor_(const char *descriptor, int *pan_mode)
     switch (nelement)
     {
     case 1:
-      if (sscanf(token, "Panph%llu", &desc_order) != 1)
+      if (sscanf(token, "Panph%lu", &desc_order) != 1)
         return (440001);
       break;
     case 2:
-      if (sscanf(token, "L%llu", &desc_level) != 1)
+      if (sscanf(token, "L%lu", &desc_level) != 1)
         return 440002;
       break;
     case 3:
-      if (sscanf(token, "%llu", &desc_x) != 1)
+      if (sscanf(token, "%lu", &desc_x) != 1)
         return 440003;
       break;
     case 4:
-      if (sscanf(token, "%llu", &desc_y) != 1)
+      if (sscanf(token, "%lu", &desc_y) != 1)
         return 440004;
       break;
     case 5:
-      if (sscanf(token, "%llu", &desc_z) != 1)
+      if (sscanf(token, "%lu", &desc_z) != 1)
         return 440005;
       break;
     case 6:
-      if (sscanf(token, "S%llu", &desc_size) != 1)
+      if (sscanf(token, "S%lu", &desc_size) != 1)
         return 440005;
       break;
     case 7:
-      if (sscanf(token, "KK%lld", &desc_kk_limit) == 1)
+      if (sscanf(token, "KK%lu", &desc_kk_limit) == 1)
       {
         kk_limit_set = 1;
         token = strtok(NULL, split);
@@ -1295,7 +1299,7 @@ int parse_and_validate_descriptor_(const char *descriptor, int *pan_mode)
         return 440006;
       break;
     case 8:
-      if (sscanf(token, "%s", &desc_name) != 1)
+      if (sscanf(token, "%199s", desc_name) != 1)
         return 440007;
       break;
     }
@@ -1304,12 +1308,12 @@ int parse_and_validate_descriptor_(const char *descriptor, int *pan_mode)
 
   if (kk_limit_set == 0)
   {
-    sprintf(descriptor_as_read, "[Panph%llu,L%llu,(%llu,%llu,%llu),S%llu,CH%lld,%s]",
+    sprintf(descriptor_as_read, "[Panph%lu,L%lu,(%lu,%lu,%lu),S%lu,CH%lld,%s]",
             desc_order, desc_level, desc_x, desc_y, desc_z, desc_size, desc_ch, desc_name);
   }
   else
   {
-    sprintf(descriptor_as_read, "[Panph%llu,L%llu,(%llu,%llu,%llu),S%llu,KK%lld,CH%lld,%s]",
+    sprintf(descriptor_as_read, "[Panph%lu,L%lu,(%lu,%lu,%lu),S%lu,KK%ld,CH%lld,%s]",
             desc_order, desc_level, desc_x, desc_y, desc_z, desc_size, desc_kk_limit, desc_ch, desc_name);
   }
 
@@ -1334,7 +1338,7 @@ int parse_and_validate_descriptor_(const char *descriptor, int *pan_mode)
   strcpy(full_descriptor, descriptor);
   descriptor_read_in = 1;
 
-  *pan_mode = (desc_order==1)? 0:1;   // 0 - Old descriptor: 1 HO descriptor
+  *pan_mode = (desc_order == 1) ? 0 : 1; // 0 - Old descriptor: 1 HO descriptor
 
   comp_ch = compute_check_digit_(); // check the check digit
 
@@ -1359,7 +1363,7 @@ void calc_absolute_coordinates(size_t xrel, size_t yrel, size_t zrel, size_t *xa
 
   // printf("descriptor_zorigin %llu rel_level %llu zrel %llu rel_origin_z %llu rel_coord_max %llu \n descriptor_base_level %llu, zabs %llu\n",
   //y	descriptor_zorigin,rel_level,zrel,rel_origin_z,rel_coord_max,descriptor_base_level,*zabs);
-};
+}
 
 int cell_information(size_t cell_id, size_t *cumulative_cell_index, size_t *cuboid_x_dimen,
                      size_t *cuboid_y_dimen, size_t *cuboid_z_dimen, size_t *cell_lev,
@@ -1452,44 +1456,44 @@ int return_binary_tree_cell_lists(size_t level_max, size_t *list_cell_coordinate
 
   return (0);
 }
-  /////////////////////////////////////////////////////////////////////////
-  /////////////////////////////////////////////////////////////////////////
-  /////////////////////////////////////////////////////////////////////////
-  /////////////////////////////////////////////////////////////////////////
-  /////////////////////////////////////////////////////////////////////////
-  /////////////////////////////////////////////////////////////////////////
-  //
-  // Test code for checking the appropriate moments are preserved
-  // between levels in Panphasia
-  //
-  /////////////////////////////////////////////////////////////////////////
-  /////////////////////////////////////////////////////////////////////////
-  /////////////////////////////////////////////////////////////////////////
-  /////////////////////////////////////////////////////////////////////////
-  /////////////////////////////////////////////////////////////////////////
-  /////////////////////////////////////////////////////////////////////////
-  /////////////////////////////////////////////////////////////////////////
-  /////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////
+//
+// Test code for checking the appropriate moments are preserved
+// between levels in Panphasia
+//
+/////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////
 
 #include <gsl/gsl_sf_legendre.h>
 
 void integrate_cell(int, int, int, size_t, size_t, size_t, FFTW_REAL *, double *);
 int compute_panphasia_(double, double, double, size_t, size_t, size_t, FFTW_REAL *, double *);
 
-void test_cell_moments(char *, size_t, size_t, size_t, size_t, size_t, double *);
+void test_cell_moments(const char *, size_t, size_t, size_t, size_t, size_t, double *);
 
 ////////////////////////////////////////////////////////////////////////////////
 void test_moments_()
 {
 
-  int lev = 10;
+  // int lev = 10;
   char descriptor_demo[300] = "Hello!";
   printf("Demo string %s\n", descriptor_demo);
 
   //  descriptor_pair_generate_();//, descriptor_demo);
   printf("Parameters: %s\n", descriptor_demo);
 
-  size_t nlevel = 1;
+  // size_t nlevel = 1;
   double coefficients1[Nbasis];
   double coefficients2[Nbasis];
 
@@ -1515,7 +1519,7 @@ void test_moments_()
     yco = (yco_full) >> (63 - level);
     zco = (zco_full) >> (63 - level);
 
-    sprintf(descriptor, "[Panph6,L%ld,(%llu,%llu,%llu),S1,CH-999,test]", level, xco, yco, zco);
+    sprintf(descriptor, "[Panph6,L%ld,(%lu,%lu,%lu),S1,CH-999,test]", level, xco, yco, zco);
     // printf("%s\n",descriptor);
 
     test_cell_moments(descriptor, 0, 0, 0, 0, 1, coefficients1);
@@ -1560,7 +1564,7 @@ void test_moments_()
   printf("Completed moment test successfully.\n");
 }
 
-void test_cell_moments(char root_descriptor[200], size_t rel_lev, size_t rel_orig_x,
+void test_cell_moments(const char *root_descriptor, size_t rel_lev, size_t rel_orig_x,
                        size_t rel_orig_y, size_t rel_orig_z, size_t extent, double *coeff)
 {
 
@@ -1572,8 +1576,8 @@ void test_cell_moments(char root_descriptor[200], size_t rel_lev, size_t rel_ori
 
   verbose = 0;
 
-  if (error_code = PANPHASIA_init_level_(&rel_lev,
-                                         &rel_orig_x, &rel_orig_y, &rel_orig_z, &verbose))
+  if ((error_code = PANPHASIA_init_level_(&rel_lev,
+                                          &rel_orig_x, &rel_orig_y, &rel_orig_z, &verbose)))
   {
     printf("Error %d in initialing PANPHASIA_init_level_\n",
            error_code);
@@ -1598,9 +1602,9 @@ void test_cell_moments(char root_descriptor[200], size_t rel_lev, size_t rel_ori
     abort();
   }
 
-  if (error_code = PANPHASIA_compute_coefficients_(&xstart, &ystart, &zstart,
-                                                   &xextent, &yextent, &zextent, copy_list, &ncopy,
-                                                   output_values, &flag_output_mode, &verbose))
+  if ((error_code = PANPHASIA_compute_coefficients_(&xstart, &ystart, &zstart,
+                                                    &xextent, &yextent, &zextent, copy_list, &ncopy,
+                                                    output_values, &flag_output_mode, &verbose)))
   {
 
     printf("Error %d in PANPHASIA_compute_coefficients_ \n", error_code);
@@ -1622,7 +1626,8 @@ void test_cell_moments(char root_descriptor[200], size_t rel_lev, size_t rel_ori
    */
 
   double sum_coefficients[Nbasis];
-  for( size_t i=0; i<Nbasis; ++i ) sum_coefficients[i] = 0.0;
+  for (size_t i = 0; i < Nbasis; ++i)
+    sum_coefficients[i] = 0.0;
   double results[Nbasis];
   size_t num_cells = 0;
 
@@ -1647,15 +1652,15 @@ void test_cell_moments(char root_descriptor[200], size_t rel_lev, size_t rel_ori
 void integrate_cell(int ix, int iy, int iz, size_t xextent, size_t yextent, size_t zextent, FFTW_REAL *output_values, double *results)
 {
 
-/////////////////////////////////////////////////////////////////////////////
-//
-// This function computes the integral over a cell of the product of the
-// Panphasia field with an 'analysing' Legendre polynomial. As the
-// integrand is a polynomial, Gaussian quadrature can be used for
-// integration as it is exact up to rounding error provide p_order
-// is less than 10.
-//
-/////////////////////////////////////////////////////////////////////////////
+  /////////////////////////////////////////////////////////////////////////////
+  //
+  // This function computes the integral over a cell of the product of the
+  // Panphasia field with an 'analysing' Legendre polynomial. As the
+  // integrand is a polynomial, Gaussian quadrature can be used for
+  // integration as it is exact up to rounding error provide p_order
+  // is less than 10.
+  //
+  /////////////////////////////////////////////////////////////////////////////
 
   const double GQ_weights[5] = {0.2955242247147529, 0.2692667193099963,
                                 0.2190863625159820, 0.1494513491505806,
@@ -1695,9 +1700,10 @@ void integrate_cell(int ix, int iy, int iz, size_t xextent, size_t yextent, size
   double range = 0.5 * (b - a);
 
   double sum[Nbasis];
-  for( size_t i=0; i<Nbasis; ++i ) sum[i] = 0.0;
+  for (size_t i = 0; i < Nbasis; ++i)
+    sum[i] = 0.0;
 
-  double test_sum = 0.0;
+  // double test_sum = 0.0;
 
   for (int i = 0; i < 10; i++)
   {
@@ -1840,7 +1846,7 @@ void compute_sph_bessel_coeffs(int nfft, int pmax, int n4dimen, int fdim, double
       int j = (i <= nfft / 2) ? i : i - nfft;
       int k = abs(j);
       double sign = (j < 0) ? pow(-1.0, l) : 1.0;
-      double x = pi*(double)fdim*(double)k/(double)nfft;
+      double x = pi * (double)fdim * (double)k / (double)nfft;
       double result;
       spherical_bessel_(&l, &x, &result);
 
