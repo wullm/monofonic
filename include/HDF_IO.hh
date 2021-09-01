@@ -884,6 +884,178 @@ inline void HDFWriteDatasetVector( const std::string Filename, const std::string
   H5Fclose( HDF_FileID );
 }
 
+template< typename T >
+inline void HDFCreateEmptyDataset( const std::string Filename, const std::string ObjName, const size_t num_particles, const bool filter = false)
+{
+
+  hid_t
+    HDF_FileID,
+    HDF_DatasetID,
+    HDF_DataspaceID,
+    HDF_Type,
+    HDF_Prop;
+
+  hsize_t HDF_Dims;
+
+  HDF_Prop                = H5Pcreate(H5P_DATASET_CREATE);
+
+  if (filter)
+    {
+      // 1MB chunking
+      hsize_t HDF_Dims[1] = {1024 * 1024 / sizeof(T)};
+      H5Pset_chunk(HDF_Prop, 1, HDF_Dims);
+
+      // md5 checksum
+      H5Pset_fletcher32(HDF_Prop);
+    }
+
+  HDF_FileID = H5Fopen( Filename.c_str(), H5F_ACC_RDWR, H5P_DEFAULT );
+
+  HDF_Type                = GetDataType<T>();
+
+  HDF_Dims                = (hsize_t) (num_particles);
+  HDF_DataspaceID         = H5Screate_simple(1, &HDF_Dims, NULL);
+  HDF_DatasetID           = H5Dcreate( HDF_FileID, ObjName.c_str(), HDF_Type,
+                                       HDF_DataspaceID, HDF_Prop );
+  H5Dclose( HDF_DatasetID );
+  H5Sclose( HDF_DataspaceID );
+  H5Pclose( HDF_Prop );
+
+  H5Fclose( HDF_FileID );
+}
+
+template< typename T >
+inline void HDFCreateEmptyDatasetVector( const std::string Filename, const std::string ObjName, const size_t num_particles, const bool filter = false)
+{
+
+    hid_t
+    HDF_FileID,
+    HDF_DatasetID,
+    HDF_DataspaceID,
+    HDF_Type,
+    HDF_Prop;
+
+  hsize_t HDF_Dims[2];
+
+  HDF_Prop                = H5Pcreate(H5P_DATASET_CREATE);
+
+  if (filter)
+    {
+      // ~1MB chunking
+      hsize_t HDF_Dims[2] = {256 * 1024 / sizeof(T), 3};
+      H5Pset_chunk(HDF_Prop, 2, HDF_Dims);
+
+      // md5 checksum
+      H5Pset_fletcher32(HDF_Prop);
+    }
+
+  HDF_FileID = H5Fopen( Filename.c_str(), H5F_ACC_RDWR, H5P_DEFAULT );
+
+  HDF_Type                = GetDataType<T>();
+
+  HDF_Dims[0]             = (hsize_t) (num_particles);
+  HDF_Dims[1]             = (hsize_t) 3;
+  
+  HDF_DataspaceID         = H5Screate_simple(2, HDF_Dims, NULL);
+  HDF_DatasetID           = H5Dcreate( HDF_FileID, ObjName.c_str(), HDF_Type,
+                                       HDF_DataspaceID, HDF_Prop );
+  H5Dclose( HDF_DatasetID );
+  H5Sclose( HDF_DataspaceID );
+  H5Pclose( HDF_Prop );
+
+  H5Fclose( HDF_FileID );
+}
+
+template< typename T >
+inline void HDFWriteDatasetChunk( const std::string Filename, const std::string ObjName, const std::vector<T> &Data, const size_t offset )
+{
+
+  hid_t
+    HDF_FileID,
+    HDF_DatasetID,
+    HDF_MemDataspaceID,
+    HDF_FileDataspaceID,
+    HDF_Type;
+
+  hsize_t HDF_Dims,
+    HDF_Shape,
+    HDF_Offset;
+
+  HDF_FileID = H5Fopen( Filename.c_str(), H5F_ACC_RDWR, H5P_DEFAULT );
+
+  HDF_Type                = GetDataType<T>();
+
+  HDF_Dims                = (hsize_t)Data.size();
+  HDF_MemDataspaceID      = H5Screate_simple(1, &HDF_Dims, NULL);
+
+  HDF_Shape               = (hsize_t)Data.size();
+  HDF_Offset              = (hsize_t)offset;
+
+  HDF_DatasetID           = H5Dopen( HDF_FileID, ObjName.c_str() );
+
+  HDF_FileDataspaceID     = H5Dget_space(HDF_DatasetID);
+
+  H5Sselect_hyperslab(HDF_FileDataspaceID, H5S_SELECT_SET, &HDF_Offset, NULL, &HDF_Shape, NULL);
+  
+  H5Dwrite( HDF_DatasetID, HDF_Type, HDF_MemDataspaceID, HDF_FileDataspaceID, H5P_DEFAULT, &Data[0] );
+
+  H5Dclose( HDF_DatasetID );
+  H5Sclose( HDF_MemDataspaceID );
+  H5Sclose( HDF_FileDataspaceID );
+  H5Fclose( HDF_FileID );
+}
+
+template< typename T >
+inline void HDFWriteDatasetVectorChunk( const std::string Filename, const std::string ObjName, const std::vector<T> &Data, const size_t offset )
+{
+
+  hid_t
+    HDF_FileID,
+    HDF_DatasetID,
+    HDF_MemDataspaceID,
+    HDF_FileDataspaceID,
+    HDF_Type;
+
+  hsize_t HDF_Dims[2],
+    HDF_Shape[2],
+    HDF_Offset[2];
+
+  HDF_FileID = H5Fopen( Filename.c_str(), H5F_ACC_RDWR, H5P_DEFAULT );
+
+  HDF_Type                = GetDataType<T>();
+
+  HDF_Dims[0]             = (hsize_t)(Data.size()/3);
+  HDF_Dims[1]             = 3;
+
+  HDF_MemDataspaceID      = H5Screate_simple(2, HDF_Dims, NULL);
+  
+  if( Data.size() % 3 != 0 ){
+    std::cerr << " - Warning: Trying to write vector data in HDFWriteDatasetVector\n"
+              << "            but array length not divisible by 3!\n\n";
+
+  }
+
+  HDF_Shape[0]            = (hsize_t)(Data.size()/3);
+  HDF_Shape[1]            = (hsize_t)3;
+  HDF_Offset[0]           = (hsize_t)offset;
+  HDF_Offset[1]           = (hsize_t)0;
+  
+  HDF_DatasetID           =  H5Dopen( HDF_FileID, ObjName.c_str() );
+
+  HDF_FileDataspaceID     = H5Dget_space(HDF_DatasetID);
+
+  H5Sselect_hyperslab(HDF_FileDataspaceID, H5S_SELECT_SET, HDF_Offset, NULL, HDF_Shape, NULL);
+
+  H5Dwrite( HDF_DatasetID, HDF_Type, HDF_MemDataspaceID, HDF_FileDataspaceID, H5P_DEFAULT, &Data[0] );
+
+  H5Dclose( HDF_DatasetID );
+  H5Sclose( HDF_MemDataspaceID );
+  H5Sclose( HDF_FileDataspaceID );
+  H5Fclose( HDF_FileID );
+}
+
+
+
 inline void HDFCreateGroup( const std::string Filename, const std::string GroupName )
 {
 	hid_t HDF_FileID, HDF_GroupID;
