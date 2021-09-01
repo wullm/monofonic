@@ -136,15 +136,13 @@ inline void HDFGetDatasetExtent( const std::string Filename, const std::string O
 
   int ndims = H5Sget_simple_extent_ndims( HDF_DataspaceID );
   
-  hsize_t *dimsize = new hsize_t[ndims];
+  std::vector<hsize_t> dimsize(ndims,0);
 
-  H5Sget_simple_extent_dims( HDF_DataspaceID, dimsize, NULL );
+  H5Sget_simple_extent_dims( HDF_DataspaceID, &dimsize[0], NULL );
 
   Extent.clear();
   for(int i=0; i<ndims; ++i )
     Extent.push_back( dimsize[i] );
-
-  delete[] dimsize;
 	
   H5Sclose( HDF_DataspaceID );
   H5Dclose( HDF_DatasetID );
@@ -323,8 +321,8 @@ inline void HDFReadVectorSelect( const std::string Filename, const std::string O
   //... get space associated with dataset and its extensions
   HDF_DataspaceID = H5Dget_space( HDF_DatasetID );
   int ndims = H5Sget_simple_extent_ndims( HDF_DataspaceID );
-  hsize_t dimsize[ndims];
-  H5Sget_simple_extent_dims( HDF_DataspaceID, dimsize, NULL );
+  std::vector<hsize_t> dimsize(ndims,0);
+  H5Sget_simple_extent_dims( HDF_DataspaceID, &dimsize[0], NULL );
 
   hsize_t block[2];
   block[0]  = ii.size();
@@ -601,9 +599,9 @@ inline void HDFReadGroupAttribute( const std::string Filename, const std::string
 
   int ndims = H5Sget_simple_extent_ndims( HDF_DataspaceID );
   
-  hsize_t dimsize[ndims];
+  std::vector<hsize_t> dimsize(ndims,0);
 
-  H5Sget_simple_extent_dims( HDF_DataspaceID, dimsize, NULL );
+  H5Sget_simple_extent_dims( HDF_DataspaceID, &dimsize[0], NULL );
 
   HDF_StorageSize = 1;
   for(int i=0; i<ndims; ++i )

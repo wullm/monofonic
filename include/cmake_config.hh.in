@@ -1,8 +1,10 @@
 #pragma once
 
-constexpr char CMAKE_BUILDTYPE_STR[] = "${CMAKE_BUILD_TYPE}";
 
 #define USE_PRECISION_${CODE_PRECISION}
+
+#ifdef __cplusplus
+constexpr char CMAKE_BUILDTYPE_STR[] = "${CMAKE_BUILD_TYPE}";
 #if defined(USE_PRECISION_FLOAT)
   constexpr char CMAKE_PRECISION_STR[] = "single";
 #elif defined(USE_PRECISION_DOUBLE)
@@ -31,4 +33,6 @@ extern "C"
   extern const char *GIT_TAG;
   extern const char *GIT_REV;
   extern const char *GIT_BRANCH;
+
 }
+#endif // __cplusplus
