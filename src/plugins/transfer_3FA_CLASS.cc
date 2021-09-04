@@ -269,6 +269,10 @@ public:
     if (bCDMBaryonMatterOnly){
         music::ilog << "Using delta_matter = delta_cb." << std::endl;
     }
+    const bool bBackscaledGrowthRate = pcf_->get_value_safe<bool>("setup", "BackscaledGrowthRate", 1 );
+    if (bBackscaledGrowthRate){
+        music::ilog << "Using the back-scaled growth rate for the velocity factor." << std::endl;
+    }
 
     // determine highest k we will need for the resolution selected
     double lbox = pcf_->get_value<double>("setup", "BoxLength");
@@ -317,15 +321,6 @@ public:
     // compute the transfer functions at z=z_min and z=z_plus using CLASS engine
     this->run_ClassEngine(z_min, k, dc_min, tc_min, db_min, tb_min, dn_min, tn_min, dm_min, tm_min);
     this->run_ClassEngine(z_pls, k, dc_pls, tc_pls, db_pls, tb_pls, dn_pls, tn_pls, dm_pls, tm_pls);
-
-    // compute the scale-dependent logarithmic growth rates at z=z_start
-    std::vector<double> gc, gb, gn;
-    for (size_t i = 0; i < k.size(); ++i)
-    {
-      gc.push_back((dc_pls[i] - dc_min[i]) / (2.0 * delta_log_a) / dc[i]);
-      gb.push_back((db_pls[i] - db_min[i]) / (2.0 * delta_log_a) / db[i]);
-      gn.push_back((dn_pls[i] - dn_min[i]) / (2.0 * delta_log_a) / dn[i]);
-    }
 
     // wavenumbers in 1/Mpc
     kmin_ = k[0];
@@ -407,6 +402,26 @@ public:
     const double hstart = 1e-12;
     prepare_fluid_integrator(&m, &us, &tab, tol, hstart);
 
+    // compute the scale-dependent logarithmic growth rates at z=z_start
+    std::vector<double> gc, gb, gn, gcb, gm;
+    for (size_t i = 0; i < k.size(); ++i)
+    {
+      // compute weighted averages
+      double dcb_pls = f_b * db_pls[i] + (1.0 - f_b) * dc_pls[i];
+      double dcb_min = f_b * db_min[i] + (1.0 - f_b) * dc_min[i];
+      double dcb = f_b * db[i] + (1.0 - f_b) * dc[i];
+      double dm_pls = f_nu_nr_0 * dn_pls[i] + (1.0 - f_nu_nr_0) * dcb_pls;
+      double dm_min = f_nu_nr_0 * dn_min[i] + (1.0 - f_nu_nr_0) * dcb_min;
+      double dm = f_nu_nr_0 * dn[i] + (1.0 - f_nu_nr_0) * dcb;
+
+      // store the values for this row
+      gc.push_back((dc_pls[i] - dc_min[i]) / (2.0 * delta_log_a) / dc[i]);
+      gb.push_back((db_pls[i] - db_min[i]) / (2.0 * delta_log_a) / db[i]);
+      gn.push_back((dn_pls[i] - dn_min[i]) / (2.0 * delta_log_a) / dn[i]);
+      gcb.push_back((dcb_pls - dcb_min) / (2.0 * delta_log_a) / dcb);
+      gm.push_back((dm_pls - dm_min) / (2.0 * delta_log_a) / dm);
+    }
+
     // compute the scale-dependent growth factors in the 3-fluid approximation
     std::vector<double> Dc, Db, Dn;
     for (size_t i = 0; i < k.size(); ++i)
@@ -447,12 +462,18 @@ public:
 
         double Dcb = f_b * Db[i] + (1.0 - f_b) * Dc[i];
         double Dm = f_nu_nr_0 * Dn[i] + (1.0 - f_nu_nr_0) * Dcb;
-        double gcb = (f_b * Db[i] * gb[i] + (1.0 - f_b) * Dc[i] * gc[i]) / Dcb;
-        double gm = (f_nu_nr_0 * Dn[i] * gn[i] + (1.0 - f_nu_nr_0) * Dcb * gcb) / Dm;
+        double gcb_i, gm_i;
+        if (bBackscaledGrowthRate) {
+            gcb_i = (f_b * Db[i] * gb[i] + (1.0 - f_b) * Dc[i] * gc[i]) / Dcb;
+            gm_i = (f_nu_nr_0 * Dn[i] * gn[i] + (1.0 - f_nu_nr_0) * Dcb * gcb_i) / Dm;
+        } else {
+            gcb_i = gcb[i];
+            gm_i = gm[i];
+        }
 
         Dm_sum += Dm;
-        gm_sum += gm;
-        gcb_sum += gcb;
+        gm_sum += gm_i;
+        gcb_sum += gcb_i;
         count++;
     }
 
