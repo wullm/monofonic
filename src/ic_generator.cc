@@ -122,7 +122,7 @@ int run( config_file& the_config )
     const bool bDoNeutrinoPhi2Corr = the_config.get_value_safe<bool>("setup", "DoNeutrinoPhi2Corr", bWithNeutrinos );
 
     //! correct for the difference between delta_matter and theta_matter on large scales
-    const bool bDoDensityVelocityCorr = the_config.get_value_safe<bool>("setup", "DoDensityVelocityCorr", bWithNeutrinos );
+    const bool bDoDensityVelocityCorr = the_config.get_value_safe<bool>("setup", "DoDensityVelocityCorr", false );
 
     if (bExcludeNeutrinos && (!bCDMBaryonMatterOnly || !bDoNeutrinoPhi2Corr)) {
         music::wlog << " ExcludeNeutrinos enabled, but not the 1st and 2nd order neutrino corrections." << std::endl;
