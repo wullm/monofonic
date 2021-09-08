@@ -447,4 +447,32 @@ void output_convergence(
     // psi_3.Write_to_HDF5(convergence_test_filename, "psi_3_norm");
 }
 
+void output_white_noise(
+    config_file &the_config,
+    size_t ngrid, real_t boxlen,
+    Grid_FFT<real_t> &wnoise)
+{
+    const std::string fname_hdf5 = the_config.get_value_safe<std::string>("output", "fname_hdf5", "output.hdf5");
+    const std::string fname_analysis = the_config.get_value_safe<std::string>("output", "fbase_analysis", "output");
+
+    Grid_FFT<real_t> real_wn({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
+    real_wn.FourierTransformForward(false);
+    real_wn.assign_function_of_grids_kdep([&](auto k, auto wnoise) {
+        return wnoise;
+    }, wnoise);
+
+    real_wn.Write_PowerSpectrum(fname_analysis + "_" + "power_white_noise.txt");
+    real_wn.FourierTransformBackward();
+
+#if defined(USE_MPI)
+    if (CONFIG::MPI_task_rank == 0)
+        unlink(fname_hdf5.c_str());
+    MPI_Barrier(MPI_COMM_WORLD);
+#else
+    unlink(fname_hdf5.c_str());
+#endif
+
+    real_wn.Write_to_HDF5(fname_hdf5, "white_noise");
+}
+
 } // namespace testing

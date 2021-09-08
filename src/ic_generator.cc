@@ -499,6 +499,9 @@ int run( config_file& the_config )
         else if (testing == "convergence"){
             testing::output_convergence(the_config, the_cosmo_calc.get(), ngrid, boxlen, vfac, Dplus0, phi, phi2, phi3, A3);
         }
+        else if (testing == "white_noise"){
+            testing::output_white_noise(the_config, ngrid, boxlen, wnoise);
+        }
         else{
             music::flog << "unknown test '" << testing << "'" << std::endl;
             std::abort();

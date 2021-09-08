@@ -48,4 +48,9 @@ namespace testing{
         Grid_FFT<real_t> &phi2,
         Grid_FFT<real_t> &phi3,
         std::array<Grid_FFT<real_t> *, 3> &A3);
+
+    void output_white_noise(
+        config_file& the_config,
+        size_t ngrid, real_t boxlen,
+        Grid_FFT<real_t>& wn );
 }
