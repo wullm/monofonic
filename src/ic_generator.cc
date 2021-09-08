@@ -487,14 +487,7 @@ int run( config_file& the_config )
         music::ilog << std::endl;
         music::ilog << "Rescaling phi(2) by " << Phi2RescaleFact << std::endl;
 
-        phi2.FourierTransformBackward();
-        for (size_t i = 0; i < ngrid; i++) {
-            for (size_t j = 0; j < ngrid; j++) {
-                for (size_t k = 0; k < ngrid; k++) {
-                    phi2.relem(i,j,k) *= Phi2RescaleFact;
-                }
-            }
-        }
+        phi2 *= Phi2RescaleFact;
     }
 
     music::ilog << "-------------------------------------------------------------------------------" << std::endl;
