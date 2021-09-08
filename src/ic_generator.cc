@@ -111,6 +111,38 @@ int run( config_file& the_config )
         Omega[cosmo_species::baryon] = 0.0;
     }
 
+    //! master switch to activate the following neutrino corrections by default
+    const bool bWithNeutrinos = the_config.get_value_safe<bool>("setup", "WithNeutrinos", false );
+
+    //! do not include massive neutrinos in the cdm fluid (use Omega_cdm not Omega_cdm + Omega_nu_massive)
+    const bool bExcludeNeutrinos = the_config.get_value_safe<bool>("setup", "ExcludeNeutrinos", bWithNeutrinos );
+    //! option to exclude massive neutrinos from delta_matter
+    const bool bCDMBaryonMatterOnly = the_config.get_value_safe<bool>("setup", "CDMBaryonMatterOnly", bWithNeutrinos );
+    //! option to do the second order neutrino correction
+    const bool bDoNeutrinoPhi2Corr = the_config.get_value_safe<bool>("setup", "DoNeutrinoPhi2Corr", bWithNeutrinos );
+
+    //! correct for the difference between delta_matter and theta_matter on large scales
+    const bool bDoDensityVelocityCorr = the_config.get_value_safe<bool>("setup", "DoDensityVelocityCorr", bWithNeutrinos );
+
+    if (bExcludeNeutrinos && (!bCDMBaryonMatterOnly || !bDoNeutrinoPhi2Corr)) {
+        music::wlog << " ExcludeNeutrinos enabled, but not the 1st and 2nd order neutrino corrections." << std::endl;
+    }
+    //! which transfer function plugin was used
+    std::string tf = the_config.get_value<std::string>("cosmology", "transfer");
+    if (bWithNeutrinos && tf != "3FA_CLASS") {
+        music::wlog << " Neutrino corrections enabled. It is recommended to use the 3FA_CLASS" << std::endl;
+        music::wlog << " transfer function plugin for correct scale-dependent growth factors." << std::endl;
+    }
+    if (bCDMBaryonMatterOnly && tf != "3FA_CLASS") {
+        throw std::runtime_error("CDMBaryonMatterOnly is only supported with the 3FA_CLASS transfer function plugin.");
+    }
+
+    //! if necessary, subtract the massive neutrino density
+    if (bExcludeNeutrinos) {
+        double Onu = the_cosmo_calc->cosmo_param_["Omega_nu_massive"];
+        Omega[cosmo_species::dm] -= Onu;
+    }
+
     //--------------------------------------------------------------------------------------------------------
     //! do constrained ICs?
     const bool bAddConstrainedModes =  the_config.contains_key("random", "ConstraintFieldFile" );
@@ -162,7 +194,9 @@ int run( config_file& the_config )
     // Compute LPT time coefficients
     //--------------------------------------------------------------------
     const real_t Dplus0 = the_cosmo_calc->get_growth_factor(astart);
-    const real_t vfac   = the_cosmo_calc->get_vfact(astart);
+    const real_t vfac   = the_cosmo_calc->get_vfact_start();
+
+    music::ilog << "Using D+ = " << Dplus0 << ", vfac = " << vfac << std::endl;
 
     const real_t g1  = -Dplus0;
     const real_t g2  = ((LPTorder>1)? -3.0/7.0*Dplus0*Dplus0 : 0.0);
@@ -492,7 +526,22 @@ int run( config_file& the_config )
         music::ilog << std::endl
                     << ">>> Computing ICs for species \'" << cosmo_species_name[this_species] << "\' <<<\n" << std::endl;
 
-        const real_t C_species = (this_species == cosmo_species::baryon)? (1.0-the_cosmo_calc->cosmo_param_["f_b"]) : -the_cosmo_calc->cosmo_param_["f_b"];
+        // total matter density at z=0, including massive neutrinos
+        const real_t O_m = the_cosmo_calc->cosmo_param_["Omega_m"];
+
+        // baryon and cdm fractions of the total matter density (z=0)
+        const real_t f_b = the_cosmo_calc->cosmo_param_["Omega_b"] / O_m;
+        const real_t f_c = the_cosmo_calc->cosmo_param_["Omega_c"] / O_m;
+
+        // C factor for baryons and cdm
+        real_t C_species;
+        if (bDoBaryons && bExcludeNeutrinos){
+            C_species = (this_species == cosmo_species::baryon)? (1.0-f_b / (f_b + f_c)) : -f_b / (f_b + f_c);
+        }else if (bDoBaryons && !bExcludeNeutrinos){
+            C_species = (this_species == cosmo_species::baryon)? (1.0-f_b) : -f_b;
+        }else{
+            C_species = 0.;
+        }
 
         // main loop block
         {
@@ -776,6 +825,12 @@ int run( config_file& the_config )
                                 if( bDoBaryons & bDoLinearBCcorr ){
                                     real_t knorm = wnoise.get_k<real_t>(i,j,k).norm();
                                     tmp.kelem(idx) -= vfac1 * C_species * the_cosmo_calc->get_amplitude_theta_bc(knorm, bDoLinearBCcorr) * wnoise.kelem(i,j,k) * lg.gradient(idim,tmp.get_k3(i,j,k)) / (knorm*knorm);
+                                }
+
+                                // option to account for the difference between delta_m and theta_m / (afH) on large scales
+                                if (bDoDensityVelocityCorr) {
+                                    real_t knorm = wnoise.get_k<real_t>(i,j,k).norm();
+                                    tmp.kelem(idx) += vfac1 * the_cosmo_calc->get_amplitude_theta_delta_m(knorm, bCDMBaryonMatterOnly) * wnoise.kelem(i,j,k) * lg.gradient(idim,tmp.get_k3(i,j,k)) / (knorm*knorm);
                                 }
 
                                 // correct with interpolation kernel if we used interpolation to read out the positions (for glasses)

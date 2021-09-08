@@ -54,6 +54,7 @@ private:
     static constexpr double REL_PRECISION = 1e-10;
     interpolated_function_1d<true,true,false> D_of_a_, f_of_a_, a_of_D_;
     double Dnow_, Dplus_start_, Dplus_target_, astart_, atarget_;
+    double vfac_start_;
 
     double m_n_s_, m_sqrtpnorm_;
 
@@ -182,13 +183,26 @@ public:
         transfer_function_ = std::move(select_TransferFunction_plugin(cf, cosmo_param_));
         transfer_function_->intialise();
         if( !transfer_function_->tf_isnormalised_ ){
-            cosmo_param_.set("pnorm", this->compute_pnorm_from_sigma8() );
+            if (cosmo_param_["A_s"] > -1.) {
+                cosmo_param_.set("pnorm", this->compute_pnorm_from_As());
+                music::ilog << "Computed normalisation from A_s = " <<  cosmo_param_["A_s"] << std::endl;
+            }else{
+                cosmo_param_.set("pnorm", this->compute_pnorm_from_sigma8());
+                music::ilog << "Computed normalisation from sigma_8 = " <<  cosmo_param_["sigma_8"] << std::endl;
+            }
         }else{
             cosmo_param_.set("pnorm", 1.0/Dplus_target_/Dplus_target_);
             auto sigma8 = this->compute_sigma8();
             music::ilog << "Measured sigma_8 for given PS normalisation is " <<  sigma8 << std::endl;
         }
         cosmo_param_.set("sqrtpnorm", std::sqrt(cosmo_param_["pnorm"]));
+
+        // fetch the conversion factor from displacements to velocities
+        if (transfer_function_->tf_has_asymptotic_growth_factors()) {
+            vfac_start_ = transfer_function_->get_vfac_asymptotic();
+        } else {
+            vfac_start_ = get_vfact( astart_ );
+        }
 
         music::ilog << std::setw(32) << std::left << "TF supports distinct CDM+baryons"
                     << " : " << (transfer_function_->tf_is_distinct() ? "yes" : "no") << std::endl;
@@ -340,6 +354,17 @@ public:
         return f_of_a_(a) * a * H_of_a(a) / cosmo_param_["h"];
     }
 
+    //! Return the factor relating particle displacement and velocity at a_start
+    /*! This method is necessary in cases where the transfer function module
+     *  returns a more accurate value than the approximate method get_vfact(a).
+     *  The quantity is defined as
+     *  vfac = a * (H(a)/h) * dlogD+ / dlog a
+     */
+    real_t get_vfact_start() const noexcept
+    {
+        return vfac_start_;
+    }
+
     //! Integrand for the sigma_8 normalization of the power spectrum
     /*! Returns the value of the primordial power spectrum multiplied with 
      the transfer function and the window function of 8 Mpc/h at wave number k */
@@ -403,6 +428,33 @@ public:
         return withvbc ? std::pow(k, 0.5 * m_n_s_) * tbc * (m_sqrtpnorm_ * Dplus_target_) : 0.0;
     }
 
+    //! Compute amplitude of the difference theta_m - delta_m (either with or without massive neutrinos)
+    inline real_t get_amplitude_theta_delta_m( const real_t k, const bool bCDMBaryonMatterOnly ) const
+    {
+        const real_t Dratio = Dplus_target_ / Dplus_start_;
+        const real_t O_b = cosmo_param_["Omega_b"];
+        const real_t O_c = cosmo_param_["Omega_c"];
+        const real_t O_nu = cosmo_param_["Omega_nu_massive"];
+        const real_t t_b = transfer_function_->compute(k, theta_baryon);
+        const real_t t_c = transfer_function_->compute(k, theta_cdm);
+        const real_t t_nu = transfer_function_->compute(k, theta_nu);
+        const real_t d_b = transfer_function_->compute(k, delta_baryon);
+        const real_t d_c = transfer_function_->compute(k, delta_cdm);
+        const real_t d_nu = transfer_function_->compute(k, delta_nu);
+
+        real_t t_m, d_m;
+        if (bCDMBaryonMatterOnly) {
+            t_m = (O_b * t_b + O_c * t_c) / (O_b + O_c);
+            d_m = (O_b * d_b + O_c * d_c) / (O_b + O_c);
+        } else {
+            t_m = (O_b * t_b + O_c * t_c + O_nu * t_nu) / (O_b + O_c + O_nu);
+            d_m = (O_b * d_b + O_c * d_c + O_nu * d_nu) / (O_b + O_c + O_nu);
+        }
+
+        const real_t td_m = (t_m - d_m) / Dratio;
+        // need to multiply with Dplus_target since sqrtpnorm rescales like that
+        return std::pow(k, 0.5 * m_n_s_) * td_m * (m_sqrtpnorm_ * Dplus_target_);
+    }
 
     //! Computes the normalization for the power spectrum
     /*!
@@ -433,6 +485,17 @@ public:
     {
         auto measured_sigma8 = this->compute_sigma8();
         return cosmo_param_["sigma_8"] * cosmo_param_["sigma_8"] / (measured_sigma8  * measured_sigma8);
+    }
+
+    //! Computes the normalization for the power spectrum
+    /*!
+     * uses the scalar amplitude at the pivot scale; note that the
+     * pivot scale is in 1/Mpc
+     */
+    real_t compute_pnorm_from_As(void)
+    {
+        real_t h = cosmo_param_["h"];
+        return cosmo_param_["A_s"] * std::pow(cosmo_param_["k_p"] / h, 1.0 - cosmo_param_["n_s"]) * (h*h*h*h) / (4 * M_PI * Dplus_target_ * Dplus_target_);
     }
 };
 

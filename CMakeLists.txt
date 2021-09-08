@@ -137,6 +137,11 @@ mark_as_advanced(pkgcfg_lib_GSL_gsl pkgcfg_lib_GSL_gslcblas pkgcfg_lib_GSL_m)
 find_package(HDF5 REQUIRED)
 mark_as_advanced(HDF5_C_LIBRARY_dl HDF5_C_LIBRARY_hdf5 HDF5_C_LIBRARY_m HDF5_C_LIBRARY_pthread HDF5_C_LIBRARY_z HDF5_C_LIBRARY_sz)
 
+
+########################################################################################################################
+# 3FA
+option(ENABLE_3FA "Enable 3FA 3-fluid approximation model" ON)
+
 ########################################################################################################################
 # PANPHASIA
 option(ENABLE_PANPHASIA "Enable PANPHASIA random number generator" ON)
@@ -261,6 +266,14 @@ if(ENABLE_CLASS)
   include(${CMAKE_CURRENT_SOURCE_DIR}/external/class.cmake)
   target_link_libraries(${PRGNAME} PRIVATE class::libclass_cpp)
   target_compile_definitions(${PRGNAME} PRIVATE "USE_CLASS")
+endif()
+
+########################################################################################################################
+# include 3FA
+if(ENABLE_3FA)
+  include(${CMAKE_CURRENT_SOURCE_DIR}/external/3fa.cmake)
+  target_link_libraries(${PRGNAME} PRIVATE 3fa::lib3fa)
+  target_compile_definitions(${PRGNAME} PRIVATE "USE_3FA")
 endif()
 
 ########################################################################################################################
