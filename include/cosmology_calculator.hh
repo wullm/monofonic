@@ -176,6 +176,8 @@ public:
 
         Dplus_start_  = D_of_a_( astart_ ) / Dnow_;
         Dplus_target_ = D_of_a_( atarget_ ) / Dnow_;
+        cosmo_param_.set("dplus_start", Dplus_start_);
+        cosmo_param_.set("dplus_target", Dplus_target_);
 
         music::ilog << "Linear growth factors: D+_target = " << Dplus_target_ << ", D+_start = " << Dplus_start_ << std::endl;
 

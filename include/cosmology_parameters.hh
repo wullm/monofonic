@@ -193,6 +193,8 @@ namespace cosmology
             pmap_["pnorm"] = 0.0;
             pmap_["sqrtpnorm"] = 0.0;
             pmap_["vfact"] = 0.0;
+            pmap_["dplus_start"] = 0.0;
+            pmap_["dplus_target"] = 0.0;
 
             music::ilog << "Cosmological parameters are: " << std::endl;
             music::ilog << " h        = " << std::setw(16) << this->get("h");

@@ -448,9 +448,8 @@ public:
     wtime = get_wtime() - wtime;
     music::ilog << "3FA took " << wtime << " s." << std::endl;
 
-    // determine the asymptotic total matter growth rate and factor by averaging
-    // over small scales modes (k > 1/Mpc)
-    double Dm_sum = 0.;
+    // determine the asymptotic growth rate by averaging over small scales
+    // modes (k > 1/Mpc)
     double gm_sum = 0.;
     double gcb_sum = 0.;
     int count = 0;
@@ -458,17 +457,11 @@ public:
     {
         if (k[i] < 1.0) continue; //ignore large scales
 
-        double Dcb = f_b * Db[i] + (1.0 - f_b) * Dc[i];
-        double Dm = f_nu_nr_0 * Dn[i] + (1.0 - f_nu_nr_0) * Dcb;
-
-        Dm_sum += Dm;
         gm_sum += gm[i];
         gcb_sum += gcb[i];
         count++;
     }
 
-
-    Dm_asymptotic_ = Dm_sum / count;
     fm_asymptotic_ = gm_sum / count;
     fcb_asymptotic_ = gcb_sum / count;
 
@@ -479,6 +472,12 @@ public:
         vfac_asymptotic_ *= fm_asymptotic_;
     }
 
+    // The growth factor ratio as computed by monofonIC. This isn't correct
+    // for massive neutrino cosmologies, but we scale forward by this factor
+    // here and then scale back by the same factor in ic_generator.cc. Hence,
+    // it drops out of the equation.
+    double D_scale_forward = cosmo_params_.get("dplus_start") / cosmo_params_.get("dplus_target");
+
     // now scale forward with the asymptotic growth factor, as assumed in the ic generator
     for (size_t i = 0; i < k.size(); ++i)
     {
@@ -488,13 +487,13 @@ public:
         db[i] = db_target[i] * Db[i];
         dn[i] = dn_target[i] * Dn[i];
 
-        // scale all transfer functions forward with the total asymptotic factor
-        dc[i] /= Dm_asymptotic_;
-        db[i] /= Dm_asymptotic_;
-        dn[i] /= Dm_asymptotic_;
-        tc[i] /= Dm_asymptotic_;
-        tb[i] /= Dm_asymptotic_;
-        tn[i] /= Dm_asymptotic_;
+        // scale all transfer functions forward with a scale-independent factor
+        dc[i] /= D_scale_forward;
+        db[i] /= D_scale_forward;
+        dn[i] /= D_scale_forward;
+        tc[i] /= D_scale_forward;
+        tb[i] /= D_scale_forward;
+        tn[i] /= D_scale_forward;
 
         // mass-weighted cdm+baryon density and velocity transfer functions
         double dcb, tcb;
@@ -538,7 +537,6 @@ public:
     theta_n_.set_data(k, tn);
     theta_m_.set_data(k, tm);
 
-    music::ilog << "Asymptotic Dm_start = " << Dm_asymptotic_ << " * Dm_target" << std::endl;
     music::ilog << "Asymptotic fm_start = " << fm_asymptotic_ << std::endl;
     music::ilog << "Asymptotic fcb_start = " << fcb_asymptotic_ << std::endl;
     music::ilog << "Asymptotic vfac = " << vfac_asymptotic_ << " km/s/Mpc at a_start" << std::endl;
