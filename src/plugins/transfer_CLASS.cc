@@ -201,6 +201,11 @@ public:
   explicit transfer_CLASS_plugin(config_file &cf, const cosmology::parameters& cosmo_params)
       : TransferFunction_plugin(cf,cosmo_params)
   {
+    // Throw an error if there are no massive neutrinos (since ClassEngine produces undefined behaviour in that case)
+    if (cosmo_params_.get("N_nu_massive") <= 0)
+    {
+        throw std::runtime_error("Running without massive neutrinos, which is not supported by ClassEngine.");
+    }
     this->tf_isnormalised_ = true;
 
     ofs_class_input_.open("input_class_parameters.ini", std::ios::trunc);

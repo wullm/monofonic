@@ -235,10 +235,10 @@ public:
     {
         throw std::runtime_error("Using ZeroRadiation=true for simplified backscaling, in which case 3FA is not needed.");
     }
-    // Throw an error if there are no massive neutrinos
+    // Throw an error if there are no massive neutrinos (since ClassEngine produces undefined behaviour in that case)
     if (cosmo_params_.get("N_nu_massive") <= 0)
     {
-        throw std::runtime_error("Running without massive neutrinos, in which case 3FA is not needed.");
+        throw std::runtime_error("Running without massive neutrinos, which is not supported by ClassEngine.");
     }
 
     this->tf_isnormalised_ = true;
@@ -264,14 +264,12 @@ public:
       music::ilog << "CLASS: Using sigma8_ =" << sigma8<< " to normalise the transfer function." << std::endl;
     }
 
+    //! master switch for neutrino options
+    const bool bWithNeutrinos = pcf_->get_value_safe<bool>("setup", "WithNeutrinos", false );
     //! option to exclude massive neutrinos from delta_matter
-    const bool bCDMBaryonMatterOnly = pcf_->get_value_safe<bool>("setup", "CDMBaryonMatterOnly", 0 );
+    const bool bCDMBaryonMatterOnly = pcf_->get_value_safe<bool>("setup", "CDMBaryonMatterOnly", bWithNeutrinos );
     if (bCDMBaryonMatterOnly){
         music::ilog << "Using delta_matter = delta_cb." << std::endl;
-    }
-    const bool bBackscaledGrowthRate = pcf_->get_value_safe<bool>("setup", "BackscaledGrowthRate", 1 );
-    if (bBackscaledGrowthRate){
-        music::ilog << "Using the back-scaled growth rate for the velocity factor." << std::endl;
     }
 
     // determine highest k we will need for the resolution selected
@@ -462,18 +460,10 @@ public:
 
         double Dcb = f_b * Db[i] + (1.0 - f_b) * Dc[i];
         double Dm = f_nu_nr_0 * Dn[i] + (1.0 - f_nu_nr_0) * Dcb;
-        double gcb_i, gm_i;
-        if (bBackscaledGrowthRate) {
-            gcb_i = (f_b * Db[i] * gb[i] + (1.0 - f_b) * Dc[i] * gc[i]) / Dcb;
-            gm_i = (f_nu_nr_0 * Dn[i] * gn[i] + (1.0 - f_nu_nr_0) * Dcb * gcb_i) / Dm;
-        } else {
-            gcb_i = gcb[i];
-            gm_i = gm[i];
-        }
 
         Dm_sum += Dm;
-        gm_sum += gm_i;
-        gcb_sum += gcb_i;
+        gm_sum += gm[i];
+        gcb_sum += gcb[i];
         count++;
     }
 
@@ -482,9 +472,11 @@ public:
     fm_asymptotic_ = gm_sum / count;
     fcb_asymptotic_ = gcb_sum / count;
 
-    vfac_asymptotic_ = astart_ * H_start * H_units * fm_asymptotic_ / cosmo_params_.get("h");
+    vfac_asymptotic_ = astart_ * H_start * H_units / cosmo_params_.get("h");
     if (bCDMBaryonMatterOnly){
-        vfac_asymptotic_ *= fcb_asymptotic_ / fm_asymptotic_;
+        vfac_asymptotic_ *= fcb_asymptotic_;
+    } else {
+        vfac_asymptotic_ *= fm_asymptotic_;
     }
 
     // now scale forward with the asymptotic growth factor, as assumed in the ic generator
@@ -510,8 +502,6 @@ public:
         // compute the mass-weighted average
         dcb = f_b * db[i] + (1.0 - f_b) * dc[i];
         tcb = f_b * tb[i] + (1.0 - f_b) * tc[i];
-        
-        printf("%g %g\n", k[i], dcb);
 
         if (bCDMBaryonMatterOnly) {
             dm[i] = dcb;
