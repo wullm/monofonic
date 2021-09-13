@@ -1,0 +1,33 @@
+#!/bin/bash -l
+
+#SBATCH --ntasks 5
+#SBATCH -J Test_MPI_FFTW
+#SBATCH -o standard_output_file.%J.out
+#SBATCH -e standard_error_file.%J.err
+#SBATCH -p cosma7
+#SBATCH -A dp004
+#SBATCH --exclusive
+#SBATCH -t 00:05:00
+#SBATCH --mail-type=END    # notifications for job
+#SBATCH --mail-user=a.r.jenkins@durham.ac.uk
+
+module purge
+module load intel_comp/2018 intel_mpi/2018 fftw/3.3.9cosma7 gsl/2.5 hdf5/1.8.20
+
+
+# Run the program
+
+
+
+mpirun -l -env I_MPI_PIN=1 -env I_MPI_PIN_PROCESSOR_LIST=allcores -n $SLURM_NTASKS ./pan_fftw3_test_code.x  
+
+
+
+
+
+
+
+
+
+
+
