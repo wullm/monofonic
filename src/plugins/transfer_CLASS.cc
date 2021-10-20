@@ -100,6 +100,12 @@ private:
       if( cosmo_params_.get("m_nu2") > 1e-9 ) sstr << ", " << cosmo_params_.get("m_nu2");
       if( cosmo_params_.get("m_nu3") > 1e-9 ) sstr << ", " << cosmo_params_.get("m_nu3");
       add_class_parameter("m_ncdm", sstr.str().c_str());
+
+      std::stringstream sstr2;
+      if( cosmo_params_.get("deg_nu1") > 1e-9 ) sstr2 << cosmo_params_.get("deg_nu1");
+      if( cosmo_params_.get("deg_nu2") > 1e-9 ) sstr2 << ", " << cosmo_params_.get("deg_nu2");
+      if( cosmo_params_.get("deg_nu3") > 1e-9 ) sstr2 << ", " << cosmo_params_.get("deg_nu3");
+      add_class_parameter("deg_ncdm", sstr2.str().c_str());
     }
     
     // change above to enable

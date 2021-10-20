@@ -101,6 +101,12 @@ private:
       if( cosmo_params_.get("m_nu2") > 1e-9 ) sstr << ", " << cosmo_params_.get("m_nu2");
       if( cosmo_params_.get("m_nu3") > 1e-9 ) sstr << ", " << cosmo_params_.get("m_nu3");
       add_class_parameter("m_ncdm", sstr.str().c_str());
+
+      std::stringstream sstr2;
+      if( cosmo_params_.get("m_nu1") > 1e-9 ) sstr2 << cosmo_params_.get("deg_nu1");
+      if( cosmo_params_.get("m_nu2") > 1e-9 ) sstr2 << ", " << cosmo_params_.get("deg_nu2");
+      if( cosmo_params_.get("m_nu3") > 1e-9 ) sstr2 << ", " << cosmo_params_.get("deg_nu3");
+      add_class_parameter("deg_ncdm", sstr2.str().c_str());
     }
 
     //--- cosmological parameters, primordial -------------------------
@@ -336,15 +342,15 @@ public:
     if( cosmo_params_.get("N_nu_massive") > 0 ){
         if( cosmo_params_.get("m_nu1") > 1e-9 ) {
             M_nu.push_back(cosmo_params_.get("m_nu1"));
-            deg_nu.push_back(1.0);
+            deg_nu.push_back(cosmo_params_.get("m_nu1"));
         }
         if( cosmo_params_.get("m_nu2") > 1e-9 ) {
             M_nu.push_back(cosmo_params_.get("m_nu2"));
-            deg_nu.push_back(1.0);
+            deg_nu.push_back(cosmo_params_.get("deg_nu2"));
         }
         if( cosmo_params_.get("m_nu1") > 1e-9 ) {
             M_nu.push_back(cosmo_params_.get("m_nu3"));
-            deg_nu.push_back(1.0);
+            deg_nu.push_back(cosmo_params_.get("deg_nu3"));
         }
     }
 

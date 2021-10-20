@@ -114,7 +114,10 @@ namespace cosmology
                 pmap_["m_nu1"] = cf.get_value_safe<double>("cosmology", "m_nu1", defaultp["m_nu1"]);
                 pmap_["m_nu2"] = cf.get_value_safe<double>("cosmology", "m_nu2", defaultp["m_nu2"]);
                 pmap_["m_nu3"] = cf.get_value_safe<double>("cosmology", "m_nu3", defaultp["m_nu3"]);
-                int N_nu_massive = int(this->get("m_nu1") > 1e-9) + int(this->get("m_nu2") > 1e-9) + int(this->get("m_nu3") > 1e-9);;
+                pmap_["deg_nu1"] = cf.get_value_safe<double>("cosmology", "deg_nu1", 1.0);
+                pmap_["deg_nu2"] = cf.get_value_safe<double>("cosmology", "deg_nu2", 1.0);
+                pmap_["deg_nu3"] = cf.get_value_safe<double>("cosmology", "deg_nu3", 1.0);
+                int N_nu_massive = int(this->get("m_nu1") > 1e-9)  + int(this->get("m_nu2") > 1e-9) + int(this->get("m_nu3") > 1e-9);;
                 
                 // number ultrarelativistic neutrinos
                 pmap_["N_ur"] = cf.get_value_safe<double>("cosmology", "N_ur", 3.046 - N_nu_massive);
@@ -156,7 +159,7 @@ namespace cosmology
 
             // massive neutrinos
             pmap_["N_nu_massive"] = int(this->get("m_nu1") > 1e-9) + int(this->get("m_nu2") > 1e-9) + int(this->get("m_nu3") > 1e-9);
-            const double sum_m_nu = this->get("m_nu1") + this->get("m_nu2") + this->get("m_nu3");
+            const double sum_m_nu = this->get("m_nu1") * this->get("deg_nu1") + this->get("m_nu2") * this->get("deg_nu2") + this->get("m_nu3") * this->get("deg_nu3");
             pmap_["Omega_nu_massive"] = sum_m_nu / (93.14 * h * h); // Omega_nu_m = \sum_i m_i / (93.14 eV h^2)
 
             // calculate energy density in ultrarelativistic species from Tcmb and Neff
