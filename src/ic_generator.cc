@@ -120,12 +120,14 @@ int run( config_file& the_config )
     const bool bCDMBaryonMatterOnly = the_config.get_value_safe<bool>("setup", "CDMBaryonMatterOnly", bWithNeutrinos );
     //! option to do the second order neutrino correction
     const bool bDoNeutrinoPhi2Corr = the_config.get_value_safe<bool>("setup", "DoNeutrinoPhi2Corr", bWithNeutrinos );
+    //! option to do the third order neutrino correction
+    const bool bDoNeutrinoPhi3Corr = the_config.get_value_safe<bool>("setup", "DoNeutrinoPhi3Corr", bWithNeutrinos );
 
     //! correct for the difference between delta_matter and theta_matter on large scales
     const bool bDoDensityVelocityCorr = the_config.get_value_safe<bool>("setup", "DoDensityVelocityCorr", false );
 
-    if (bExcludeNeutrinos && (!bCDMBaryonMatterOnly || !bDoNeutrinoPhi2Corr)) {
-        music::wlog << " ExcludeNeutrinos enabled, but not the 1st and 2nd order neutrino corrections." << std::endl;
+    if (bExcludeNeutrinos && (!bCDMBaryonMatterOnly || (LPTorder > 1 && !bDoNeutrinoPhi2Corr) || (LPTorder > 2 && !bDoNeutrinoPhi3Corr))) {
+        music::wlog << " ExcludeNeutrinos enabled, but not the 1st/2nd/3rd order neutrino corrections." << std::endl;
     }
     //! which transfer function plugin was used
     std::string tf = the_config.get_value<std::string>("cosmology", "transfer");
@@ -409,6 +411,17 @@ int run( config_file& the_config )
         }
     }
 
+    //! analytical neutrino correction factor for phi2
+    if (LPTorder > 1 && bDoNeutrinoPhi2Corr) {
+        const real_t O_m = the_cosmo_calc->cosmo_param_["Omega_m"];
+        const real_t f_nu = the_cosmo_calc->cosmo_param_["Omega_nu_massive"] / O_m;
+        const real_t Phi2RescaleFact = 14 * (1 - f_nu) / (19 - 18 * f_nu - sqrt(25 - 24 * f_nu));
+
+        music::ilog << "Rescaling phi(2) by " << Phi2RescaleFact << std::endl;
+
+        phi2 *= Phi2RescaleFact;
+    }
+
     //======================================================================
     //... compute 3LPT displacement potential
     //======================================================================
@@ -462,6 +475,17 @@ int run( config_file& the_config )
         music::ilog << std::setw(20) << std::setfill(' ') << std::right << "took " << get_wtime() - wtime << "s" << std::endl;
     }
 
+    //! analytical neutrino correction factor for phi3a and phi3b
+    if (LPTorder > 2 && bDoNeutrinoPhi3Corr) {
+        const real_t O_m = the_cosmo_calc->cosmo_param_["Omega_m"];
+        const real_t f_nu = the_cosmo_calc->cosmo_param_["Omega_nu_massive"] / O_m;
+        const real_t Phi3RescaleFact = 12 * (1 - f_nu) / (17 - 16 * f_nu - sqrt(25 - 24 * f_nu));
+
+        music::ilog << "Rescaling phi(3a) and phi(3b) by " << Phi3RescaleFact << std::endl;
+
+        phi3 *= Phi3RescaleFact;
+    }
+
     ///... scale all potentials with respective growth factors
     phi *= g1;
 
@@ -476,18 +500,6 @@ int run( config_file& the_config )
         (*A3[0]) *= g3c;
         (*A3[1]) *= g3c;
         (*A3[2]) *= g3c;
-    }
-    
-    //! analytical rescaling factor for phi2
-    if (bDoNeutrinoPhi2Corr && LPTorder > 1) {
-        const real_t O_m = the_cosmo_calc->cosmo_param_["Omega_m"];
-        const real_t f_nu = the_cosmo_calc->cosmo_param_["Omega_nu_massive"] / O_m;
-        const real_t Phi2RescaleFact = 14 * (1 - f_nu) / (19 - 18 * f_nu - sqrt(25 - 24 * f_nu));
-
-        music::ilog << std::endl;
-        music::ilog << "Rescaling phi(2) by " << Phi2RescaleFact << std::endl;
-
-        phi2 *= Phi2RescaleFact;
     }
 
     music::ilog << "-------------------------------------------------------------------------------" << std::endl;
