@@ -127,18 +127,15 @@ int run( config_file& the_config )
     //! option to import a grid and add it on top of the second order potential calculated internally
     const bool bImportPhi2 = the_config.get_value_safe<bool>("setup", "ImportPhi2", 0 );
     //! option to do the second order neutrino correction
-    const bool bDoNeutrinoPhi2Corr = the_config.get_value_safe<bool>("setup", "DoNeutrinoPhi2Corr", 0 );
+    const bool bDoNeutrinoPhi2Corr = the_config.get_value_safe<bool>("setup", "DoNeutrinoPhi2Corr", bWithNeutrinos );
     //! option to do the third order neutrino correction
-    const bool bDoNeutrinoPhi3Corr = the_config.get_value_safe<bool>("setup", "DoNeutrinoPhi3Corr", 0 );
-    //! option to do the third order vector neutrino correction
-    const bool bDoNeutrinoA3Corr = the_config.get_value_safe<bool>("setup", "DoNeutrinoA3Corr", 0 );
+    const bool bDoNeutrinoPhi3Corr = the_config.get_value_safe<bool>("setup", "DoNeutrinoPhi3Corr", bWithNeutrinos );
 
     if (bImportPhi2 && bDoNeutrinoPhi2Corr) {
         music::wlog << " Using both ImportPhi2 and DoNeutrinoPhi2Corr, which was not intended." << std::endl;
     }
-    if (bExcludeNeutrinos && !bDoNeutrinoMassCorr && !bDoNeutrinoVelCorr && !bCDMBaryonMatterOnly) {
-        music::wlog << " ExcludeNeutrinos enabled, but not the 1st order neutrino corrections." << std::endl;
-        music::wlog << " These can be switched on with [setup] / WithNeutrinos = yes. See example.conf" << std::endl;
+    if (bExcludeNeutrinos && (!bCDMBaryonMatterOnly || (LPTorder > 1 && !bDoNeutrinoPhi2Corr) || (LPTorder > 2 && !bDoNeutrinoPhi3Corr))) {
+        music::wlog << " ExcludeNeutrinos enabled, but not the 1st/2nd/3rd order neutrino corrections." << std::endl;
     }
     if (bCDMBaryonMatterOnly && (bDoNeutrinoMassCorr || bDoNeutrinoVelCorr)) {
         music::wlog << " Using CDMBaryonMatteOnly, so first order neutrino corrections are not needed!" << std::endl;
@@ -422,6 +419,17 @@ int run( config_file& the_config )
         }
     }
 
+    //! analytical neutrino correction factor for phi2
+    if (LPTorder > 1 && bDoNeutrinoPhi2Corr) {
+        const real_t O_m = the_cosmo_calc->cosmo_param_["Omega_m"];
+        const real_t f_nu = the_cosmo_calc->cosmo_param_["Omega_nu_massive"] / O_m;
+        const real_t Phi2RescaleFact = 14 * (1 - f_nu) / (19 - 18 * f_nu - sqrt(25 - 24 * f_nu));
+
+        music::ilog << "Rescaling phi(2) by " << Phi2RescaleFact << std::endl;
+
+        phi2 *= Phi2RescaleFact;
+    }
+
     //======================================================================
     //... compute 3LPT displacement potential
     //======================================================================
@@ -475,6 +483,17 @@ int run( config_file& the_config )
         music::ilog << std::setw(20) << std::setfill(' ') << std::right << "took " << get_wtime() - wtime << "s" << std::endl;
     }
 
+    //! analytical neutrino correction factor for phi3a and phi3b
+    if (LPTorder > 2 && bDoNeutrinoPhi3Corr) {
+        const real_t O_m = the_cosmo_calc->cosmo_param_["Omega_m"];
+        const real_t f_nu = the_cosmo_calc->cosmo_param_["Omega_nu_massive"] / O_m;
+        const real_t Phi3RescaleFact = 12 * (1 - f_nu) / (17 - 16 * f_nu - sqrt(25 - 24 * f_nu));
+
+        music::ilog << "Rescaling phi(3a) and phi(3b) by " << Phi3RescaleFact << std::endl;
+
+        phi3 *= Phi3RescaleFact;
+    }
+
     ///... scale all potentials with respective growth factors
     phi *= g1;
 
@@ -489,67 +508,6 @@ int run( config_file& the_config )
         (*A3[0]) *= g3c;
         (*A3[1]) *= g3c;
         (*A3[2]) *= g3c;
-    }
-
-    //! analytical rescaling factor for phi2
-    if (bDoNeutrinoPhi2Corr && LPTorder > 1) {
-        const real_t O_m = the_cosmo_calc->cosmo_param_["Omega_m"];
-        const real_t f_nu = the_cosmo_calc->cosmo_param_["Omega_nu_massive"] / O_m;
-        const real_t Phi2RescaleFact = 14 * (1 - f_nu) / (19 - 18 * f_nu - sqrt(25 - 24 * f_nu));
-
-        music::ilog << std::endl;
-        music::ilog << "Rescaling phi(2) by " << Phi2RescaleFact << std::endl;
-
-        phi2.FourierTransformBackward();
-        for (size_t i = 0; i < ngrid; i++) {
-            for (size_t j = 0; j < ngrid; j++) {
-                for (size_t k = 0; k < ngrid; k++) {
-                    phi2.relem(i,j,k) *= Phi2RescaleFact;
-                }
-            }
-        }
-    }
-
-    //! analytical rescaling factor for phi3
-    if (bDoNeutrinoPhi3Corr && LPTorder > 2) {
-        const real_t O_m = the_cosmo_calc->cosmo_param_["Omega_m"];
-        const real_t f_nu = the_cosmo_calc->cosmo_param_["Omega_nu_massive"] / O_m;
-        const real_t Phi3RescaleFact = 12 * (1 - f_nu) / (17 - 16 * f_nu - sqrt(25 - 24 * f_nu));
-
-        music::ilog << std::endl;
-        music::ilog << "Rescaling phi(3) by " << Phi3RescaleFact << std::endl;
-
-        phi2.FourierTransformBackward();
-        for (size_t i = 0; i < ngrid; i++) {
-            for (size_t j = 0; j < ngrid; j++) {
-                for (size_t k = 0; k < ngrid; k++) {
-                    phi3.relem(i,j,k) *= Phi3RescaleFact;
-                }
-            }
-        }
-    }
-
-    //! analytical rescaling factor for A3
-    if (bDoNeutrinoA3Corr && LPTorder > 2) {
-        const real_t O_m = the_cosmo_calc->cosmo_param_["Omega_m"];
-        const real_t f_nu = the_cosmo_calc->cosmo_param_["Omega_nu_massive"] / O_m;
-        const real_t A3RescaleFact = 12 * (1 - f_nu) / (17 - 16 * f_nu - sqrt(25 - 24 * f_nu));
-
-        music::ilog << std::endl;
-        music::ilog << "Rescaling A(3) by " << A3RescaleFact << std::endl;
-
-        A3[0]->FourierTransformBackward();
-        A3[1]->FourierTransformBackward();
-        A3[2]->FourierTransformBackward();
-        for (size_t i = 0; i < ngrid; i++) {
-            for (size_t j = 0; j < ngrid; j++) {
-                for (size_t k = 0; k < ngrid; k++) {
-                    A3[0]->relem(i,j,k) *= A3RescaleFact;
-                    A3[1]->relem(i,j,k) *= A3RescaleFact;
-                    A3[2]->relem(i,j,k) *= A3RescaleFact;
-                }
-            }
-        }
     }
 
     if (bImportPhi2) {
