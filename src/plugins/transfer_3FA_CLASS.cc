@@ -342,7 +342,7 @@ public:
     if( cosmo_params_.get("N_nu_massive") > 0 ){
         if( cosmo_params_.get("m_nu1") > 1e-9 ) {
             M_nu.push_back(cosmo_params_.get("m_nu1"));
-            deg_nu.push_back(cosmo_params_.get("m_nu1"));
+            deg_nu.push_back(cosmo_params_.get("deg_nu1"));
         }
         if( cosmo_params_.get("m_nu2") > 1e-9 ) {
             M_nu.push_back(cosmo_params_.get("m_nu2"));
