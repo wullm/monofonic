@@ -591,6 +591,10 @@ int run( config_file& the_config )
                         }
                     }
                 }
+                #if defined(USE_MPI)
+                    real_t local_maxdphi = maxdphi;
+                    MPI_Allreduce( &local_maxdphi, &maxdphi, 1, MPI::get_datatype<real_t>(), MPI_MAX, MPI_COMM_WORLD );
+                #endif
                 const real_t hbar_safefac = 1.01;
                 const real_t hbar = maxdphi / M_PI / Dplus0 * hbar_safefac;
                 music::ilog << "Semiclassical PT : hbar = " << hbar << " (limited by initial potential, safety=" << hbar_safefac << ")." << std::endl;
@@ -832,6 +836,9 @@ int run( config_file& the_config )
             }
 
         }
+        
+        music::ilog << "-------------------------------------------------------------------------------" << std::endl;
+        
     }
     return 0;
 }

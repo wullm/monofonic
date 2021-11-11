@@ -216,6 +216,10 @@ namespace particle
                 const size_t num_p_in_load = field.local_size();
                 const real_t pmeanmass = munit / real_t(field.global_size()* overload);
 
+                bool bmass_negative = false;
+                auto mean_pm = field.mean() * pmeanmass;
+                auto std_pm  = field.std()  * pmeanmass;
+
                 for (int ishift = 0; ishift < (1 << lattice_type); ++ishift)
                 {
                     // if we are dealing with the secondary lattice, apply a global shift
@@ -237,18 +241,25 @@ namespace particle
                         {
                             for (size_t k = 0; k < field.size(2); ++k)
                             {
-                                if (b64reals)
-                                {
-                                    particles_.set_mass64(ipcount++, pmeanmass * field.relem(i, j, k));
-                                }
-                                else
-                                {
-                                    particles_.set_mass32(ipcount++, pmeanmass * field.relem(i, j, k));
-                                }
+                                // get
+                                const auto pmass = pmeanmass * field.relem(i, j, k);
+
+                                // check for negative mass
+                                bmass_negative |= pmass<0.0;
+
+                                // set
+                                if (b64reals) particles_.set_mass64(ipcount++, pmass);
+                                else particles_.set_mass32(ipcount++, pmass);
                             }
                         }
                     }
                 }
+                
+                // diagnostics
+                music::ilog << "Particle Mass :  mean/munit = " << mean_pm/munit  << " ; fractional RMS = " << std_pm / mean_pm * 100.0 << "%" << std::endl;
+                if(std_pm / mean_pm > 0.1 ) music::wlog << "Particle mass perturbation larger than 10%, consider decreasing \n\t  the starting redshift or disabling baryon decaying modes." << std::endl;
+                if(bmass_negative) music::elog << "Negative particle mass produced! Decrease the starting \n\t  redshift or disable baryon decaying modes!" << std::endl;
+
             }else{
                 // should not happen
                 music::elog << "Cannot have individual particle masses for glasses!" << std::endl;
