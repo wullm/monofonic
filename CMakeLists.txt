@@ -170,6 +170,7 @@ file( GLOB PLUGINS
 )
 
 if(ENABLE_PANPHASIA)
+if(ENABLE_MPI)
 list (APPEND SOURCES 
   ${PROJECT_SOURCE_DIR}/external/panphasia/panphasia_routines.f
   ${PROJECT_SOURCE_DIR}/external/panphasia/generic_lecuyer.f90
@@ -179,6 +180,7 @@ list (APPEND SOURCES
   ${PROJECT_SOURCE_DIR}/external/panphasia_ho/uniform_rand_threefry4x64.c
 )
 # target_include_directories(${PRGNAME} PRIVATE ${PROJECT_SOURCE_DIR}/external/panphasia_ho)
+endif()
 endif()
 
 # project configuration header
