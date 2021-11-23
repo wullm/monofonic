@@ -23,7 +23,7 @@
 // found here: http://icc.dur.ac.uk/Panphasia.php
 // NOTE THAT PANPHASIA REQUIRES REGISTRATION ON THIS WEBSITE PRIOR TO USE
 
-#if defined(USE_PANPHASIA)
+#if defined(USE_PANPHASIA) && defined (USE_MPI)
 
 #include <general.hh>
 #include <random_plugin.hh>
@@ -38,6 +38,7 @@
 #endif
 
 #include <grid_fft.hh>
+
 
 namespace PANPHASIA2
 {
