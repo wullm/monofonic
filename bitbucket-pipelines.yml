@@ -14,10 +14,10 @@ pipelines:
             # Print the Linux version.
             - uname -a
             # Print the gcc version.
-            - gcc --version
             - apt-get update -qq
             - apt-get install gcc -qq -y
             - apt-get install gfortran -qq -y
+            - gcc --version
             #  Install a CMake 3.0.2 version.
             - apt-get install cmake -y --force-yes
             # Print the CMake version.
