@@ -4,7 +4,7 @@
 # The workflow allows running tests and code linting on the default branch.
 
 
-image: gcc:10.2
+image: gcc
 
 pipelines:
   default:
@@ -15,8 +15,9 @@ pipelines:
             - uname -a
             # Print the gcc version.
             - gcc --version
-            #  Install a CMake 3.0.2 version.
             - apt-get update -qq
+            - apt-get install gfortran -qq -y
+            #  Install a CMake 3.0.2 version.
             - apt-get install cmake -y --force-yes
             # Print the CMake version.
             - cmake --version   
@@ -24,7 +25,7 @@ pipelines:
             - apt-get install fftw3-dev -y
             - apt-get install libgsl-dev -y
             - apt-get install libhdf5-serial-dev -y
-            - apt-get install gfortran-10 -y
+            
             - apt-get install libopenmpi-dev -y
             - mkdir build
             - cd build
