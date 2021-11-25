@@ -24,7 +24,7 @@ pipelines:
             - apt-get install fftw3-dev -y
             - apt-get install libgsl-dev -y
             - apt-get install libhdf5-serial-dev -y
-            - apt-get install gfortran -y
+            - apt-get install gfortran-10 -y
             - apt-get install libopenmpi-dev -y
             - mkdir build
             - cd build
