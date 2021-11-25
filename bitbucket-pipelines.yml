@@ -4,7 +4,7 @@
 # The workflow allows running tests and code linting on the default branch.
 
 
-image: gcc
+image: debian:latest
 
 pipelines:
   default:
@@ -16,6 +16,7 @@ pipelines:
             # Print the gcc version.
             - gcc --version
             - apt-get update -qq
+            - apt-get install gcc -qq -y
             - apt-get install gfortran -qq -y
             #  Install a CMake 3.0.2 version.
             - apt-get install cmake -y --force-yes
@@ -25,7 +26,6 @@ pipelines:
             - apt-get install fftw3-dev -y
             - apt-get install libgsl-dev -y
             - apt-get install libhdf5-serial-dev -y
-            
             - apt-get install libopenmpi-dev -y
             - mkdir build
             - cd build
