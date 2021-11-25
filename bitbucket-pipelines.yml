@@ -15,12 +15,10 @@ pipelines:
             - uname -a
             # Print the gcc version.
             - apt-get update -qq
-            - apt-get install gcc -qq -y
-            - apt-get install g++ -qq -y
-            - apt-get install gfortran -qq -y
+            - apt-get install gcc g++ gfortran -qq -y
             - gcc --version
             #  Install a CMake 3.0.2 version.
-            - apt-get install cmake pkg-config cmake-data -y --force-yes
+            - apt-get install git cmake pkg-config cmake-data -y --force-yes
             # Print the CMake version.
             - cmake --version   
             # Install the necessary libraries
