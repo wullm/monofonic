@@ -22,7 +22,7 @@ pipelines:
             # Print the CMake version.
             - cmake --version   
             # Install the necessary libraries
-            - apt-get install fftw3-dev -y
+            - apt-get install fftw3-mpi-dev -y
             - apt-get install libgsl-dev -y
             - apt-get install libhdf5-serial-dev -y
             - apt-get install libopenmpi-dev -y
