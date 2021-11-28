@@ -465,7 +465,8 @@ void return_uniform_pseudo_rands_threefry4x64_(size_t l, size_t j1, size_t j2, s
             {
               replacement_value *= branching_ratio;
               counter++;
-              jind = (++jind) % 8;
+              // jind = (++jind) % 8;
+              jind = (jind+1)%8;
               new_value = (((double)out_int[jind] + g_shift) * g_scale);
             };
             replacement_value *= new_value;
