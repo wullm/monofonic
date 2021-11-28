@@ -206,6 +206,11 @@ void RNG_music::parse_random_parameters(void)
     if (levelmin_seed_ < 0 && (rngfnames_[ilevel].size() > 0 || rngseeds_[ilevel] >= 0))
       levelmin_seed_ = ilevel;
   }
+
+  if( levelmin_seed_ < 0 ){
+    music::elog.Print("No seed specified for MUSIC1 RNG plugin!");
+    throw std::runtime_error("No seed specified for MUSIC1 RNG plugin!");
+  }
 }
 
 void RNG_music::compute_random_numbers(void)

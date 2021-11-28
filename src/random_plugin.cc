@@ -43,7 +43,7 @@ void print_RNG_plugins()
 
 std::unique_ptr<RNG_plugin> select_RNG_plugin(config_file &cf)
 {
-    std::string rngname = cf.get_value_safe<std::string>("random", "generator", "MUSIC");
+    std::string rngname = cf.get_value<std::string>("random", "generator");
 
     RNG_plugin_creator *the_RNG_plugin_creator = get_RNG_plugin_map()[rngname];
 
