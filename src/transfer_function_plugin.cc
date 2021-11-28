@@ -17,6 +17,11 @@
 
 #include <transfer_function_plugin.hh>
 
+/**
+ * @brief Get the TransferFunction plugin map object
+ * 
+ * @return std::map<std::string, TransferFunction_plugin_creator *>& 
+ */
 std::map<std::string, TransferFunction_plugin_creator *> &
 get_TransferFunction_plugin_map()
 {
@@ -24,6 +29,10 @@ get_TransferFunction_plugin_map()
     return TransferFunction_plugin_map;
 }
 
+/**
+ * @brief Print out the names of all transfer function plugins compiled in
+ * 
+ */
 void print_TransferFunction_plugins()
 {
     std::map<std::string, TransferFunction_plugin_creator *> &m = get_TransferFunction_plugin_map();
@@ -39,6 +48,15 @@ void print_TransferFunction_plugins()
     music::ilog << std::endl;
 }
 
+/**
+ * @brief Return a pointer to the desired transfer function plugin as given in the config file
+ * 
+ * Implements the abstract factory pattern (https://en.wikipedia.org/wiki/Abstract_factory_pattern)
+ * 
+ * @param cf  reference to config_file object
+ * @param cosmo_param reference to cosmology::parameters object holding cosmological parameter values
+ * @return std::unique_ptr<TransferFunction_plugin> 
+ */
 std::unique_ptr<TransferFunction_plugin> select_TransferFunction_plugin(config_file &cf, const cosmology::parameters& cosmo_param)
 {
     std::string tfname = cf.get_value<std::string>("cosmology", "transfer");

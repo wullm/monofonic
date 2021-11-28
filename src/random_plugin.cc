@@ -18,6 +18,11 @@
 #include <general.hh>
 #include <random_plugin.hh>
 
+/**
+ * @brief Get the RNG plugin map object
+ * 
+ * @return std::map<std::string, RNG_plugin_creator *>& 
+ */
 std::map<std::string, RNG_plugin_creator *> &
 get_RNG_plugin_map()
 {
@@ -25,6 +30,10 @@ get_RNG_plugin_map()
     return RNG_plugin_map;
 }
 
+/**
+ * @brief Print out the names of all RNG plugins compiled in
+ * 
+ */
 void print_RNG_plugins()
 {
     std::map<std::string, RNG_plugin_creator *> &m = get_RNG_plugin_map();
@@ -41,6 +50,15 @@ void print_RNG_plugins()
     music::ilog << std::endl;
 }
 
+
+/**
+ * @brief Return a pointer to the desired random number generator plugin as given in the config file
+ * 
+ * Implements the abstract factory pattern (https://en.wikipedia.org/wiki/Abstract_factory_pattern)
+ * 
+ * @param cf reference to config_file object
+ * @return std::unique_ptr<RNG_plugin> unique pointer to plugin
+ */
 std::unique_ptr<RNG_plugin> select_RNG_plugin(config_file &cf)
 {
     std::string rngname = cf.get_value<std::string>("random", "generator");

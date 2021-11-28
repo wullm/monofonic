@@ -27,19 +27,39 @@
 
 #include <unistd.h> // for unlink
 
+
+/**
+ * @brief the possible species of fluids
+ *  
+ */
 std::map<cosmo_species,std::string> cosmo_species_name = 
 {
   {cosmo_species::dm,"Dark matter"},
   {cosmo_species::baryon,"Baryons"},
-  {cosmo_species::neutrino,"Neutrinos"}
+  {cosmo_species::neutrino,"Neutrinos"} // not implemented yet
 };
 
+/**
+ * @brief the namespace encapsulating the main IC generation routines
+ * 
+ */
 namespace ic_generator{
 
+//! global RNG object
 std::unique_ptr<RNG_plugin> the_random_number_generator;
+
+//! global output object
 std::unique_ptr<output_plugin> the_output_plugin;
+
+//! global cosmology object (calculates all things cosmological)
 std::unique_ptr<cosmology::calculator>  the_cosmo_calc;
 
+/**
+ * @brief Initialises all global objects
+ * 
+ * @param the_config reference to config_file object
+ * @return int 0 if successful
+ */
 int initialise( config_file& the_config )
 {
     the_random_number_generator = std::move(select_RNG_plugin(the_config));
@@ -49,12 +69,23 @@ int initialise( config_file& the_config )
     return 0;
 }
 
+/**
+ * @brief Reset all global objects
+ * 
+ */
 void reset () {
     the_random_number_generator.reset();
     the_output_plugin.reset();
     the_cosmo_calc.reset();
 }
 
+
+/**
+ * @brief Main driver routine for IC generation, everything interesting happens here
+ * 
+ * @param the_config reference to the config_file object
+ * @return int 0 if successful
+ */
 int run( config_file& the_config )
 {
     //--------------------------------------------------------------------------------------------------------
