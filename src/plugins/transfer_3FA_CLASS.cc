@@ -67,7 +67,7 @@ private:
   {
 
     //--- general parameters ------------------------------------------
-    add_class_parameter("z_max_pk", std::max(std::max(zstart_, ztarget_),199.0)); // use 1.2 as safety
+    add_class_parameter("z_max_pk", std::max(std::max(zstart_, ztarget_),199.0) * 1.2); // use 1.2 as safety
     add_class_parameter("P_k_max_h/Mpc", std::max(2.0,kmax_));
     add_class_parameter("output", "dTk,vTk");
     add_class_parameter("extra metric transfer functions","yes");
