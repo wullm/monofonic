@@ -2,8 +2,8 @@ cmake_minimum_required(VERSION 3.11)
 include(FetchContent)
 FetchContent_Declare(
     3fa
-    GIT_REPOSITORY https://github.com/wullm/3fa_wrapper.git
-    GIT_TAG master
+    GIT_REPOSITORY https://github.com/wullm/trifa.git
+    GIT_TAG main
     GIT_SHALLOW YES
     GIT_PROGRESS TRUE
 )

@@ -289,14 +289,8 @@ endif()
 ########################################################################################################################
 # include 3FA
 if(ENABLE_3FA)
-  #file(GLOB 3FA_SOURCES ${PROJECT_SOURCE_DIR}/external/3fa/*.c)
-  #add_library( 3FA STATIC ${3FA_SOURCES})
-  #target_link_libraries( 3FA PRIVATE GSL::gsl)
-
-  #target_link_libraries( ${PRGNAME} PRIVATE 3FA )
-
-  include(${CMAKE_CURRENT_SOURCE_DIR}/external/3fa.cmake)
-  target_link_libraries(${PRGNAME} PRIVATE 3fa::lib3fa)
+  include(${CMAKE_CURRENT_SOURCE_DIR}/external/trifa.cmake)
+  target_link_libraries(${PRGNAME} PRIVATE 3fa::3fa_static)
   target_compile_definitions(${PRGNAME} PRIVATE "USE_3FA")
 endif()
 

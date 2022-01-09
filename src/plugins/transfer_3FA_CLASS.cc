@@ -338,25 +338,30 @@ public:
     const int N_nu = cosmo_params_.get("N_nu_massive");
     std::vector<double> M_nu;
     std::vector<double> deg_nu; //degeneracies
+    std::vector<double> c_s_nu; //sounds speeds
 
     if( cosmo_params_.get("N_nu_massive") > 0 ){
         if( cosmo_params_.get("m_nu1") > 1e-9 ) {
             M_nu.push_back(cosmo_params_.get("m_nu1"));
             deg_nu.push_back(cosmo_params_.get("deg_nu1"));
+            c_s_nu.push_back(0.0);
         }
         if( cosmo_params_.get("m_nu2") > 1e-9 ) {
             M_nu.push_back(cosmo_params_.get("m_nu2"));
             deg_nu.push_back(cosmo_params_.get("deg_nu2"));
+            c_s_nu.push_back(0.0);
         }
         if( cosmo_params_.get("m_nu1") > 1e-9 ) {
             M_nu.push_back(cosmo_params_.get("m_nu3"));
             deg_nu.push_back(cosmo_params_.get("deg_nu3"));
+            c_s_nu.push_back(0.0);
         }
     }
 
     // 3FA structures
     struct model m;
     struct units us;
+    struct physical_consts pcs;
     struct cosmology_tables tab;
 
     // Set up 3FA cosmological parameters
@@ -368,6 +373,7 @@ public:
     m.N_nu = N_nu;
     m.M_nu = M_nu.data();
     m.deg_nu = deg_nu.data();
+    m.c_s_nu = c_s_nu.data();
     m.T_nu_0 = cosmo_params_.get("Tcmb") * 0.71611; //default CLASS value
     m.T_CMB_0 = cosmo_params_.get("Tcmb");
     m.w0 = -1.0;
@@ -381,7 +387,7 @@ public:
     us.UnitMassKilogram = 1.0;
     us.UnitTemperatureKelvin = 1.0;
     us.UnitCurrentAmpere = 1.0;
-    set_physical_constants(&us);
+    set_physical_constants(&us, &pcs);
 
     double wtime = get_wtime();
     music::ilog << "-------------------------------------------------------------------------------" << std::endl;
@@ -390,11 +396,11 @@ public:
     // Integrate the cosmological tables with 3FA (accounting for neutrinos)
     const double tab_a_start = astart_ * 0.99;
     const double tab_a_final = atarget_ * 1.01;
-    integrate_cosmology_tables(&m, &us, &tab, tab_a_start, tab_a_final, 1000);
+    integrate_cosmology_tables(&m, &us, &pcs, &tab, tab_a_start, tab_a_final, 1000);
 
     // extract the present-day neutrino fraction and the baryon fraction
     const double atoday_ = 1.0;
-    const double f_nu_nr_0 = get_f_nu_nr_of_a(&tab, atoday_);
+    const double f_nu_nr_0 = get_f_nu_nr_tot_of_a(&tab, atoday_);
     const double f_b = m.Omega_b / (m.Omega_b + m.Omega_c);
     // extract the Hubble rate at a_start and normalize by H0
     const double H_start = get_H_of_a(&tab, astart_); // in 3FA units
@@ -406,7 +412,7 @@ public:
     // prepare fluid equation integration
     const double tol = 1e-12;
     const double hstart = 1e-12;
-    prepare_fluid_integrator(&m, &us, &tab, tol, hstart);
+    prepare_fluid_integrator(&m, &us, &pcs, &tab, tol, hstart);
 
     // compute the scale-dependent logarithmic growth rates at z=z_start
     std::vector<double> gc, gb, gn, gcb, gm;
@@ -432,22 +438,39 @@ public:
     std::vector<double> Dc, Db, Dn;
     for (size_t i = 0; i < k.size(); ++i)
     {
+        // CLASSengine only gives us the density perturbations for one
+        // neutrino species. If we have more than one species, the best
+        // we can do is assign the same initial growth rate to all species
+
+        // create arrays for the neutrino densities
+        std::vector<double> gfac_delta_n;
+        std::vector<double> gfac_gn;
+        std::vector<double> gfac_Dn;
+        for (int j = 0; j < N_nu; j++) {
+            gfac_delta_n.push_back(dn[i]);
+            gfac_gn.push_back(gn[i]);
+            gfac_Dn.push_back(0.); // output goes here
+        }
+
         // initialise the input data for the fluid equations
         struct growth_factors gfac;
         gfac.k = k[i]; // in 1/Mpc -- like CLASS, 3FA does not use h-units
         gfac.delta_c = dc[i];
         gfac.delta_b = db[i];
-        gfac.delta_n = dn[i];
+        gfac.delta_n = gfac_delta_n.data();
         gfac.gc = gc[i];
         gfac.gb = gb[i];
-        gfac.gn = gn[i];
+        gfac.gn = gfac_gn.data();
+        gfac.Dc = 0.;
+        gfac.Db = 0.;
+        gfac.Dn = gfac_Dn.data();
 
-        integrate_fluid_equations(&m, &us, &tab, &gfac, astart_, atarget_);
+        integrate_fluid_equations(&m, &us, &pcs, &tab, &gfac, astart_, atarget_);
 
         // store the relative growth factors between the target and starting redshifts
         Dc.push_back(gfac.Dc);
         Db.push_back(gfac.Db);
-        Dn.push_back(gfac.Dn);
+        Dn.push_back(gfac.Dn[0]); // read off the first species
     }
 
     // done with fluid integration
