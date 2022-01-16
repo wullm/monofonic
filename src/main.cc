@@ -60,6 +60,13 @@ void handle_eptr(std::exception_ptr eptr) // passing by value is ok
     }
 }
 
+/**
+ * @brief the main routine of MUSIC2-monofonIC
+ * 
+ * @param argc 
+ * @param argv 
+ * @return int 
+ */
 int main( int argc, char** argv )
 {
 

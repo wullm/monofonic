@@ -17,6 +17,10 @@
 
 #include <cosmology_parameters.hh>
 
+/**
+ * @brief namespace encapsulating all things cosmology
+ * 
+ */
 namespace cosmology{
 
 //! we store here the preset cosmological paramters
@@ -100,7 +104,10 @@ parameters::defaultmmap_t parameters::default_pmaps_
     {"Tcmb",        2.7255}}}
 };
 
-
+/**
+ * @brief Output all sets of cosmological parameters that we store internally
+ * 
+ */
 void print_ParameterSets( void ){
   music::ilog << "Available cosmology parameter sets:" << std::endl;
   cosmology::parameters p;

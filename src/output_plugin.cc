@@ -17,13 +17,21 @@
 
 #include "output_plugin.hh"
 
-
+/**
+ * @brief Get the output plugin map object
+ * 
+ * @return std::map< std::string, output_plugin_creator *>& 
+ */
 std::map< std::string, output_plugin_creator *>& get_output_plugin_map()
 {
 	static std::map< std::string, output_plugin_creator* > output_plugin_map;
 	return output_plugin_map;
 }
 
+/**
+ * @brief Print out the names of all output plugins compiled in
+ * 
+ */
 void print_output_plugins()
 {
 	std::map< std::string, output_plugin_creator *>& m = get_output_plugin_map();
@@ -40,6 +48,15 @@ void print_output_plugins()
 	music::ilog << std::endl;
 }
 
+/**
+ * @brief Return a pointer to the desired output plugin as given in the config file
+ * 
+ * Implements the abstract factory pattern (https://en.wikipedia.org/wiki/Abstract_factory_pattern)
+ * 
+ * @param cf reference to config_file object
+ * @param pcc reference to cosmology::calculator object
+ * @return std::unique_ptr<output_plugin> 
+ */
 std::unique_ptr<output_plugin> select_output_plugin( config_file& cf, std::unique_ptr<cosmology::calculator>& pcc )
 {
 	std::string formatname = cf.get_value<std::string>( "output", "format" );

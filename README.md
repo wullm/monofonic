@@ -57,7 +57,7 @@ We acknowledge support from the European Research Council (ERC) under the Europe
 Clone code including submodules (currently only CLASS is used as a submodule):
 
 ```
-  git clone --recurse-submodules https://<username>@bitbucket.org/ohahn/monofonic.git
+  git clone https://<username>@bitbucket.org/ohahn/monofonic.git
 ```
 
 Create build directory, configure, and build:

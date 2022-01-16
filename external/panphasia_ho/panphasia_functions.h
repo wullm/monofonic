@@ -66,7 +66,7 @@ int PANPHASIA_compute_coefficients_(size_t *xstart, size_t *ystart, size_t*zstar
 
 void test_moments_();
 void test_propogation_of_moments_(int iterations);
-void test_cell_moments(char *,size_t, size_t, size_t, size_t, size_t, double *);
+void test_cell_moments(const char*,size_t, size_t, size_t, size_t, size_t, double *);
 
 void spherical_bessel_(int *, double *, double *);
 
