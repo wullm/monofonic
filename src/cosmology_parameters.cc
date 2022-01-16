@@ -47,6 +47,9 @@ parameters::defaultmmap_t parameters::default_pmaps_
     {"m_nu1",       0.06},
     {"m_nu2",       0.0},
     {"m_nu3",       0.0},
+    {"deg_nu1",     1.0},
+    {"deg_nu2",     1.0},
+    {"deg_nu3",     1.0},
     {"Tcmb",        2.7255}}},
 
   // baseline 2.18 base_plikHM_TTTEEE_lowl_lowE_lensing_post_BAO
@@ -65,6 +68,9 @@ parameters::defaultmmap_t parameters::default_pmaps_
     {"m_nu1",       0.06},
     {"m_nu2",       0.0},
     {"m_nu3",       0.0},
+    {"deg_nu1",     1.0},
+    {"deg_nu2",     1.0},
+    {"deg_nu3",     1.0},
     {"Tcmb",        2.7255}}},
 
   // baseline 2.19 base_plikHM_TTTEEE_lowl_lowE_lensing_post_Pantheon
@@ -83,6 +89,9 @@ parameters::defaultmmap_t parameters::default_pmaps_
     {"m_nu1",       0.06},
     {"m_nu2",       0.0},
     {"m_nu3",       0.0},
+    {"deg_nu1",     1.0},
+    {"deg_nu2",     1.0},
+    {"deg_nu3",     1.0},
     {"Tcmb",        2.7255}}},
 
   // baseline 2.20 base_plikHM_TTTEEE_lowl_lowE_lensing_post_BAO_Pantheon
@@ -101,6 +110,9 @@ parameters::defaultmmap_t parameters::default_pmaps_
     {"m_nu1",       0.06},
     {"m_nu2",       0.0},
     {"m_nu3",       0.0},
+    {"deg_nu1",     1.0},
+    {"deg_nu2",     1.0},
+    {"deg_nu3",     1.0},
     {"Tcmb",        2.7255}}}
 };
 

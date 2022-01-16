@@ -147,30 +147,16 @@ int run( config_file& the_config )
 
     //! do not include massive neutrinos in the cdm fluid (use Omega_cdm not Omega_cdm + Omega_nu_massive)
     const bool bExcludeNeutrinos = the_config.get_value_safe<bool>("setup", "ExcludeNeutrinos", bWithNeutrinos );
-    //! correct for massive neutrinos in the initial density perturbations
-    const bool bDoNeutrinoMassCorr = the_config.get_value_safe<bool>("setup", "DoNeutrinoMassCorr", bWithNeutrinos );
-    //! correct for massive neutrinos in the velocities
-    const bool bDoNeutrinoVelCorr = the_config.get_value_safe<bool>("setup", "DoNeutrinoVelCorr", bWithNeutrinos );
-    //! correct for the difference between delta_matter and theta_matter on large scales
-    const bool bDoDensityVelocityCorr = the_config.get_value_safe<bool>("setup", "DoDensityVelocityCorr", bWithNeutrinos );
     //! option to exclude massive neutrinos from delta_matter
     const bool bCDMBaryonMatterOnly = the_config.get_value_safe<bool>("setup", "CDMBaryonMatterOnly", 0 );
-    //! option to import a grid and add it on top of the second order potential calculated internally
-    const bool bImportPhi2 = the_config.get_value_safe<bool>("setup", "ImportPhi2", 0 );
     //! option to do the second order neutrino correction
     const bool bDoNeutrinoPhi2Corr = the_config.get_value_safe<bool>("setup", "DoNeutrinoPhi2Corr", bWithNeutrinos );
     //! option to do the third order neutrino correction
     const bool bDoNeutrinoPhi3Corr = the_config.get_value_safe<bool>("setup", "DoNeutrinoPhi3Corr", bWithNeutrinos );
 
-    if (bImportPhi2 && bDoNeutrinoPhi2Corr) {
-        music::wlog << " Using both ImportPhi2 and DoNeutrinoPhi2Corr, which was not intended." << std::endl;
-    }
-    if (bExcludeNeutrinos && (!bCDMBaryonMatterOnly || (LPTorder > 1 && !bDoNeutrinoPhi2Corr) || (LPTorder > 2 && !bDoNeutrinoPhi3Corr))) {
-        music::wlog << " ExcludeNeutrinos enabled, but not the 1st/2nd/3rd order neutrino corrections." << std::endl;
-    }
-    if (bCDMBaryonMatterOnly && (bDoNeutrinoMassCorr || bDoNeutrinoVelCorr)) {
-        music::wlog << " Using CDMBaryonMatteOnly, so first order neutrino corrections are not needed!" << std::endl;
-    }
+    //! correct for the difference between delta_matter and theta_matter on large scales
+    const bool bDoDensityVelocityCorr = the_config.get_value_safe<bool>("setup", "DoDensityVelocityCorr", bWithNeutrinos );
+
     //! which transfer function plugin was used
     std::string tf = the_config.get_value<std::string>("cosmology", "transfer");
     if (bWithNeutrinos && tf != "zwindstroom") {
@@ -454,11 +440,11 @@ int run( config_file& the_config )
     if (LPTorder > 1 && bDoNeutrinoPhi2Corr) {
         const real_t O_m = the_cosmo_calc->cosmo_param_["Omega_m"];
         const real_t f_nu = the_cosmo_calc->cosmo_param_["Omega_nu_massive"] / O_m;
-        const real_t Phi2RescaleFact = 14 * (1 - f_nu) / (19 - 18 * f_nu - sqrt(25 - 24 * f_nu));
+        const real_t C_2 = 14. * (1. - f_nu) / (19. - 18. * f_nu - sqrt(25. - 24. * f_nu));
 
-        music::ilog << "Rescaling phi(2) by " << Phi2RescaleFact << std::endl;
+        music::ilog << "Rescaling phi(2) by " << C_2 << std::endl;
 
-        phi2 *= Phi2RescaleFact;
+        phi2 *= C_2;
     }
 
     //======================================================================
@@ -481,6 +467,18 @@ int run( config_file& the_config )
         Conv.convolve_Hessians(phi, {0, 1}, phi, {0, 1}, phi, {2, 2}, op::subtract_from(phi3));
         // phi3a.apply_InverseLaplacian();
         music::ilog << std::setw(20) << std::setfill(' ') << std::right << "took " << get_wtime() - wtime << "s" << std::endl;
+
+        //! analytical neutrino correction factor for phi3a
+        if (bDoNeutrinoPhi3Corr) {
+            // We multiply phi3a by C_1 now and divide (phi3a + phi3b) by C_1 later
+            const real_t O_m = the_cosmo_calc->cosmo_param_["Omega_m"];
+            const real_t f_nu = the_cosmo_calc->cosmo_param_["Omega_nu_massive"] / O_m;
+            const real_t C_1 = 20. * (1 - f_nu) / (25. - 24. * f_nu - sqrt(25. - 24. * f_nu));
+
+            music::ilog << "Rescaling phi(3a) by " << C_1 << std::endl;
+
+            phi3 *= C_1;
+        }
 
         //... 3b term ...
         wtime = get_wtime();
@@ -518,7 +516,9 @@ int run( config_file& the_config )
     if (LPTorder > 2 && bDoNeutrinoPhi3Corr) {
         const real_t O_m = the_cosmo_calc->cosmo_param_["Omega_m"];
         const real_t f_nu = the_cosmo_calc->cosmo_param_["Omega_nu_massive"] / O_m;
-        const real_t Phi3RescaleFact = 12 * (1 - f_nu) / (17 - 16 * f_nu - sqrt(25 - 24 * f_nu));
+        const real_t C_1 = 20. * (1 - f_nu) / (25. - 24. * f_nu - sqrt(25. - 24. * f_nu));
+        const real_t C_3 = 12. * (1. - f_nu) / (17. - 16. * f_nu - sqrt(25. - 24. * f_nu));
+        const real_t Phi3RescaleFact = C_3 / C_1;
 
         music::ilog << "Rescaling phi(3a) and phi(3b) by " << Phi3RescaleFact << std::endl;
 
@@ -539,38 +539,6 @@ int run( config_file& the_config )
         (*A3[0]) *= g3c;
         (*A3[1]) *= g3c;
         (*A3[2]) *= g3c;
-    }
-
-    if (bImportPhi2) {
-        //! rescaling factor for the internally computed phi2
-        const real_t Phi2RescaleFact = the_config.get_value_safe<real_t>("setup", "Phi2RescaleFact", 1.0 );
-        music::ilog << "Rescaling internal second order grid by " << Phi2RescaleFact << std::endl;
-
-        // rescale phi2
-        phi2.FourierTransformBackward();
-        for (size_t i = 0; i < ngrid; i++) {
-            for (size_t j = 0; j < ngrid; j++) {
-                for (size_t k = 0; k < ngrid; k++) {
-                    phi2.relem(i,j,k) *= Phi2RescaleFact;
-                }
-            }
-        }
-
-        music::ilog << "Adding import file contribution to second order grid" << std::endl;
-
-        Grid_FFT<real_t,false> phi2_read({ngrid,ngrid,ngrid}, {boxlen,boxlen,boxlen});
-        phi2_read.Read_from_HDF5( the_config.get_value<std::string>("setup", "Phi2FieldFile"),
-                the_config.get_value<std::string>("setup", "Phi2FieldName") );
-
-        // add contribution to phi2
-        for (size_t i = 0; i < ngrid; i++) {
-            for (size_t j = 0; j < ngrid; j++) {
-                for (size_t k = 0; k < ngrid; k++) {
-                    phi2.relem(i,j,k) += phi2_read.relem(i,j,k);
-                }
-            }
-        }
-        phi2.FourierTransformForward();
     }
 
     music::ilog << "-------------------------------------------------------------------------------" << std::endl;
@@ -630,20 +598,16 @@ int run( config_file& the_config )
         // baryon, cdm, and massive neutrino fractions of the total matter density (z=0)
         const real_t f_b = the_cosmo_calc->cosmo_param_["Omega_b"] / O_m;
         const real_t f_c = the_cosmo_calc->cosmo_param_["Omega_c"] / O_m;
-        const real_t f_nu = the_cosmo_calc->cosmo_param_["Omega_nu_massive"] / O_m;
 
         // C factor for baryons and cdm
         real_t C_species;
-        if (bDoBaryons && bDoNeutrinoMassCorr){
+        if (bDoBaryons && bExcludeNeutrinos){
             C_species = (this_species == cosmo_species::baryon)? (1.0-f_b / (f_b + f_c)) : -f_b / (f_b + f_c);
-        }else if (bDoBaryons && !bDoNeutrinoMassCorr){
+        }else if (bDoBaryons && !bExcludeNeutrinos){
             C_species = (this_species == cosmo_species::baryon)? (1.0-f_b) : -f_b;
         }else{
             C_species = 0.;
         }
-
-        // we output individual masses if we have baryons or do the neutrino correction
-        const bool bPerturbedMasses = (bDoBaryons || bDoNeutrinoMassCorr);
 
         // main loop block
         {
@@ -658,11 +622,11 @@ int run( config_file& the_config )
                 // allocate particle structure and generate particle IDs
                 particle_lattice_generator_ptr = 
                 std::make_unique<particle::lattice_generator<Grid_FFT<real_t>>>( lattice_type, the_output_plugin->has_64bit_reals(), the_output_plugin->has_64bit_ids(), 
-                    bPerturbedMasses, IDoffset, tmp, the_config );
+                    bDoBaryons, IDoffset, tmp, the_config );
             }
 
-            // set the perturbed particle masses if needed
-            if( bPerturbedMasses && (the_output_plugin->write_species_as( this_species ) == output_type::particles
+            // set the perturbed particle masses if we have baryons
+            if( bDoBaryons && (the_output_plugin->write_species_as( this_species ) == output_type::particles
                 || the_output_plugin->write_species_as( this_species ) == output_type::field_lagrangian) ) 
             {
                 bool shifted_lattice = (this_species == cosmo_species::baryon &&
@@ -678,16 +642,13 @@ int run( config_file& the_config )
                 wnoise.FourierTransformForward();
                 rho.FourierTransformForward(false);
                 rho.assign_function_of_grids_kdep( [&]( auto k, auto wn ){
-                    real_t d_bc = the_cosmo_calc->get_amplitude_delta_bc(k.norm(),bDoLinearBCcorr);
-                    real_t d_mnu = the_cosmo_calc->get_amplitude_delta_mnu(k.norm());
-                    real_t nu_correction = bDoNeutrinoMassCorr ? f_nu / (f_b + f_c) * d_mnu : 0.;
-                    return wn * (C_species * d_bc + nu_correction);
+                    return wn * the_cosmo_calc->get_amplitude_delta_bc(k.norm(),bDoLinearBCcorr);
                 }, wnoise );
                 rho.zero_DC_mode();
                 rho.FourierTransformBackward();
 
                 rho.apply_function_r( [&]( auto prho ){
-                    return (1.0 + prho) * Omega[this_species] * munit;
+                    return (1.0 + C_species * prho) * Omega[this_species] * munit;
                 });
                 
                 if( the_output_plugin->write_species_as( this_species ) == output_type::particles ){
@@ -712,16 +673,13 @@ int run( config_file& the_config )
                 wnoise.FourierTransformForward();
                 rho.FourierTransformForward(false);
                 rho.assign_function_of_grids_kdep( [&]( auto k, auto wn ){
-                    real_t d_bc = the_cosmo_calc->get_amplitude_delta_bc(k.norm(), false);
-                    real_t d_mnu = the_cosmo_calc->get_amplitude_delta_mnu(k.norm());
-                    real_t nu_correction = bDoNeutrinoMassCorr ? f_nu / (f_b + f_c) * d_mnu : 0.;
-                    return wn * (C_species * d_bc + nu_correction);
+                    return wn * the_cosmo_calc->get_amplitude_delta_bc(k.norm(), false);
                 }, wnoise );
                 rho.zero_DC_mode();
                 rho.FourierTransformBackward();
                 
                 rho.apply_function_r( [&]( auto prho ){
-                    return std::sqrt( 1.0 + prho );
+                    return std::sqrt( 1.0 + C_species * prho );
                 });
 
                 //======================================================================
@@ -937,12 +895,6 @@ int run( config_file& the_config )
                                 if( bDoBaryons & bDoLinearBCcorr ){
                                     real_t knorm = wnoise.get_k<real_t>(i,j,k).norm();
                                     tmp.kelem(idx) -= vfac1 * C_species * the_cosmo_calc->get_amplitude_theta_bc(knorm, bDoLinearBCcorr) * wnoise.kelem(i,j,k) * lg.gradient(idim,tmp.get_k3(i,j,k)) / (knorm*knorm);
-                                }
-
-                                // for massive neutrino cosmologies, we have the option to add the vmnu component
-                                if (bDoNeutrinoVelCorr) {
-                                    real_t knorm = wnoise.get_k<real_t>(i,j,k).norm();
-                                    tmp.kelem(idx) += vfac1 * f_nu / (f_b + f_c) * the_cosmo_calc->get_amplitude_theta_mnu(knorm) * wnoise.kelem(i,j,k) * lg.gradient(idim,tmp.get_k3(i,j,k)) / (knorm*knorm);
                                 }
 
                                 // option to account for the difference between delta_m and theta_m / (afH) on large scales

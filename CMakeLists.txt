@@ -1,17 +1,17 @@
 # This file is part of monofonIC (MUSIC2)
 # A software package to generate ICs for cosmological simulations
 # Copyright (C) 2020 by Oliver Hahn
-#
+# 
 # monofonIC is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
-#
+# 
 # monofonIC is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-#
+# 
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
@@ -139,7 +139,7 @@ mark_as_advanced(HDF5_C_LIBRARY_dl HDF5_C_LIBRARY_hdf5 HDF5_C_LIBRARY_m HDF5_C_L
 
 ########################################################################################################################
 # Zwindstroom
-option(ENABLE_ZWINDSTROOM "Enable Zwindstroom 3-fluid model" ON)
+option(ENABLE_ZWINDSTROOM "Enable Zwindstroom 3-fluid module" ON)
 ########################################################################################################################
 
 ########################################################################################################################
@@ -234,15 +234,15 @@ if(CODE_PRECISION STREQUAL "FLOAT")
     target_link_libraries(${PRGNAME} PRIVATE FFTW3::FFTW3_SINGLE_THREADS)
     target_compile_definitions(${PRGNAME} PRIVATE "USE_FFTW_THREADS")
   endif()
-  target_link_libraries(${PRGNAME} PRIVATE FFTW3::FFTW3_SINGLE_SERIAL)
+  target_link_libraries(${PRGNAME} PRIVATE FFTW3::FFTW3_SINGLE_SERIAL) 
 elseif(CODE_PRECISION STREQUAL "DOUBLE")
-  if(FFTW3_DOUBLE_THREADS_FOUND)
+  if(FFTW3_DOUBLE_THREADS_FOUND) 
     target_link_libraries(${PRGNAME} PRIVATE FFTW3::FFTW3_DOUBLE_THREADS)
     target_compile_definitions(${PRGNAME} PRIVATE "USE_FFTW_THREADS")
   endif()
-  target_link_libraries(${PRGNAME} PRIVATE FFTW3::FFTW3_DOUBLE_SERIAL)
+  target_link_libraries(${PRGNAME} PRIVATE FFTW3::FFTW3_DOUBLE_SERIAL) 
 elseif(CODE_PRECISION STREQUAL "LONGDOUBLE")
-  if(FFTW3_LONGDOUBLE_THREADS_FOUND)
+  if(FFTW3_LONGDOUBLE_THREADS_FOUND) 
     target_link_libraries(${PRGNAME} PRIVATE FFTW3::FFTW3_LONGDOUBLE_THREADS)
     target_compile_definitions(${PRGNAME} PRIVATE "USE_FFTW_THREADS")
   endif()

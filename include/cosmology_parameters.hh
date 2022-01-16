@@ -114,12 +114,21 @@ namespace cosmology
                 pmap_["m_nu1"] = cf.get_value_safe<double>("cosmology", "m_nu1", defaultp["m_nu1"]);
                 pmap_["m_nu2"] = cf.get_value_safe<double>("cosmology", "m_nu2", defaultp["m_nu2"]);
                 pmap_["m_nu3"] = cf.get_value_safe<double>("cosmology", "m_nu3", defaultp["m_nu3"]);
-                pmap_["deg_nu1"] = cf.get_value_safe<double>("cosmology", "deg_nu1", 1.0);
-                pmap_["deg_nu2"] = cf.get_value_safe<double>("cosmology", "deg_nu2", 1.0);
-                pmap_["deg_nu3"] = cf.get_value_safe<double>("cosmology", "deg_nu3", 1.0);
-                int N_nu_massive = int(this->get("m_nu1") > 1e-9)  + int(this->get("m_nu2") > 1e-9) + int(this->get("m_nu3") > 1e-9);;
+                pmap_["deg_nu1"] = cf.get_value_safe<double>("cosmology", "deg_nu1", defaultp["deg_nu1"]);
+                pmap_["deg_nu2"] = cf.get_value_safe<double>("cosmology", "deg_nu2", defaultp["deg_nu1"]);
+                pmap_["deg_nu3"] = cf.get_value_safe<double>("cosmology", "deg_nu3", defaultp["deg_nu1"]);
+                int N_nu_massive = int(this->get("m_nu1") > 1e-9) + int(this->get("m_nu2") > 1e-9) + int(this->get("m_nu3") > 1e-9);;
                 
-                // normalization for Omega_nu
+                // warn about degeneracies
+                if ((this->get("m_nu1") > 0.0 && this->get("deg_nu1") == 0.) ||
+                    (this->get("m_nu2") > 0.0 && this->get("deg_nu2") == 0.) ||
+                    (this->get("m_nu3") > 0.0 && this->get("deg_nu3") == 0.))
+                {
+                    music::wlog << " Enabled a neutrino species with mass > 0, but degeneracy = 0." << std::endl;
+                    music::wlog << " You probably need deg_nu(1,2,3) = 1.0 or 3.0." << std::endl;
+                }
+
+                // normalization for Omega_nu (allow for different temperatures)
                 pmap_["neutrino_norm"] = cf.get_value_safe<double>("cosmology", "neutrino_norm", 93.14);
 
                 // number ultrarelativistic neutrinos
