@@ -142,8 +142,8 @@ int run( config_file& the_config )
     }
     //! which transfer function plugin was used
     std::string tf = the_config.get_value<std::string>("cosmology", "transfer");
-    if (bWithNeutrinos && tf != "3FA_CLASS") {
-        music::wlog << " Neutrino corrections enabled. It is recommended to use the 3FA_CLASS" << std::endl;
+    if (bWithNeutrinos && tf != "zwindstroom") {
+        music::wlog << " Neutrino corrections enabled. It is recommended to use the zwindstroom" << std::endl;
         music::wlog << " transfer function plugin for correct scale-dependent growth factors." << std::endl;
     }
 

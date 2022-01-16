@@ -16,7 +16,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#ifdef USE_3FA
+#ifdef USE_ZWINDSTROOM
 #ifdef USE_CLASS
 
 #include <cmath>
@@ -25,7 +25,7 @@
 #include <memory>
 #include <sstream>
 
-#include <3fa.h>
+#include <zwindstroom.h>
 #include <ClassEngine.hh>
 
 #include <general.hh>
@@ -36,7 +36,7 @@
 #include <math/interpolate.hh>
 
 
-class transfer_3FA_CLASS_plugin : public TransferFunction_plugin
+class transfer_zwindstroom_plugin : public TransferFunction_plugin
 {
 private:
 
@@ -232,19 +232,19 @@ private:
   }
 
 public:
-  explicit transfer_3FA_CLASS_plugin(config_file &cf, const cosmology::parameters& cosmo_params)
+  explicit transfer_zwindstroom_plugin(config_file &cf, const cosmology::parameters& cosmo_params)
       : TransferFunction_plugin(cf,cosmo_params)
   {
     // Before starting, throw an error if ZeroRadiation is used, because
     // that choice implies a simplified manner of backscaling
     if (pcf_->get_value_safe<bool>("cosmology", "ZeroRadiation", false))
     {
-        throw std::runtime_error("Using ZeroRadiation=true for simplified backscaling, in which case 3FA is not needed.");
+        throw std::runtime_error("Using ZeroRadiation=true for simplified backscaling, in which case zwindstroom is not needed.");
     }
     // Throw an error if there are no massive neutrinos
     if (cosmo_params_.get("N_nu_massive") <= 0)
     {
-        throw std::runtime_error("Running without massive neutrinos, in which case 3FA is not needed.");
+        throw std::runtime_error("Running without massive neutrinos, in which case zwindstroom is not needed.");
     }
 
     this->tf_isnormalised_ = true;
@@ -334,7 +334,7 @@ public:
 
     music::ilog << "CLASS table contains k = " << this->get_kmin() << " to " << this->get_kmax() << " h Mpc-1." << std::endl;
 
-    // array of neutrino masses in eV needed by 3FA
+    // array of neutrino masses in eV needed by zwindstroom
     const int N_nu = cosmo_params_.get("N_nu_massive");
     std::vector<double> M_nu;
     std::vector<double> deg_nu; //degeneracies
@@ -358,13 +358,13 @@ public:
         }
     }
 
-    // 3FA structures
+    // Zwindstroom structures
     struct model m;
     struct units us;
     struct physical_consts pcs;
     struct cosmology_tables tab;
 
-    // Set up 3FA cosmological parameters
+    // Set up zwindstroom cosmological parameters
     m.h = cosmo_params_.get("h");
     m.Omega_b = cosmo_params_.get("Omega_b");
     m.Omega_c = cosmo_params_.get("Omega_c");
@@ -381,7 +381,7 @@ public:
     // Does the cosmological sim use constant mass energy for the neutrinos?
     m.sim_neutrino_nonrel_masses = 1; //TODO: make parameter
 
-    // Set up 3FA unit system
+    // Set up zwindstroom unit system
     us.UnitLengthMetres = MPC_METRES; // match CLASS
     us.UnitTimeSeconds = 1e15; // can be anything
     us.UnitMassKilogram = 1.0;
@@ -391,9 +391,9 @@ public:
 
     double wtime = get_wtime();
     music::ilog << "-------------------------------------------------------------------------------" << std::endl;
-    music::ilog << "Integrating cosmological tables with 3FA." << std::endl;
+    music::ilog << "Integrating cosmological tables with zwindstroom." << std::endl;
 
-    // Integrate the cosmological tables with 3FA (accounting for neutrinos)
+    // Integrate the cosmological tables with zwindstroom (accounting for neutrinos)
     const double tab_a_start = astart_ * 0.99;
     const double tab_a_final = atarget_ * 1.01;
     integrate_cosmology_tables(&m, &us, &pcs, &tab, tab_a_start, tab_a_final, 1000);
@@ -403,11 +403,11 @@ public:
     const double f_nu_nr_0 = get_f_nu_nr_tot_of_a(&tab, atoday_);
     const double f_b = m.Omega_b / (m.Omega_b + m.Omega_c);
     // extract the Hubble rate at a_start and normalize by H0
-    const double H_start = get_H_of_a(&tab, astart_); // in 3FA units
-    const double H_0 = get_H_of_a(&tab, atoday_); // in 3FA units
+    const double H_start = get_H_of_a(&tab, astart_); // in zwindstroom units
+    const double H_0 = get_H_of_a(&tab, atoday_); // in zwindstroom units
     const double H_units = cosmo_params_.get("H0") / H_0;
 
-    music::ilog << "Integrating fluid equations with 3FA." << std::endl;
+    music::ilog << "Integrating fluid equations with zwindstroom." << std::endl;
 
     // prepare fluid equation integration
     const double tol = 1e-12;
@@ -454,7 +454,7 @@ public:
 
         // initialise the input data for the fluid equations
         struct growth_factors gfac;
-        gfac.k = k[i]; // in 1/Mpc -- like CLASS, 3FA does not use h-units
+        gfac.k = k[i]; // in 1/Mpc -- like CLASS, zwindstroom does not use h-units
         gfac.delta_c = dc[i];
         gfac.delta_b = db[i];
         gfac.delta_n = gfac_delta_n.data();
@@ -477,7 +477,7 @@ public:
     free_fluid_integrator();
 
     wtime = get_wtime() - wtime;
-    music::ilog << "3FA took " << wtime << " s." << std::endl;
+    music::ilog << "zwindstroom took " << wtime << " s." << std::endl;
 
     // determine the asymptotic total matter growth rate and factor by averaging
     // over small scales modes (k > 1/Mpc)
@@ -609,7 +609,7 @@ public:
     music::wlog << " Make sure that your sim code can handle massive neutrinos in its background FLRW model." << std::endl;
     music::ilog << "Wrote Hubble rate table to file \'" << fname_hubble << "\'" << std::endl;
 
-    // clean up 3FA
+    // clean up zwindstroom
     free_cosmology_tables(&tab);
 
     tf_with_Dm_asymptotic_ = true;
@@ -618,7 +618,7 @@ public:
     tf_withtotal0_ = true;
   }
 
-  ~transfer_3FA_CLASS_plugin()
+  ~transfer_zwindstroom_plugin()
   {
   }
 
@@ -689,8 +689,8 @@ public:
 
 namespace
 {
-TransferFunction_plugin_creator_concrete<transfer_3FA_CLASS_plugin> creator("3FA_CLASS");
+TransferFunction_plugin_creator_concrete<transfer_zwindstroom_plugin> creator("zwindstroom");
 }
 
 #endif // USE_CLASS
-#endif // USE_3FA
+#endif // USE_ZWINDSTROOM
