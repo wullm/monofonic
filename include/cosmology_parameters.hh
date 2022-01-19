@@ -114,8 +114,23 @@ namespace cosmology
                 pmap_["m_nu1"] = cf.get_value_safe<double>("cosmology", "m_nu1", defaultp["m_nu1"]);
                 pmap_["m_nu2"] = cf.get_value_safe<double>("cosmology", "m_nu2", defaultp["m_nu2"]);
                 pmap_["m_nu3"] = cf.get_value_safe<double>("cosmology", "m_nu3", defaultp["m_nu3"]);
+                pmap_["deg_nu1"] = cf.get_value_safe<double>("cosmology", "deg_nu1", defaultp["deg_nu1"]);
+                pmap_["deg_nu2"] = cf.get_value_safe<double>("cosmology", "deg_nu2", defaultp["deg_nu1"]);
+                pmap_["deg_nu3"] = cf.get_value_safe<double>("cosmology", "deg_nu3", defaultp["deg_nu1"]);
                 int N_nu_massive = int(this->get("m_nu1") > 1e-9) + int(this->get("m_nu2") > 1e-9) + int(this->get("m_nu3") > 1e-9);;
                 
+                // warn about degeneracies
+                if ((this->get("m_nu1") > 0.0 && this->get("deg_nu1") == 0.) ||
+                    (this->get("m_nu2") > 0.0 && this->get("deg_nu2") == 0.) ||
+                    (this->get("m_nu3") > 0.0 && this->get("deg_nu3") == 0.))
+                {
+                    music::wlog << " Enabled a neutrino species with mass > 0, but degeneracy = 0." << std::endl;
+                    music::wlog << " You probably need deg_nu(1,2,3) = 1.0 or 3.0." << std::endl;
+                }
+
+                // normalization for Omega_nu (allow for different temperatures)
+                pmap_["neutrino_norm"] = cf.get_value_safe<double>("cosmology", "neutrino_norm", 93.14);
+
                 // number ultrarelativistic neutrinos
                 pmap_["N_ur"] = cf.get_value_safe<double>("cosmology", "N_ur", 3.046 - N_nu_massive);
             
@@ -156,8 +171,8 @@ namespace cosmology
 
             // massive neutrinos
             pmap_["N_nu_massive"] = int(this->get("m_nu1") > 1e-9) + int(this->get("m_nu2") > 1e-9) + int(this->get("m_nu3") > 1e-9);
-            const double sum_m_nu = this->get("m_nu1") + this->get("m_nu2") + this->get("m_nu3");
-            pmap_["Omega_nu_massive"] = sum_m_nu / (93.14 * h * h); // Omega_nu_m = \sum_i m_i / (93.14 eV h^2)
+            const double sum_m_nu = this->get("m_nu1") * this->get("deg_nu1") + this->get("m_nu2") * this->get("deg_nu2") + this->get("m_nu3") * this->get("deg_nu3");
+            pmap_["Omega_nu_massive"] = sum_m_nu / (pmap_["neutrino_norm"] * h * h); // Omega_nu_m = \sum_i m_i / (93.14 eV h^2)
 
             // calculate energy density in ultrarelativistic species from Tcmb and Neff
             // photons
@@ -193,6 +208,8 @@ namespace cosmology
             pmap_["pnorm"] = 0.0;
             pmap_["sqrtpnorm"] = 0.0;
             pmap_["vfact"] = 0.0;
+            pmap_["dplus_start"] = 0.0;
+            pmap_["dplus_target"] = 0.0;
 
             music::ilog << "Cosmological parameters are: " << std::endl;
             music::ilog << " h        = " << std::setw(16) << this->get("h");

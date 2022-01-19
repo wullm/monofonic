@@ -58,7 +58,7 @@ private:
   void init_ClassEngine(void)
   {
     //--- general parameters ------------------------------------------
-    add_class_parameter("z_max_pk", std::max(std::max(zstart_, ztarget_),199.0)); // use 1.2 as safety
+    add_class_parameter("z_max_pk", std::max(std::max(zstart_, ztarget_),199.0) * 1.2); // use 1.2 as safety
     add_class_parameter("P_k_max_h/Mpc", std::max(2.0,kmax_));
     add_class_parameter("output", "dTk,vTk");
     add_class_parameter("extra metric transfer functions","yes");
@@ -100,6 +100,12 @@ private:
       if( cosmo_params_.get("m_nu2") > 1e-9 ) sstr << ", " << cosmo_params_.get("m_nu2");
       if( cosmo_params_.get("m_nu3") > 1e-9 ) sstr << ", " << cosmo_params_.get("m_nu3");
       add_class_parameter("m_ncdm", sstr.str().c_str());
+
+      std::stringstream sstr2;
+      if( cosmo_params_.get("deg_nu1") > 1e-9 ) sstr2 << cosmo_params_.get("deg_nu1");
+      if( cosmo_params_.get("deg_nu2") > 1e-9 ) sstr2 << ", " << cosmo_params_.get("deg_nu2");
+      if( cosmo_params_.get("deg_nu3") > 1e-9 ) sstr2 << ", " << cosmo_params_.get("deg_nu3");
+      add_class_parameter("deg_ncdm", sstr2.str().c_str());
     }
     
     // change above to enable
@@ -201,6 +207,12 @@ public:
   explicit transfer_CLASS_plugin(config_file &cf, const cosmology::parameters& cosmo_params)
       : TransferFunction_plugin(cf,cosmo_params)
   {
+    // Throw an error if there are no massive neutrinos (since ClassEngine produces undefined behaviour in that case)
+    if (cosmo_params_.get("N_nu_massive") <= 0)
+    {
+        throw std::runtime_error("Running without massive neutrinos, which is not supported by ClassEngine.");
+    }
+
     this->tf_isnormalised_ = true;
 
     ofs_class_input_.open("input_class_parameters.ini", std::ios::trunc);
@@ -250,7 +262,7 @@ public:
     delta_m0_.set_data(k, dm);
     theta_m0_.set_data(k, tm);
 
-     // compute the transfer function at z=z_target using CLASS engine
+    // compute the transfer function at z=z_target using CLASS engine
     this->run_ClassEngine(ztarget_, k, dc, tc, db, tb, dn, tn, dm, tm);
     delta_c_.set_data(k, dc);
     theta_c_.set_data(k, tc);
@@ -269,6 +281,7 @@ public:
     tf_distinct_ = true;
     tf_withvel_ = true;
     tf_withtotal0_ = true;
+    tf_with_asymptotic_growth_factors_ = false;
   }
 
   ~transfer_CLASS_plugin()
@@ -304,6 +317,10 @@ public:
       val = delta_b_(k)-delta_c_(k); break;
     case theta_bc:
       val = theta_b_(k)-theta_c_(k); break;
+    case delta_nu:
+      val = delta_n_(k); break;
+    case theta_nu:
+      val = theta_n_(k); break;
 
       // values at zstart:
     case delta_matter0:
@@ -318,6 +335,10 @@ public:
       val = theta_c0_(k); break;
     case theta_baryon0:
       val = theta_b0_(k); break;
+    case delta_nu0:
+      val = delta_n0_(k); break;
+    case theta_nu0:
+      val = theta_n0_(k); break;
     default:
       throw std::runtime_error("Invalid type requested in transfer function evaluation");
     }
@@ -326,6 +347,10 @@ public:
 
   inline double get_kmin(void) const { return kmin_ / h_; }
   inline double get_kmax(void) const { return kmax_ / h_; }
+
+  inline double get_vfac_asymptotic(void) const {
+      throw std::runtime_error("Transfer function does not have asymptotic growth factrs.");
+  }
 };
 
 namespace

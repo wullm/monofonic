@@ -142,6 +142,34 @@ int run( config_file& the_config )
         Omega[cosmo_species::baryon] = 0.0;
     }
 
+    //! master switch to activate the following neutrino corrections by default
+    const bool bWithNeutrinos = the_config.get_value_safe<bool>("setup", "WithNeutrinos", false );
+
+    //! do not include massive neutrinos in the cdm fluid (use Omega_cdm not Omega_cdm + Omega_nu_massive)
+    const bool bExcludeNeutrinos = the_config.get_value_safe<bool>("setup", "ExcludeNeutrinos", bWithNeutrinos );
+    //! option to exclude massive neutrinos from delta_matter
+    const bool bCDMBaryonMatterOnly = the_config.get_value_safe<bool>("setup", "CDMBaryonMatterOnly", bWithNeutrinos );
+    //! option to do the second order neutrino correction
+    const bool bDoNeutrinoPhi2Corr = the_config.get_value_safe<bool>("setup", "DoNeutrinoPhi2Corr", bWithNeutrinos );
+    //! option to do the third order neutrino correction
+    const bool bDoNeutrinoPhi3Corr = the_config.get_value_safe<bool>("setup", "DoNeutrinoPhi3Corr", bWithNeutrinos );
+
+    //! correct for the difference between delta_matter and theta_matter on large scales
+    const bool bDoDensityVelocityCorr = the_config.get_value_safe<bool>("setup", "DoDensityVelocityCorr", false );
+
+    //! which transfer function plugin was used
+    std::string tf = the_config.get_value<std::string>("cosmology", "transfer");
+    if (bWithNeutrinos && tf != "zwindstroom") {
+        music::wlog << " Neutrino corrections enabled. It is recommended to use the zwindstroom" << std::endl;
+        music::wlog << " transfer function plugin for correct scale-dependent growth factors." << std::endl;
+    }
+
+    //! if necessary, subtract the massive neutrino density
+    if (bExcludeNeutrinos) {
+        double Onu = the_cosmo_calc->cosmo_param_["Omega_nu_massive"];
+        Omega[cosmo_species::dm] -= Onu;
+    }
+
     //--------------------------------------------------------------------------------------------------------
     //! do constrained ICs?
     const bool bAddConstrainedModes =  the_config.contains_key("random", "ConstraintFieldFile" );
@@ -193,7 +221,9 @@ int run( config_file& the_config )
     // Compute LPT time coefficients
     //--------------------------------------------------------------------
     const real_t Dplus0 = the_cosmo_calc->get_growth_factor(astart);
-    const real_t vfac   = the_cosmo_calc->get_vfact(astart);
+    const real_t vfac   = the_cosmo_calc->get_vfact_start();
+
+    music::ilog << "Using D+ = " << Dplus0 << ", vfac = " << vfac << std::endl;
 
     const real_t g1  = -Dplus0;
     const real_t g2  = ((LPTorder>1)? -3.0/7.0*Dplus0*Dplus0 : 0.0);
@@ -406,6 +436,17 @@ int run( config_file& the_config )
         }
     }
 
+    //! analytical neutrino correction factor for phi2
+    if (LPTorder > 1 && bDoNeutrinoPhi2Corr) {
+        const real_t O_m = the_cosmo_calc->cosmo_param_["Omega_m"];
+        const real_t f_nu = the_cosmo_calc->cosmo_param_["Omega_nu_massive"] / O_m;
+        const real_t C_2 = 14. * (1. - f_nu) / (19. - 18. * f_nu - sqrt(25. - 24. * f_nu));
+
+        music::ilog << "Rescaling phi(2) by " << C_2 << std::endl;
+
+        phi2 *= C_2;
+    }
+
     //======================================================================
     //... compute 3LPT displacement potential
     //======================================================================
@@ -426,6 +467,18 @@ int run( config_file& the_config )
         Conv.convolve_Hessians(phi, {0, 1}, phi, {0, 1}, phi, {2, 2}, op::subtract_from(phi3));
         // phi3a.apply_InverseLaplacian();
         music::ilog << std::setw(20) << std::setfill(' ') << std::right << "took " << get_wtime() - wtime << "s" << std::endl;
+
+        //! analytical neutrino correction factor for phi3a
+        if (bDoNeutrinoPhi3Corr) {
+            // We multiply phi3a by C_1 now and divide (phi3a + phi3b) by C_1 later
+            const real_t O_m = the_cosmo_calc->cosmo_param_["Omega_m"];
+            const real_t f_nu = the_cosmo_calc->cosmo_param_["Omega_nu_massive"] / O_m;
+            const real_t C_1 = 20. * (1 - f_nu) / (25. - 24. * f_nu - sqrt(25. - 24. * f_nu));
+
+            music::ilog << "Rescaling phi(3a) by " << C_1 << std::endl;
+
+            phi3 *= C_1;
+        }
 
         //... 3b term ...
         wtime = get_wtime();
@@ -459,6 +512,19 @@ int run( config_file& the_config )
         music::ilog << std::setw(20) << std::setfill(' ') << std::right << "took " << get_wtime() - wtime << "s" << std::endl;
     }
 
+    //! analytical neutrino correction factor for phi3a and phi3b
+    if (LPTorder > 2 && bDoNeutrinoPhi3Corr) {
+        const real_t O_m = the_cosmo_calc->cosmo_param_["Omega_m"];
+        const real_t f_nu = the_cosmo_calc->cosmo_param_["Omega_nu_massive"] / O_m;
+        const real_t C_1 = 20. * (1 - f_nu) / (25. - 24. * f_nu - sqrt(25. - 24. * f_nu));
+        const real_t C_3 = 12. * (1. - f_nu) / (17. - 16. * f_nu - sqrt(25. - 24. * f_nu));
+        const real_t Phi3RescaleFact = C_3 / C_1;
+
+        music::ilog << "Rescaling phi(3a) and phi(3b) by " << Phi3RescaleFact << std::endl;
+
+        phi3 *= Phi3RescaleFact;
+    }
+
     ///... scale all potentials with respective growth factors
     phi *= g1;
 
@@ -487,7 +553,10 @@ int run( config_file& the_config )
     if (testing != "none")
     {
         music::wlog << "you are running in testing mode. No ICs, only diagnostic output will be written out!" << std::endl;
-        if (testing == "potentials_and_densities"){
+        if (testing == "white_noise"){
+            testing::output_white_noise(the_config, ngrid, boxlen, wnoise);
+        }
+        else if (testing == "potentials_and_densities"){
             testing::output_potentials_and_densities(the_config, ngrid, boxlen, phi, phi2, phi3, A3);
         }
         else if (testing == "velocity_displacement_symmetries"){
@@ -523,7 +592,22 @@ int run( config_file& the_config )
         music::ilog << std::endl
                     << ">>> Computing ICs for species \'" << cosmo_species_name[this_species] << "\' <<<\n" << std::endl;
 
-        const real_t C_species = (this_species == cosmo_species::baryon)? (1.0-the_cosmo_calc->cosmo_param_["f_b"]) : -the_cosmo_calc->cosmo_param_["f_b"];
+        // total matter density at z=0, including massive neutrinos
+        const real_t O_m = the_cosmo_calc->cosmo_param_["Omega_m"];
+
+        // baryon, cdm, and massive neutrino fractions of the total matter density (z=0)
+        const real_t f_b = the_cosmo_calc->cosmo_param_["Omega_b"] / O_m;
+        const real_t f_c = the_cosmo_calc->cosmo_param_["Omega_c"] / O_m;
+
+        // C factor for baryons and cdm
+        real_t C_species;
+        if (bDoBaryons && bExcludeNeutrinos){
+            C_species = (this_species == cosmo_species::baryon)? (1.0-f_b / (f_b + f_c)) : -f_b / (f_b + f_c);
+        }else if (bDoBaryons && !bExcludeNeutrinos){
+            C_species = (this_species == cosmo_species::baryon)? (1.0-f_b) : -f_b;
+        }else{
+            C_species = 0.;
+        }
 
         // main loop block
         {
@@ -811,6 +895,12 @@ int run( config_file& the_config )
                                 if( bDoBaryons & bDoLinearBCcorr ){
                                     real_t knorm = wnoise.get_k<real_t>(i,j,k).norm();
                                     tmp.kelem(idx) -= vfac1 * C_species * the_cosmo_calc->get_amplitude_theta_bc(knorm, bDoLinearBCcorr) * wnoise.kelem(i,j,k) * lg.gradient(idim,tmp.get_k3(i,j,k)) / (knorm*knorm);
+                                }
+
+                                // option to account for the difference between delta_m and theta_m / (afH) on large scales
+                                if (bDoDensityVelocityCorr) {
+                                    real_t knorm = wnoise.get_k<real_t>(i,j,k).norm();
+                                    tmp.kelem(idx) += vfac1 * the_cosmo_calc->get_amplitude_theta_delta_m(knorm, bCDMBaryonMatterOnly) * wnoise.kelem(i,j,k) * lg.gradient(idim,tmp.get_k3(i,j,k)) / (knorm*knorm);
                                 }
 
                                 // correct with interpolation kernel if we used interpolation to read out the positions (for glasses)

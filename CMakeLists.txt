@@ -138,6 +138,11 @@ find_package(HDF5 REQUIRED)
 mark_as_advanced(HDF5_C_LIBRARY_dl HDF5_C_LIBRARY_hdf5 HDF5_C_LIBRARY_m HDF5_C_LIBRARY_pthread HDF5_C_LIBRARY_z HDF5_C_LIBRARY_sz)
 
 ########################################################################################################################
+# Zwindstroom
+option(ENABLE_ZWINDSTROOM "Enable Zwindstroom 3-fluid module" ON)
+########################################################################################################################
+
+########################################################################################################################
 # PANPHASIA
 option(ENABLE_PANPHASIA "Enable PANPHASIA random number generator" ON)
 if(ENABLE_PANPHASIA)
@@ -270,11 +275,20 @@ target_link_libraries(${PRGNAME} PRIVATE GSL::gsl)
 ########################################################################################################################
 # include CLASS
 option(ENABLE_CLASS "Enable CLASS support (as a submodule)." ON)
-  
+
 if(ENABLE_CLASS)
   include(${CMAKE_CURRENT_SOURCE_DIR}/external/class.cmake)
   target_link_libraries(${PRGNAME} PRIVATE class::libclass_cpp)
   target_compile_definitions(${PRGNAME} PRIVATE "USE_CLASS")
+endif()
+
+
+########################################################################################################################
+# include Zwindstroom
+if(ENABLE_ZWINDSTROOM)
+  include(${CMAKE_CURRENT_SOURCE_DIR}/external/zwindstroom.cmake)
+  target_link_libraries(${PRGNAME} PRIVATE zwindstroom::zwindstroom_static)
+  target_compile_definitions(${PRGNAME} PRIVATE "USE_ZWINDSTROOM")
 endif()
 
 ########################################################################################################################
