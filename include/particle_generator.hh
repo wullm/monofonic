@@ -17,6 +17,7 @@
 #pragma once
 
 #include <math/vec3.hh>
+#include <grid_ghosts.hh>
 #include <grid_interpolate.hh>
 
 #if defined(USE_HDF5)
@@ -167,6 +168,31 @@ namespace particle
                        +global_idx_3d[1]%masksize_)*masksize_
                        +global_idx_3d[2]%masksize_;
             return particle_type_mask_[sig];
+        }
+
+        template< typename ggrid_t >
+        inline real_t get_mean_mask_value( const ggrid_t& gg_field, const vec3_t<size_t>& global_idx_3d, size_t i, size_t j, size_t k, int lattice_index ) const
+        {
+            ptrdiff_t ox = (ptrdiff_t)i-(ptrdiff_t)(global_idx_3d[0]%masksize_);
+            ptrdiff_t oy = (ptrdiff_t)j-(ptrdiff_t)(global_idx_3d[1]%masksize_);
+            ptrdiff_t oz = (ptrdiff_t)k-(ptrdiff_t)(global_idx_3d[2]%masksize_);
+            size_t count_full{0}, count_masked{0};
+            real_t mean_full{0.0}, mean_masked{0.0};
+            for( size_t i=0; i<masksize_; ++i ){
+                for( size_t j=0; j<masksize_; ++j ){
+                    for( size_t k=0; k<masksize_; ++k ){
+                        mean_full += gg_field.relem( ox+i, oy+j, oz+k );
+                        ++count_full;
+                        if( particle_type_mask_[4*i+2*j+k] == lattice_index ){
+                            mean_masked += gg_field.relem( ox+i, oy+j, oz+k );
+                            ++count_masked;
+                        }
+                    }
+                }
+            }
+            mean_full /= count_full;
+            mean_masked /= count_masked;
+            return mean_masked - mean_full;
         }
 
         public:
@@ -396,11 +422,13 @@ namespace particle
                     abort();
                 }
 
+                grid_with_ghosts<1, true, true, field_t> gg_field(field);
+
                 const real_t pmeanmass = munit / global_num_particles_;
 
                 bool bmass_negative = false;
-                auto mean_pm = field.mean() * pmeanmass;
-                auto std_pm  = field.std()  * pmeanmass;
+                real_t mean_pm = 0.0;//field.mean() * pmeanmass;
+                real_t std_pm  = 0.0; //field.std()  * pmeanmass;
 
                 // read out values from phase shifted field and set assoc. particle's value
                 for (size_t i = 0, ipcount = 0; i < field.size(0); ++i)
@@ -409,10 +437,14 @@ namespace particle
                     {
                         for (size_t k = 0; k < field.size(2); ++k)
                         {
-                            if( this->get_mask_value(field.get_cell_idx_3d(i,j,k)) != lattice_index ) continue;
+                            const auto idx3 = field.get_cell_idx_3d(i,j,k);
+
+                            if( this->get_mask_value(idx3) != lattice_index ) continue;
+
+                            const auto mean_mask = this->get_mean_mask_value( gg_field, idx3, i, j, k, lattice_index );
 
                             // get
-                            const auto pmass = pmeanmass * field.relem(i, j, k);
+                            const auto pmass = pmeanmass * (field.relem(i, j, k) - mean_mask);
 
                             // check for negative mass
                             bmass_negative |= pmass<0.0;
@@ -420,9 +452,23 @@ namespace particle
                             // set
                             if (b64reals) particles_.set_mass64(ipcount++, pmass);
                             else particles_.set_mass32(ipcount++, pmass);
+
+                            // statistics
+                            mean_pm += pmass;
+                            std_pm += pmass*pmass;
                         }
                     }
                 }
+                #if defined(USE_MPI)
+                {
+                    double local_mean_pm = mean_pm, local_std_pm = std_pm;
+                    MPI_Allreduce( &local_mean_pm, &mean_pm, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD );
+                    MPI_Allreduce( &local_std_pm, &std_pm, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD );
+                }
+                #endif
+                mean_pm /= global_num_particles_;
+                std_pm /= global_num_particles_;
+                std_pm -= mean_pm*mean_pm;
                 
                 // diagnostics
                 music::ilog << "Particle Mass :  mean/munit = " << mean_pm/munit  << " ; fractional RMS = " << std_pm / mean_pm * 100.0 << "%" << std::endl;
