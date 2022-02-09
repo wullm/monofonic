@@ -217,8 +217,6 @@ namespace particle
 
             if (lattice_type >= 0) // These are the Bravais lattices
             {
-                music::wlog << "Glass ICs will currently be incorrect due to disabled ghost zone updates! ";
-
                 // number of modes present in the field
                 const size_t num_p_in_load = field.local_size();
                 // unless SC lattice is used, particle number is a multiple of the number of modes (=num_p_in_load):
@@ -330,6 +328,8 @@ namespace particle
             }
             else if( lattice_type == lattice_glass )
             {
+                music::wlog << "Glass ICs will currently be incorrect due to disabled ghost zone updates! ";
+
                 glass_ptr_ = std::make_unique<glass>( cf, field );
                 particles_.allocate(glass_ptr_->size(), b64reals, b64ids, false);
 
