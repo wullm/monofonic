@@ -70,7 +70,7 @@ private:
     add_class_parameter("z_max_pk", std::max(std::max(zstart_, ztarget_),199.0) * 1.2); // use 1.2 as safety
     add_class_parameter("P_k_max_h/Mpc", std::max(2.0,kmax_));
     add_class_parameter("output", "dTk,vTk");
-    add_class_parameter("extra metric transfer functions","yes");
+    add_class_parameter("extra_metric_transfer_functions","yes");
     // add_class_parameter("lensing", "no");
 
     //--- choose gauge ------------------------------------------------
@@ -128,8 +128,8 @@ private:
     // precision parameters
     add_class_parameter("k_per_decade_for_pk", 100);
     add_class_parameter("k_per_decade_for_bao", 100);
-    add_class_parameter("compute damping scale", "yes");
-    add_class_parameter("tol_perturb_integration", 1.e-8);
+    add_class_parameter("compute_damping_scale", "yes");
+    add_class_parameter("tol_perturbations_integration", 1.e-8);
     add_class_parameter("tol_background_integration", 1e-9);
 
     // high precision options from cl_permille.pre:
@@ -148,8 +148,8 @@ private:
     add_class_parameter("perturbations_verbose", class_verbosity);
     add_class_parameter("transfer_verbose", class_verbosity);
     add_class_parameter("primordial_verbose", class_verbosity);
-    add_class_parameter("spectra_verbose", class_verbosity);
-    add_class_parameter("nonlinear_verbose", class_verbosity);
+    add_class_parameter("harmonic_verbose", class_verbosity);
+    add_class_parameter("fourier_verbose", class_verbosity);
     add_class_parameter("lensing_verbose", class_verbosity);
     add_class_parameter("output_verbose", class_verbosity);
 
@@ -169,7 +169,7 @@ private:
     music::ilog << "Computing transfer function via ClassEngine... (N-body gauge)" << std::endl;
 
     // do the calculation again, but now exporting N-body gauge transfer functions
-    add_class_parameter("Nbody gauge transfer functions", "yes");
+    add_class_parameter("nbody_gauge_transfer_functions", "yes");
     the_ClassEngine_Nbody_ = std::move(std::make_unique<ClassEngine>(pars_, false));
 
     wtime = get_wtime() - wtime;
