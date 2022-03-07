@@ -173,10 +173,14 @@ int run( config_file& the_config )
         Omega[cosmo_species::dm] -= Onu;
     }
 
-    //! do neutrino particle ICs?
-    //! Note that this is distinct from the WithNeutrinos switch, which only affects
-    //! the CDM & Baryon ICs.
+    //! Do neutrino particle ICs?
+    //! Note that this is distinct from the WithNeutrinos switch, which only affects CDM & Baryon ICs.
     const bool bDoNeutrinoParts = the_config.get_value_safe<bool>("setup", "DoNeutrinoParticles", false );
+    const size_t NeutrinoCubeRootNum = the_config.get_value_safe<size_t>("setup", "NeutrinoCubeRootNum", 0 );
+    const size_t NeutrinoGridRes = the_config.get_value_safe<size_t>("setup", "NeutrinoGridRes", 0 );
+    const real_t NeutrinoStepSize = the_config.get_value_safe<real_t>("setup", "NeutrinoStepSize", 0.05 );
+    const std::string white_noise_fname = "white_noise.hdf5";
+    const std::string white_noise_dset = "white_noise";
 
     //--------------------------------------------------------------------------------------------------------
     //! do constrained ICs?
@@ -359,19 +363,19 @@ int run( config_file& the_config )
     // Potentially, create a down-sampled copy of the random phases
     //--------------------------------------------------------------------
     {
-        size_t nsmall = 32;
-        size_t nsmall_2 = nsmall / 2;
+        const size_t nsmall = NeutrinoGridRes;
+        const size_t nsmall_2 = nsmall / 2;
 
         /* Can we export the white noise field as is or do we need to downsample? */
         if (nsmall == ngrid) {
 #if defined(USE_MPI)
             if (CONFIG::MPI_task_rank == 0) {
                 unlink("white_noise.hdf5");
-                wnoise.Write_to_HDF5("white_noise.hdf5", "white_noise");
+                wnoise.Write_to_HDF5(white_noise_fname, white_noise_dset);
             }
 #else
             unlink("white_noise.hdf5");
-            wnoise.Write_to_HDF5("white_noise.hdf5", "white_noise");
+            wnoise.Write_to_HDF5(white_noise_fname, white_noise_dset);
 #endif
         } else if (nsmall < ngrid) {
 
@@ -1059,12 +1063,13 @@ int run( config_file& the_config )
             setPhysicalConstants(&us);
 
             // Set up FastDF parameters
+            initParams(&pars);
             pars.FirstID = ngrid * ngrid * ngrid + 1; // immediately after the dm particles
-            pars.CubeRootNumber = 64;
+            pars.CubeRootNumber = NeutrinoCubeRootNum;
             pars.NumPartGenerate = pars.CubeRootNumber * pars.CubeRootNumber * pars.CubeRootNumber;
             pars.ScaleFactorBegin = 1e-9;
             pars.ScaleFactorEnd = 1.0/(zstart + 1.0);
-            pars.ScaleFactorStep = 0.05;
+            pars.ScaleFactorStep = NeutrinoStepSize;
             pars.RecomputeTrigger = 0.01;
             pars.RecomputeScaleRef = 0.0;
             pars.InvertField = 0;
@@ -1080,29 +1085,34 @@ int run( config_file& the_config )
             std::string out_fname;
             out_fname = the_config.get_value<std::string>("output", "filename");
 
-            const int len = 100;
-            pars.OutputDirectory = (char*) malloc(len);
-            pars.Name = (char*) malloc(len);
-            pars.ExportName = (char*) malloc(len);
-            pars.InputDirectory = (char*) malloc(len);
-            pars.InputFilename = (char*) malloc(len);
-            pars.OutputFilename = (char*) malloc(len);
-            pars.PerturbFile = (char*) malloc(len);
-            pars.GaussianRandomFieldFile = (char*) malloc(len);
-            pars.GaussianRandomFieldDataset = (char*) malloc(len);
-            pars.TransferFunctionDensity = (char*) malloc(len);
-            pars.Gauge = (char*) malloc(len);
-            pars.ClassIniFile = (char*) malloc(len);
-            pars.VelocityType = (char*) malloc(len);
+            std::string nupart_density_tfunc = "d_ncdm[0]";
+            std::string gauge = "Newtonian";
+            std::string class_parameter_file = "input_class_parameters.ini";
+            std::string export_name;
+            std::string velocity_type;
+
+            // Determine output settings depending on the output plugin
+            std::string out_plug = the_config.get_value<std::string>("output", "format");
+            if (out_plug == "gadget_hdf5" || out_plug == "AREPO") {
+                export_name = "PartType2";
+                velocity_type = "Gadget";
+            } else if (out_plug == "SWIFT") {
+                export_name = "PartType6";
+                velocity_type = "peculiar";
+            } else {
+                throw std::runtime_error("Output format not supported by FastDF (only HDF5 particle formats, e.g. Gadget, SWIFT).");
+            }
+
+            // Set string parameters
             sprintf(pars.OutputDirectory, ".");
-            sprintf(pars.ExportName, "PartType6");
+            sprintf(pars.ExportName, "%s", export_name.c_str());
             sprintf(pars.OutputFilename, "%s", out_fname.c_str());
-            sprintf(pars.GaussianRandomFieldFile, "white_noise.hdf5");
-            sprintf(pars.GaussianRandomFieldDataset, "white_noise");
-            sprintf(pars.TransferFunctionDensity, "d_ncdm[0]");
-            sprintf(pars.Gauge, "Newtonian");
-            sprintf(pars.ClassIniFile, "input_class_parameters.ini");
-            sprintf(pars.VelocityType, "peculiar");
+            sprintf(pars.GaussianRandomFieldFile, "%s", white_noise_fname.c_str());
+            sprintf(pars.GaussianRandomFieldDataset, "%s", white_noise_dset.c_str());
+            sprintf(pars.TransferFunctionDensity, "%s", nupart_density_tfunc.c_str());
+            sprintf(pars.Gauge, "%s", gauge.c_str());
+            sprintf(pars.ClassIniFile, "%s", class_parameter_file.c_str());
+            sprintf(pars.VelocityType, "%s", velocity_type.c_str());
 
             run_fastdf(&pars, &us);
 #else
