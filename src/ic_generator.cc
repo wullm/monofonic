@@ -1088,10 +1088,10 @@ int run( config_file& the_config )
             std::string nupart_density_tfunc = "d_ncdm[0]";
             std::string gauge = "Newtonian";
             std::string class_parameter_file = "input_class_parameters.ini";
-            std::string export_name;
-            std::string velocity_type;
 
             // Determine output settings depending on the output plugin
+            std::string export_name;
+            std::string velocity_type;
             std::string out_plug = the_config.get_value<std::string>("output", "format");
             if (out_plug == "gadget_hdf5" || out_plug == "AREPO") {
                 export_name = "PartType2";
@@ -1104,15 +1104,15 @@ int run( config_file& the_config )
             }
 
             // Set string parameters
-            sprintf(pars.OutputDirectory, ".");
-            sprintf(pars.ExportName, "%s", export_name.c_str());
-            sprintf(pars.OutputFilename, "%s", out_fname.c_str());
-            sprintf(pars.GaussianRandomFieldFile, "%s", white_noise_fname.c_str());
-            sprintf(pars.GaussianRandomFieldDataset, "%s", white_noise_dset.c_str());
-            sprintf(pars.TransferFunctionDensity, "%s", nupart_density_tfunc.c_str());
-            sprintf(pars.Gauge, "%s", gauge.c_str());
-            sprintf(pars.ClassIniFile, "%s", class_parameter_file.c_str());
-            sprintf(pars.VelocityType, "%s", velocity_type.c_str());
+            strcpy(pars.OutputDirectory, ".");
+            strcpy(pars.ExportName, export_name.c_str());
+            strcpy(pars.OutputFilename, out_fname.c_str());
+            strcpy(pars.GaussianRandomFieldFile, white_noise_fname.c_str());
+            strcpy(pars.GaussianRandomFieldDataset, white_noise_dset.c_str());
+            strcpy(pars.TransferFunctionDensity, nupart_density_tfunc.c_str());
+            strcpy(pars.Gauge, gauge.c_str());
+            strcpy(pars.ClassIniFile, class_parameter_file.c_str());
+            strcpy(pars.VelocityType, velocity_type.c_str());
 
             run_fastdf(&pars, &us);
 #else
