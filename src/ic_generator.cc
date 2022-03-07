@@ -1045,7 +1045,7 @@ int run( config_file& the_config )
         if( the_output_plugin->write_species_as( this_species ) == output_type::particles
             && this_species == cosmo_species::neutrino)
         {
-
+#ifdef USE_FASTDF
             struct params pars;
             struct units us;
 
@@ -1105,7 +1105,9 @@ int run( config_file& the_config )
             sprintf(pars.VelocityType, "peculiar");
 
             run_fastdf(&pars, &us);
-
+#else
+            throw std::runtime_error("Not compiled with FastDF.");
+#endif
         }
 
         music::ilog << "-------------------------------------------------------------------------------" << std::endl;
