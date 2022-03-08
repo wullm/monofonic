@@ -1086,7 +1086,7 @@ int run( config_file& the_config )
             out_fname = the_config.get_value<std::string>("output", "filename");
 
             std::string nupart_density_tfunc = "d_ncdm[0]";
-            std::string gauge = "Newtonian";
+            std::string gauge = "N-body";
             std::string class_parameter_file = "input_class_parameters.ini";
 
             // Determine output settings depending on the output plugin
