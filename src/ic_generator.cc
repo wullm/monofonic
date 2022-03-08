@@ -413,6 +413,12 @@ int run( config_file& the_config )
                 }
             }
 
+            /* Make sure that the normalization is correct */
+            const real_t volfac_small(std::pow(boxlen / nsmall / 2.0 / M_PI, 1.5));
+            noise_small.apply_function_k( [&](auto wn){
+                return wn * volfac / volfac_small;
+            });
+
             noise_small.FourierTransformBackward();
 
 #if defined(USE_MPI)
@@ -1078,7 +1084,7 @@ int run( config_file& the_config )
             pars.BoxLen = boxlen / the_cosmo_calc->cosmo_param_["h"];
             pars.AlternativeEquations = 0;
             pars.OutputFields = 0;
-            pars.NormalizeGaussianField = 1;
+            pars.NormalizeGaussianField = 0;
             pars.AssumeMonofonicNormalization = 1;
             pars.PrimordialScalarAmplitude = the_cosmo_calc->cosmo_param_["A_s"];
             pars.PrimordialSpectralIndex = the_cosmo_calc->cosmo_param_["n_s"];
