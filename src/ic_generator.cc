@@ -368,6 +368,7 @@ int run( config_file& the_config )
 
         /* Can we export the white noise field as is or do we need to downsample? */
         if (nsmall == ngrid) {
+            wnoise.FourierTransformBackward();
 #if defined(USE_MPI)
             if (CONFIG::MPI_task_rank == 0) {
                 unlink("white_noise.hdf5");
@@ -377,6 +378,7 @@ int run( config_file& the_config )
             unlink("white_noise.hdf5");
             wnoise.Write_to_HDF5(white_noise_fname, white_noise_dset);
 #endif
+            wnoise.FourierTransformForward();
         } else if (nsmall < ngrid) {
 
             Grid_FFT<real_t,false> noise_small({nsmall,nsmall,nsmall}, {boxlen,boxlen,boxlen});
