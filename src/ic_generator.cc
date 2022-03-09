@@ -179,6 +179,7 @@ int run( config_file& the_config )
     const size_t NeutrinoCubeRootNum = the_config.get_value_safe<size_t>("setup", "NeutrinoCubeRootNum", 0 );
     const size_t NeutrinoGridRes = the_config.get_value_safe<size_t>("setup", "NeutrinoGridRes", 0 );
     const real_t NeutrinoStepSize = the_config.get_value_safe<real_t>("setup", "NeutrinoStepSize", 0.05 );
+    const size_t TotalNeutrinoNum = NeutrinoCubeRootNum * NeutrinoCubeRootNum * NeutrinoCubeRootNum;
     const std::string white_noise_fname = "white_noise.hdf5";
     const std::string white_noise_dset = "white_noise";
 
@@ -1074,7 +1075,7 @@ int run( config_file& the_config )
             initParams(&pars);
             pars.FirstID = ngrid * ngrid * ngrid + 1; // immediately after the dm particles
             pars.CubeRootNumber = NeutrinoCubeRootNum;
-            pars.NumPartGenerate = pars.CubeRootNumber * pars.CubeRootNumber * pars.CubeRootNumber;
+            pars.NumPartGenerate = TotalNeutrinoNum;
             pars.ScaleFactorBegin = 1e-9;
             pars.ScaleFactorEnd = 1.0/(zstart + 1.0);
             pars.ScaleFactorStep = NeutrinoStepSize;
@@ -1101,15 +1102,21 @@ int run( config_file& the_config )
             std::string export_name;
             std::string velocity_type;
             std::string out_plug = the_config.get_value<std::string>("output", "format");
+            char include_h_factor;
             if (out_plug == "gadget_hdf5" || out_plug == "AREPO") {
                 export_name = "PartType2";
                 velocity_type = "Gadget";
+                include_h_factor = 1;
             } else if (out_plug == "SWIFT") {
                 export_name = "PartType6";
                 velocity_type = "peculiar";
+                include_h_factor = 0;
             } else {
                 throw std::runtime_error("Output format not supported by FastDF (only HDF5 particle formats, e.g. Gadget, SWIFT).");
             }
+
+            // Should coordinates and masses include a factor of h^-1?
+            pars.IncludeHubbleFactors = include_h_factor;
 
             // Set string parameters
             strcpy(pars.OutputDirectory, ".");
