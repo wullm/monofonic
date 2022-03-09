@@ -155,7 +155,7 @@ namespace particle
         {
             if (lattice_type != lattice_glass)
             {
-                music::wlog << "Glass ICs will currently be incorrect due to disabled ghost zone updates! ";
+                music::wlog << "Glass ICs will currently be incorrect due to disabled ghost zone updates! " << std::endl;
 
                 // number of modes present in the field
                 const size_t num_p_in_load = field.local_size();

@@ -143,6 +143,11 @@ option(ENABLE_ZWINDSTROOM "Enable Zwindstroom 3-fluid module" ON)
 ########################################################################################################################
 
 ########################################################################################################################
+# FastDF
+option(ENABLE_FASTDF "Enable FastDF module for neutrino particle ICs" ON)
+########################################################################################################################
+
+########################################################################################################################
 # PANPHASIA
 option(ENABLE_PANPHASIA "Enable PANPHASIA random number generator" ON)
 if(ENABLE_PANPHASIA)
@@ -290,6 +295,16 @@ if(ENABLE_ZWINDSTROOM)
   target_link_libraries(${PRGNAME} PRIVATE zwindstroom::zwindstroom_static)
   target_compile_definitions(${PRGNAME} PRIVATE "USE_ZWINDSTROOM")
 endif()
+
+
+########################################################################################################################
+# include FastDF
+if(ENABLE_FASTDF)
+  include(${CMAKE_CURRENT_SOURCE_DIR}/external/fastdf.cmake)
+  target_link_libraries(${PRGNAME} PRIVATE fastdf::fastdf_static)
+  target_compile_definitions(${PRGNAME} PRIVATE "USE_FASTDF")
+endif()
+
 
 ########################################################################################################################
 # include GenericIO (only if MPI available)

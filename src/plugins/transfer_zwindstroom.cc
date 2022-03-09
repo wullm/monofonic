@@ -67,7 +67,7 @@ private:
   {
 
     //--- general parameters ------------------------------------------
-    add_class_parameter("z_max_pk", std::max(std::max(zstart_, ztarget_),199.0) * 1.2); // use 1.2 as safety
+    add_class_parameter("z_max_pk", 1e10); // start very early to allow integrating neutrinos
     add_class_parameter("P_k_max_h/Mpc", std::max(2.0,kmax_));
     add_class_parameter("output", "dTk,vTk");
     add_class_parameter("extra_metric_transfer_functions","yes");
@@ -169,7 +169,7 @@ private:
     music::ilog << "Computing transfer function via ClassEngine... (N-body gauge)" << std::endl;
 
     // do the calculation again, but now exporting N-body gauge transfer functions
-    add_class_parameter("Nbody gauge transfer functions", "yes");
+    add_class_parameter("nbody_gauge_transfer_functions", "yes");
     the_ClassEngine_Nbody_ = std::move(std::make_unique<ClassEngine>(pars_, false));
 
     wtime = get_wtime() - wtime;
