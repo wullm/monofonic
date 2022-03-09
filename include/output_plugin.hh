@@ -55,8 +55,14 @@ public:
 	//! virtual destructor
 	virtual ~output_plugin(){}
 
+	//! routine to obtain the particle type id
+	virtual int get_species_idx(const cosmo_species &s) const = 0;
+
 	//! routine to write particle data for a species
 	virtual void write_particle_data(const particle::container &pc, const cosmo_species &s, double Omega_species ) {};
+
+	//! routine to only set particle attributes for a species
+	virtual void set_particle_attributes(uint64_t numpart_local, uint64_t numpart_total, const cosmo_species &s, double Omega_species) {};
 
 	//! routine to write gridded fluid component data for a species
 	virtual void write_grid_data(const Grid_FFT<real_t> &g, const cosmo_species &s, const fluid_component &c ) {};

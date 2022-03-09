@@ -238,6 +238,15 @@ public:
     return -1;
   }
 
+  void set_particle_attributes(uint64_t numpart_local, uint64_t numpart_total, const cosmo_species &s, double Omega_species ) {
+      int sid = get_species_idx(s);
+      assert(sid != -1);
+
+      npart_[sid] = numpart_total;
+      npartTotal_[sid] = (uint32_t)(numpart_total);
+      npartTotalHighWord_[sid] = (uint32_t)(numpart_total >> 32);
+  };
+
   void write_particle_data(const particle::container &pc, const cosmo_species &s, double Omega_species)
   {
     int sid = get_species_idx(s);

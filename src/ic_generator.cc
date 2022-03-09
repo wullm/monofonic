@@ -1099,24 +1099,30 @@ int run( config_file& the_config )
             std::string class_parameter_file = "input_class_parameters.ini";
 
             // Determine output settings depending on the output plugin
-            std::string export_name;
-            std::string velocity_type;
             std::string out_plug = the_config.get_value<std::string>("output", "format");
-            char include_h_factor;
+            std::string velocity_type;
+            int include_h_factor;
+            int distributed_files;
             if (out_plug == "gadget_hdf5" || out_plug == "AREPO") {
-                export_name = "PartType2";
                 velocity_type = "Gadget";
                 include_h_factor = 1;
+                distributed_files = 1;
             } else if (out_plug == "SWIFT") {
-                export_name = "PartType6";
                 velocity_type = "peculiar";
                 include_h_factor = 0;
+                distributed_files = 0;
             } else {
                 throw std::runtime_error("Output format not supported by FastDF (only HDF5 particle formats, e.g. Gadget, SWIFT).");
             }
 
+            // The group name for this species, according to the output plugin
+            int export_key = the_output_plugin->get_species_idx(this_species);
+            std::string export_name = std::string("PartType") + std::to_string(export_key);
+
             // Should coordinates and masses include a factor of h^-1?
             pars.IncludeHubbleFactors = include_h_factor;
+            // Does each task create its own file?
+            pars.DistributedFiles = distributed_files;
 
             // Set string parameters
             strcpy(pars.OutputDirectory, ".");
@@ -1129,7 +1135,10 @@ int run( config_file& the_config )
             strcpy(pars.ClassIniFile, class_parameter_file.c_str());
             strcpy(pars.VelocityType, velocity_type.c_str());
 
-            run_fastdf(&pars, &us);
+            uint64_t num_local_nuparts = run_fastdf(&pars, &us);
+
+            // Also set Header attributes
+            the_output_plugin->set_particle_attributes(num_local_nuparts, (uint64_t) (TotalNeutrinoNum), this_species, the_cosmo_calc->cosmo_param_["Omega_nu_1"]);
 #else
             throw std::runtime_error("Not compiled with FastDF.");
 #endif

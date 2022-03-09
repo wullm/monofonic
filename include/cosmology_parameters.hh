@@ -173,6 +173,9 @@ namespace cosmology
             pmap_["N_nu_massive"] = int(this->get("m_nu1") > 1e-9) + int(this->get("m_nu2") > 1e-9) + int(this->get("m_nu3") > 1e-9);
             const double sum_m_nu = this->get("m_nu1") * this->get("deg_nu1") + this->get("m_nu2") * this->get("deg_nu2") + this->get("m_nu3") * this->get("deg_nu3");
             pmap_["Omega_nu_massive"] = sum_m_nu / (pmap_["neutrino_norm"] * h * h); // Omega_nu_m = \sum_i m_i / (93.14 eV h^2)
+            pmap_["Omega_nu_1"] = this->get("m_nu1") * this->get("deg_nu1") / (pmap_["neutrino_norm"] * h * h);
+            pmap_["Omega_nu_2"] = this->get("m_nu2") * this->get("deg_nu2") / (pmap_["neutrino_norm"] * h * h);
+            pmap_["Omega_nu_3"] = this->get("m_nu3") * this->get("deg_nu3") / (pmap_["neutrino_norm"] * h * h);
 
             // calculate energy density in ultrarelativistic species from Tcmb and Neff
             // photons
