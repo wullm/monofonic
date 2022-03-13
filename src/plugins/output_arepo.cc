@@ -213,7 +213,7 @@ public:
     case cosmo_species::baryon:
       return 0;
     case cosmo_species::neutrino:
-      return 3;
+      return 2;
     }
     return -1;
   }
