@@ -363,7 +363,7 @@ int run( config_file& the_config )
     //--------------------------------------------------------------------
     // Potentially, create a down-sampled copy of the random phases
     //--------------------------------------------------------------------
-    {
+    if (bDoNeutrinoParts) {
         const size_t nsmall = NeutrinoGridRes;
         const size_t nsmall_2 = nsmall / 2;
 
@@ -380,7 +380,7 @@ int run( config_file& the_config )
             wnoise.Write_to_HDF5(white_noise_fname, white_noise_dset);
 #endif
             wnoise.FourierTransformForward();
-        } else if (nsmall < ngrid) {
+        } else if (nsmall > 0 && nsmall < ngrid) {
 
             Grid_FFT<real_t,false> noise_small({nsmall,nsmall,nsmall}, {boxlen,boxlen,boxlen});
             noise_small.FourierTransformForward();
@@ -434,6 +434,8 @@ int run( config_file& the_config )
             unlink("white_noise.hdf5");
             noise_small.Write_to_HDF5("white_noise.hdf5", "white_noise");
 #endif
+        } else if (nsmall <= 0) {
+            throw std::runtime_error("The neutrino grid size should be a positive integer.");
         } else {
             throw std::runtime_error("Cannot upsample the white noise field.");
         }
