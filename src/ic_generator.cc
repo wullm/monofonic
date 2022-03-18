@@ -371,14 +371,14 @@ int run( config_file& the_config )
         if (nsmall == ngrid) {
             wnoise.FourierTransformBackward();
 #if defined(USE_MPI)
-            if (CONFIG::MPI_task_rank == 0) {
-                unlink("white_noise.hdf5");
-                wnoise.Write_to_HDF5(white_noise_fname, white_noise_dset);
-            }
+            if (CONFIG::MPI_task_rank == 0)
+                unlink(white_noise_fname.c_str());
+            MPI_Barrier(MPI_COMM_WORLD);
 #else
-            unlink("white_noise.hdf5");
-            wnoise.Write_to_HDF5(white_noise_fname, white_noise_dset);
+            unlink(white_noise_fname.c_str());
 #endif
+            wnoise.Write_to_HDF5(white_noise_fname, white_noise_dset);
+
             wnoise.FourierTransformForward();
         } else if (nsmall > 0 && nsmall < ngrid) {
 
@@ -427,12 +427,12 @@ int run( config_file& the_config )
             MPI_Reduce(noise_small.data_, noise_small_aggr.data_, nsmall*nsmall*nsmall,
                        MPI::get_datatype<real_t>(), MPI_SUM, 0, MPI_COMM_WORLD);
             if (CONFIG::MPI_task_rank == 0) {
-                unlink("white_noise.hdf5");
-                noise_small_aggr.Write_to_HDF5("white_noise.hdf5", "white_noise");
+                unlink(white_noise_fname.c_str());
+                noise_small_aggr.Write_to_HDF5(white_noise_fname, white_noise_dset);
             }
 #else
-            unlink("white_noise.hdf5");
-            noise_small.Write_to_HDF5("white_noise.hdf5", "white_noise");
+            unlink(white_noise_fname.c_str());
+            noise_small.Write_to_HDF5(white_noise_fname, white_noise_dset);
 #endif
         } else if (nsmall <= 0) {
             throw std::runtime_error("The neutrino grid size should be a positive integer.");
