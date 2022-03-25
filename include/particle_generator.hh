@@ -38,11 +38,11 @@ namespace particle
         lattice_rsc = 3, // RSC: refined simple cubic
     };
 
-    const std::vector<std::vector<bool>> lattice_masks =
-    {
-        // mask from Richings et al. https://arxiv.org/pdf/2005.14495.pdf
-        {true,true,true,true,true,true,true,false},
-    };
+    // const std::vector<std::vector<bool>> lattice_masks =
+    // {
+    //     // mask from Richings et al. https://arxiv.org/pdf/2005.14495.pdf
+    //     {true,true,true,true,true,true,true,false},
+    // };
 
     const std::vector<std::vector<vec3_t<real_t>>> lattice_shifts =
         {
@@ -266,11 +266,25 @@ namespace particle
                 // set the particle mask 
                 if( cf.get_value_safe("setup","DoBaryons",false) )
                 {
+                    unsigned mask_type = cf.get_value_safe("setup","ParticleMaskType",3);
                     // mask everywehere 0, except the last element
-                    for( auto& m : particle_type_mask_) m = 0;
-                    particle_type_mask_[7] = 1;
+                    for( auto& m : particle_type_mask_) m = -1;
+                    particle_type_mask_[0] = 0; // CDM at corner of unit cube
+                    if( mask_type & 1<<0 ) {
+                        // edge centers
+                        particle_type_mask_[1] = 0; // CDM
+                        particle_type_mask_[2] = 0; // CDM
+                        particle_type_mask_[4] = 0; // CDM
+                    }
+                    if( mask_type & 1<<1 ){
+                        // face centers
+                        particle_type_mask_[3] = 0; // CDM
+                        particle_type_mask_[5] = 0; // CDM
+                        particle_type_mask_[6] = 0; // CDM
+                    }
+                    particle_type_mask_[7] = 1; // baryon at cell center (aka opposite corner)
                 }else{
-                    // mask everywehere 0
+                    // mask everywhere 0, all particle locations are occupied by CDM
                     for( auto& m : particle_type_mask_) m = 0;
                 }
 
