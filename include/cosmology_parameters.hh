@@ -104,6 +104,9 @@ namespace cosmology
                 pmap_["A_s"] = cf.get_value_safe<double>("cosmology", "A_s", cf.contains_key("cosmology/sigma_8")? -1.0 : defaultp["A_s"]);
                 pmap_["k_p"] = cf.get_value_safe<double>("cosmology", "k_p", defaultp["k_p"]);
 
+                pmap_["alpha_s"] = cf.get_value_safe<double>("cosmology", "alpha_s", defaultp["alpha_s"]);
+                pmap_["beta_s"] = cf.get_value_safe<double>("cosmology", "beta_s", defaultp["beta_s"]);
+
                 pmap_["sigma_8"] = cf.get_value_safe<double>("cosmology", "sigma_8", -1.0);
                 
                 // baryon and non-relativistic matter content
@@ -129,7 +132,7 @@ namespace cosmology
                 }
 
                 // normalization for Omega_nu (allow for different temperatures)
-                pmap_["neutrino_norm"] = cf.get_value_safe<double>("cosmology", "neutrino_norm", 93.14);
+                pmap_["neutrino_norm"] = cf.get_value_safe<double>("cosmology", "neutrino_norm", 93.13861);
 
                 // number ultrarelativistic neutrinos
                 pmap_["N_ur"] = cf.get_value_safe<double>("cosmology", "N_ur", 3.046 - N_nu_massive);
@@ -161,6 +164,10 @@ namespace cosmology
                 for( auto entry : it->second ){
                     pmap_[entry.first] = entry.second;
                 }
+
+                // make sure that the normalization for Omega_nu is set
+                if (pmap_["neutrino_norm"] == 0.0)
+                  pmap_["neutrino_norm"] = 93.13861;
             }
 
             //-------------------------------------------------------------------------------
@@ -221,6 +228,7 @@ namespace cosmology
             music::ilog << " Omega_c  = " << std::setw(16) << this->get("Omega_c")  << "Omega_b  = " << std::setw(16) << this->get("Omega_b") << "Omega_m = " << std::setw(16) << this->get("Omega_m") << std::endl;
             music::ilog << " Omega_r  = " << std::setw(16) << this->get("Omega_r")  << "Omega_nu = " << std::setw(16) << this->get("Omega_nu_massive") << "∑m_nu   = " << sum_m_nu << "eV" << std::endl;
             music::ilog << " Omega_DE = " << std::setw(16) << this->get("Omega_DE") << "w_0      = " << std::setw(16) << this->get("w_0")      << "w_a     = " << std::setw(16) << this->get("w_a") << std::endl;
+            music::ilog << " alpha_s  = " << std::setw(16) << this->get("alpha_s")  << "beta_s   = " << std::setw(16) << this->get("beta_s") << std::endl;
             //music::ilog << " Omega_k  = " << 1.0 - this->get("Omega_m") - this->get("Omega_r") - this->get("Omega_DE") << std::endl;
             if (this->get("Omega_r") > 0.0)
             {
@@ -239,4 +247,5 @@ namespace cosmology
     };
 
     void print_ParameterSets( void );
+    real_t compute_running_factor(const cosmology::parameters *cosmo_params, real_t k);
 } // namespace cosmology
