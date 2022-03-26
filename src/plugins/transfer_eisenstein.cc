@@ -239,7 +239,7 @@ public:
   inline double compute(double k, tf_type type) const
   {
     if( type == theta_bc || type == delta_bc ) return 0.0;
-    return etf_.at_k(k);
+    return etf_.at_k(k) * cosmology::compute_running_factor(&cosmo_params_, k);
   }
 
   inline double get_kmin(void) const
@@ -339,7 +339,7 @@ public:
   inline double compute(double k, tf_type type) const
   {
     if( type == theta_bc || type == delta_bc ) return 0.0;
-    return etf_.at_k(k) * pow(1.0 + pow(m_WDMalpha * k, 2.0 * wdmnu_), -5.0 / wdmnu_);
+    return etf_.at_k(k) * pow(1.0 + pow(m_WDMalpha * k, 2.0 * wdmnu_), -5.0 / wdmnu_) * cosmology::compute_running_factor(&cosmo_params_, k);
   }
 
   inline double get_kmin(void) const
@@ -400,7 +400,7 @@ public:
     // in principle the Green et al. (2004) works only up to k/k_fs < 1
     // the fit crosses zero at (k/k_fs)**2 = 3/2, we just zero it there...
     if (kkfs2 < 1.5)
-      return etf_.at_k(k) * (1.0 - 2.0 / 3.0 * kkfs2) * exp(-kkfs2 - kkd2);
+      return etf_.at_k(k) * (1.0 - 2.0 / 3.0 * kkfs2) * exp(-kkfs2 - kkd2) * cosmology::compute_running_factor(&cosmo_params_, k);
     else
       return 0.0;
   }
