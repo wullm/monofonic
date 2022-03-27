@@ -1092,6 +1092,8 @@ int run( config_file& the_config )
             pars.PrimordialScalarAmplitude = the_cosmo_calc->cosmo_param_["A_s"];
             pars.PrimordialSpectralIndex = the_cosmo_calc->cosmo_param_["n_s"];
             pars.PrimordialPivotScale = the_cosmo_calc->cosmo_param_["k_p"];
+            pars.PrimordialRunning = the_cosmo_calc->cosmo_param_["alpha_s"];
+            pars.PrimordialRunningSecond = the_cosmo_calc->cosmo_param_["beta_s"];
 
             std::string out_fname;
             out_fname = the_config.get_value<std::string>("output", "filename");
