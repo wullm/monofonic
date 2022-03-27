@@ -179,6 +179,7 @@ int run( config_file& the_config )
     const size_t NeutrinoCubeRootNum = the_config.get_value_safe<size_t>("setup", "NeutrinoCubeRootNum", 0 );
     const size_t NeutrinoGridRes = the_config.get_value_safe<size_t>("setup", "NeutrinoGridRes", 0 );
     const real_t NeutrinoStepSize = the_config.get_value_safe<real_t>("setup", "NeutrinoStepSize", 0.05 );
+    const real_t NeutrinoInterpOrder = the_config.get_value_safe<int>("setup", "NeutrinoInterpOrder", 2 );
     const size_t TotalNeutrinoNum = NeutrinoCubeRootNum * NeutrinoCubeRootNum * NeutrinoCubeRootNum;
     const std::string white_noise_fname = "white_noise.hdf5";
     const std::string white_noise_dset = "white_noise";
@@ -1083,6 +1084,7 @@ int run( config_file& the_config )
             pars.ScaleFactorStep = NeutrinoStepSize;
             pars.RecomputeTrigger = 0.01;
             pars.RecomputeScaleRef = 0.0;
+            pars.InterpolationOrder = NeutrinoInterpOrder;
             pars.InvertField = 0;
             pars.BoxLen = boxlen / the_cosmo_calc->cosmo_param_["h"];
             pars.AlternativeEquations = 0;
@@ -1140,6 +1142,8 @@ int run( config_file& the_config )
             strcpy(pars.VelocityType, velocity_type.c_str());
 
             uint64_t num_local_nuparts = run_fastdf(&pars, &us);
+
+            music::ilog << std::endl;
 
             // Also set Header attributes
             the_output_plugin->set_particle_attributes(num_local_nuparts, (uint64_t) (TotalNeutrinoNum), this_species, the_cosmo_calc->cosmo_param_["Omega_nu_1"]);
