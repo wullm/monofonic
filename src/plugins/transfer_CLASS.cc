@@ -74,14 +74,22 @@ private:
     add_class_parameter("Omega_b", cosmo_params_.get("Omega_b"));
     add_class_parameter("Omega_cdm", cosmo_params_.get("Omega_c"));
     add_class_parameter("Omega_k", cosmo_params_.get("Omega_k"));
-    add_class_parameter("Omega_fld", 0.0);
     add_class_parameter("Omega_scf", 0.0);
 
-
-    // add_class_parameter("fluid_equation_of_state","CLP");
-    // add_class_parameter("w0_fld", -1 );
-    // add_class_parameter("wa_fld", 0. );
-    // add_class_parameter("cs2_fld", 1);
+    //--- dark energy -------------------------------------------------
+    real_t w_0 = cosmo_params_.get("w_0");
+    real_t w_a = cosmo_params_.get("w_a");
+    if (w_0 == -1.0 && w_a == 0.0) {
+        // Disable fluid. CLASS will close the Universe with Lambda.
+        add_class_parameter("Omega_fld", 0.0);
+    } else {
+        // Disable Lambda. CLASS will close the Universe with a fluid.
+        add_class_parameter("Omega_Lambda", 0.0);
+        add_class_parameter("fluid_equation_of_state", "CLP");
+        add_class_parameter("w0_fld", cosmo_params_.get("w_0"));
+        add_class_parameter("wa_fld", cosmo_params_.get("w_a"));
+        add_class_parameter("cs2_fld", 1.0);
+    }
 
     //--- massive neutrinos -------------------------------------------
 #if 0

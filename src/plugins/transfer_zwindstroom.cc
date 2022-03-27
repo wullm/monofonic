@@ -83,14 +83,22 @@ private:
     add_class_parameter("Omega_b", cosmo_params_.get("Omega_b"));
     add_class_parameter("Omega_cdm", cosmo_params_.get("Omega_c"));
     add_class_parameter("Omega_k", cosmo_params_.get("Omega_k"));
-    add_class_parameter("Omega_fld", 0.0);
     add_class_parameter("Omega_scf", 0.0);
 
-
-    // add_class_parameter("fluid_equation_of_state","CLP");
-    // add_class_parameter("w0_fld", -1 );
-    // add_class_parameter("wa_fld", 0. );
-    // add_class_parameter("cs2_fld", 1);
+    //--- dark energy -------------------------------------------------
+    real_t w_0 = cosmo_params_.get("w_0");
+    real_t w_a = cosmo_params_.get("w_a");
+    if (w_0 == -1.0 && w_a == 0.0) {
+        // Disable fluid. CLASS will close the Universe with Lambda.
+        add_class_parameter("Omega_fld", 0.0);
+    } else {
+        // Disable Lambda. CLASS will close the Universe with a fluid.
+        add_class_parameter("Omega_Lambda", 0.0);
+        add_class_parameter("fluid_equation_of_state", "CLP");
+        add_class_parameter("w0_fld", cosmo_params_.get("w_0"));
+        add_class_parameter("wa_fld", cosmo_params_.get("w_a"));
+        add_class_parameter("cs2_fld", 1.0);
+    }
 
     //--- massive neutrinos -------------------------------------------
     add_class_parameter("N_ur", cosmo_params_.get("N_ur"));
@@ -374,8 +382,8 @@ public:
     m.c_s_nu = c_s_nu.data();
     m.T_nu_0 = cosmo_params_.get("Tcmb") * 0.71611; //default CLASS value
     m.T_CMB_0 = cosmo_params_.get("Tcmb");
-    m.w0 = -1.0;
-    m.wa = 0.0;
+    m.w0 = cosmo_params_.get("w_0");
+    m.wa = cosmo_params_.get("w_a");
     // Does the cosmological sim use constant mass energy for the neutrinos?
     m.sim_neutrino_nonrel_masses = 1; //TODO: make parameter
     m.sim_neutrino_nonrel_Hubble = 0;
