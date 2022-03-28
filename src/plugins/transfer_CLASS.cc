@@ -202,12 +202,17 @@ private:
       auto ik2 = 1.0 / (k[i] * k[i]) * h * h;
       dc[i] = -dc[i] * ik2;
       db[i] = -db[i] * ik2;
-      dn[i] = -dn[i] * ik2;
       dm[i] = -dm[i] * ik2;
       tc[i] = -tc[i] * ik2;
       tb[i] = -tb[i] * ik2;
-      tn[i] = -tn[i] * ik2;
       tm[i] = -tm[i] * ik2;
+      if (cosmo_params_.get("N_nu_massive") > 0) {
+        dn[i] = -dn[i] * ik2;
+        tn[i] = -tn[i] * ik2;
+      } else {
+        dn[i] = 0;
+        tn[i] = 0;
+      }
     }
   }
 
@@ -215,12 +220,6 @@ public:
   explicit transfer_CLASS_plugin(config_file &cf, const cosmology::parameters& cosmo_params)
       : TransferFunction_plugin(cf,cosmo_params)
   {
-    // Throw an error if there are no massive neutrinos (since ClassEngine produces undefined behaviour in that case)
-    if (cosmo_params_.get("N_nu_massive") <= 0)
-    {
-        throw std::runtime_error("Running without massive neutrinos, which is not supported by ClassEngine.");
-    }
-
     this->tf_isnormalised_ = true;
 
     ofs_class_input_.open("input_class_parameters.ini", std::ios::trunc);
