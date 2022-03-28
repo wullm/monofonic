@@ -210,8 +210,8 @@ private:
         dn[i] = -dn[i] * ik2;
         tn[i] = -tn[i] * ik2;
       } else {
-        dn[i] = 0;
-        tn[i] = 0;
+        dn[i] = DBL_MIN; // cannot be 0, since we are interpolation log-log
+        tn[i] = DBL_MIN; // cannot be 0, since we are interpolation log-log
       }
     }
   }
