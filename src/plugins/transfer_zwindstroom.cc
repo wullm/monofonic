@@ -357,7 +357,7 @@ public:
             deg_nu.push_back(cosmo_params_.get("deg_nu2"));
             c_s_nu.push_back(0.0);
         }
-        if( cosmo_params_.get("m_nu1") > 1e-9 ) {
+        if( cosmo_params_.get("m_nu3") > 1e-9 ) {
             M_nu.push_back(cosmo_params_.get("m_nu3"));
             deg_nu.push_back(cosmo_params_.get("deg_nu3"));
             c_s_nu.push_back(0.0);
