@@ -104,6 +104,9 @@ namespace cosmology
                 pmap_["A_s"] = cf.get_value_safe<double>("cosmology", "A_s", cf.contains_key("cosmology/sigma_8")? -1.0 : defaultp["A_s"]);
                 pmap_["k_p"] = cf.get_value_safe<double>("cosmology", "k_p", defaultp["k_p"]);
 
+                pmap_["alpha_s"] = cf.get_value_safe<double>("cosmology", "alpha_s", defaultp["alpha_s"]);
+                pmap_["beta_s"] = cf.get_value_safe<double>("cosmology", "beta_s", defaultp["beta_s"]);
+
                 pmap_["sigma_8"] = cf.get_value_safe<double>("cosmology", "sigma_8", -1.0);
                 
                 // baryon and non-relativistic matter content
@@ -128,8 +131,8 @@ namespace cosmology
                     music::wlog << " You probably need deg_nu(1,2,3) = 1.0 or 3.0." << std::endl;
                 }
 
-                // normalization for Omega_nu (allow for different temperatures)
-                pmap_["neutrino_norm"] = cf.get_value_safe<double>("cosmology", "neutrino_norm", 93.14);
+                // normalization for Omega_nu = M_nu / O_nu_norm in eV * h^2 (usually 93.14)
+                pmap_["O_nu_norm"] = cf.get_value_safe<double>("cosmology", "O_nu_norm", defaultp["O_nu_norm"]);
 
                 // number ultrarelativistic neutrinos
                 pmap_["N_ur"] = cf.get_value_safe<double>("cosmology", "N_ur", 3.046 - N_nu_massive);
@@ -172,7 +175,7 @@ namespace cosmology
             // massive neutrinos
             pmap_["N_nu_massive"] = int(this->get("m_nu1") > 1e-9) + int(this->get("m_nu2") > 1e-9) + int(this->get("m_nu3") > 1e-9);
             const double sum_m_nu = this->get("m_nu1") * this->get("deg_nu1") + this->get("m_nu2") * this->get("deg_nu2") + this->get("m_nu3") * this->get("deg_nu3");
-            pmap_["Omega_nu_massive"] = sum_m_nu / (pmap_["neutrino_norm"] * h * h); // Omega_nu_m = \sum_i m_i / (93.14 eV h^2)
+            pmap_["Omega_nu_massive"] = sum_m_nu / (pmap_["O_nu_norm"] * h * h); // Omega_nu_m = \sum_i m_i / (93.14 eV h^2)
 
             // calculate energy density in ultrarelativistic species from Tcmb and Neff
             // photons
@@ -221,6 +224,7 @@ namespace cosmology
             music::ilog << " Omega_c  = " << std::setw(16) << this->get("Omega_c")  << "Omega_b  = " << std::setw(16) << this->get("Omega_b") << "Omega_m = " << std::setw(16) << this->get("Omega_m") << std::endl;
             music::ilog << " Omega_r  = " << std::setw(16) << this->get("Omega_r")  << "Omega_nu = " << std::setw(16) << this->get("Omega_nu_massive") << "∑m_nu   = " << sum_m_nu << "eV" << std::endl;
             music::ilog << " Omega_DE = " << std::setw(16) << this->get("Omega_DE") << "w_0      = " << std::setw(16) << this->get("w_0")      << "w_a     = " << std::setw(16) << this->get("w_a") << std::endl;
+            music::ilog << " alpha_s  = " << std::setw(16) << this->get("alpha_s")  << "beta_s   = " << std::setw(16) << this->get("beta_s") << std::endl;
             //music::ilog << " Omega_k  = " << 1.0 - this->get("Omega_m") - this->get("Omega_r") - this->get("Omega_DE") << std::endl;
             if (this->get("Omega_r") > 0.0)
             {
@@ -239,4 +243,5 @@ namespace cosmology
     };
 
     void print_ParameterSets( void );
+    real_t compute_running_factor(const cosmology::parameters *cosmo_params, real_t k);
 } // namespace cosmology

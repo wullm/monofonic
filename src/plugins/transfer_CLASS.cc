@@ -102,9 +102,9 @@ private:
       add_class_parameter("m_ncdm", sstr.str().c_str());
 
       std::stringstream sstr2;
-      if( cosmo_params_.get("deg_nu1") > 1e-9 ) sstr2 << cosmo_params_.get("deg_nu1");
-      if( cosmo_params_.get("deg_nu2") > 1e-9 ) sstr2 << ", " << cosmo_params_.get("deg_nu2");
-      if( cosmo_params_.get("deg_nu3") > 1e-9 ) sstr2 << ", " << cosmo_params_.get("deg_nu3");
+      if( cosmo_params_.get("m_nu1") > 1e-9 ) sstr2 << cosmo_params_.get("deg_nu1");
+      if( cosmo_params_.get("m_nu2") > 1e-9 ) sstr2 << ", " << cosmo_params_.get("deg_nu2");
+      if( cosmo_params_.get("m_nu3") > 1e-9 ) sstr2 << ", " << cosmo_params_.get("deg_nu3");
       add_class_parameter("deg_ncdm", sstr2.str().c_str());
     }
     
@@ -123,7 +123,7 @@ private:
       add_class_parameter("sigma8", cosmo_params_.get("sigma_8"));
     }
     add_class_parameter("n_s", cosmo_params_.get("n_s"));
-    add_class_parameter("alpha_s", 0.0);
+    add_class_parameter("alpha_s", cosmo_params_.get("alpha_s"));
     add_class_parameter("T_cmb", cosmo_params_.get("Tcmb"));
     add_class_parameter("YHe", cosmo_params_.get("YHe"));
 
@@ -341,7 +341,8 @@ public:
     default:
       throw std::runtime_error("Invalid type requested in transfer function evaluation");
     }
-    return val * tnorm_;
+
+    return val * tnorm_ * cosmology::compute_running_factor(&cosmo_params_, k);
   }
 
   inline double get_kmin(void) const { return kmin_ / h_; }

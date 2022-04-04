@@ -182,49 +182,53 @@ public:
     // set values k<k_min to value at k_min! (since transfer functions asymptote to constant)
     k = std::max(k,m_kmin);
 
+    real_t val(0.0);
     switch (type)
     {
     case delta_matter0:
     case delta_matter:  
-      return delta_m_(k);
+      val = delta_m_(k);
 
     case delta_cdm0:
     case delta_cdm:
-      return delta_c_(k);
+      val = delta_c_(k);
 
     case delta_baryon0:
     case delta_baryon:
-      return delta_b_(k);
+      val = delta_b_(k);
 
     case theta_matter0:
     case theta_matter:
-      return theta_m_(k);
+      val = theta_m_(k);
 
     case theta_cdm0:
     case theta_cdm:
-      return theta_c_(k);
+      val = theta_c_(k);
 
     case theta_baryon0:
     case theta_baryon:
-      return theta_b_(k);
+      val = theta_b_(k);
 
     case delta_bc:
-      return delta_b_(k)-delta_c_(k);
+      val = delta_b_(k)-delta_c_(k);
     
     case theta_bc:
-      return theta_b_(k)-theta_c_(k);
+      val = theta_b_(k)-theta_c_(k);
 
     case delta_nu0:
     case delta_nu:
-      return delta_n_(k);
+      val = delta_n_(k);
 
     case theta_nu0:
     case theta_nu:
-      return theta_n_(k);
+      val = theta_n_(k);
 
     default:
       throw std::runtime_error("Invalid type requested in transfer function evaluation");
     }
+
+    real_t h = cosmo_params_.get("h");
+    return val * cosmology::compute_running_factor(&cosmo_params_, k * h);
   }
 
   //!< Return minimum k for which we can interpolate
