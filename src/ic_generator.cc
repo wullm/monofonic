@@ -27,6 +27,9 @@
 
 #include <unistd.h> // for unlink
 
+#ifdef USE_FASTDF
+#include <fastdf_cpp.h>
+#endif
 
 /**
  * @brief the possible species of fluids
@@ -169,6 +172,17 @@ int run( config_file& the_config )
         double Onu = the_cosmo_calc->cosmo_param_["Omega_nu_massive"];
         Omega[cosmo_species::dm] -= Onu;
     }
+
+    //! Do neutrino particle ICs?
+    //! Note that this is distinct from the WithNeutrinos switch, which only affects CDM & Baryon ICs.
+    const bool bDoNeutrinoParts = the_config.get_value_safe<bool>("setup", "DoNeutrinoParticles", false );
+    const size_t NeutrinoCubeRootNum = the_config.get_value_safe<size_t>("setup", "NeutrinoCubeRootNum", 0 );
+    const size_t NeutrinoGridRes = the_config.get_value_safe<size_t>("setup", "NeutrinoGridRes", 0 );
+    const real_t NeutrinoStepSize = the_config.get_value_safe<real_t>("setup", "NeutrinoStepSize", 0.05 );
+    const real_t NeutrinoInterpOrder = the_config.get_value_safe<int>("setup", "NeutrinoInterpOrder", 2 );
+    const size_t TotalNeutrinoNum = NeutrinoCubeRootNum * NeutrinoCubeRootNum * NeutrinoCubeRootNum;
+    const std::string white_noise_fname = "white_noise.hdf5";
+    const std::string white_noise_dset = "white_noise";
 
     //--------------------------------------------------------------------------------------------------------
     //! do constrained ICs?
@@ -347,6 +361,87 @@ int run( config_file& the_config )
         return ((bDoInversion)? real_t{-1.0} : real_t{1.0}) * wn / volfac;
     });
 
+    //--------------------------------------------------------------------
+    // Potentially, create a down-sampled copy of the random phases
+    //--------------------------------------------------------------------
+    if (bDoNeutrinoParts) {
+        const size_t nsmall = NeutrinoGridRes;
+        const size_t nsmall_2 = nsmall / 2;
+
+        /* Can we export the white noise field as is or do we need to downsample? */
+        if (nsmall == ngrid) {
+            wnoise.FourierTransformBackward();
+#if defined(USE_MPI)
+            if (CONFIG::MPI_task_rank == 0)
+                unlink(white_noise_fname.c_str());
+            MPI_Barrier(MPI_COMM_WORLD);
+#else
+            unlink(white_noise_fname.c_str());
+#endif
+            wnoise.Write_to_HDF5(white_noise_fname, white_noise_dset);
+
+            wnoise.FourierTransformForward();
+        } else if (nsmall > 0 && nsmall < ngrid) {
+
+            Grid_FFT<real_t,false> noise_small({nsmall,nsmall,nsmall}, {boxlen,boxlen,boxlen});
+            noise_small.FourierTransformForward();
+            noise_small.apply_function_k( [&](auto wn){
+                return 0.0;
+            });
+
+            #pragma omp parallel for
+            for( size_t i=0; i<nsmall; ++i ){
+                size_t il = size_t(-1);
+                if( i<nsmall_2 && i<ngrid/2 ) il = i;
+                if( i>=nsmall_2 && i+ngrid-nsmall>=ngrid/2) il = ngrid-nsmall+i;
+                if( il == size_t(-1) ) continue;
+                if( il<size_t(wnoise.local_1_start_) || il>=size_t(wnoise.local_1_start_+wnoise.local_1_size_)) continue;
+                il -= wnoise.local_1_start_;
+                for( size_t j=0; j<nsmall; ++j ){
+                    size_t jl = size_t(-1);
+                    if( j<nsmall_2 && j<ngrid/2 ) jl = j;
+                    if( j>=nsmall_2 && j+ngrid-nsmall>=ngrid/2 ) jl = ngrid-nsmall+j;
+                    if( jl == size_t(-1) ) continue;
+                    for( size_t k=0; k<nsmall/2+1; ++k ){
+                        if( k>ngrid/2 ) continue;
+                        size_t kl = k;
+
+                    #if defined(USE_MPI)
+                        noise_small.kelem(j,i,k) = wnoise.kelem(il,jl,kl);
+                    #else
+                        noise_small.kelem(i,j,k) = wnoise.kelem(il,jl,kl);
+                    #endif
+                    }
+                }
+            }
+
+            /* Make sure that the normalization is correct */
+            const real_t volfac_small(std::pow(boxlen / nsmall / 2.0 / M_PI, 1.5));
+            noise_small.apply_function_k( [&](auto wn){
+                return wn * volfac / volfac_small;
+            });
+
+            noise_small.FourierTransformBackward();
+
+#if defined(USE_MPI)
+            Grid_FFT<real_t,false> noise_small_aggr({nsmall,nsmall,nsmall}, {boxlen,boxlen,boxlen});
+            MPI_Reduce(noise_small.data_, noise_small_aggr.data_, nsmall*nsmall*nsmall,
+                       MPI::get_datatype<real_t>(), MPI_SUM, 0, MPI_COMM_WORLD);
+            if (CONFIG::MPI_task_rank == 0) {
+                unlink(white_noise_fname.c_str());
+                noise_small_aggr.Write_to_HDF5(white_noise_fname, white_noise_dset);
+            }
+#else
+            unlink(white_noise_fname.c_str());
+            noise_small.Write_to_HDF5(white_noise_fname, white_noise_dset);
+#endif
+        } else if (nsmall <= 0) {
+            throw std::runtime_error("The neutrino grid size should be a positive integer.");
+        } else {
+            throw std::runtime_error("Cannot upsample the white noise field.");
+        }
+    }
+
 
     //--------------------------------------------------------------------
     // Compute the LPT terms....
@@ -376,6 +471,8 @@ int run( config_file& the_config )
     species_list.push_back(cosmo_species::dm);
     if (bDoBaryons)
         species_list.push_back(cosmo_species::baryon);
+    if (bDoNeutrinoParts)
+        species_list.push_back(cosmo_species::neutrino);
 
     //======================================================================
     //... compute 1LPT displacement potential ....
@@ -614,7 +711,8 @@ int run( config_file& the_config )
             std::unique_ptr<particle::lattice_generator<Grid_FFT<real_t>>> particle_lattice_generator_ptr;
 
             // if output plugin wants particles, then we need to store them, along with their IDs
-            if( the_output_plugin->write_species_as( this_species ) == output_type::particles )
+            if( the_output_plugin->write_species_as( this_species ) == output_type::particles
+                && this_species != cosmo_species::neutrino)
             {
                 // somewhat arbitrarily, start baryon particle IDs from 2**31 if we have 32bit and from 2**56 if we have 64 bits
                 size_t IDoffset = (this_species == cosmo_species::baryon)? ((the_output_plugin->has_64bit_ids())? 1 : 1): 0 ;
@@ -627,7 +725,8 @@ int run( config_file& the_config )
 
             // set the perturbed particle masses if we have baryons
             if( bDoBaryons && (the_output_plugin->write_species_as( this_species ) == output_type::particles
-                || the_output_plugin->write_species_as( this_species ) == output_type::field_lagrangian) ) 
+                || the_output_plugin->write_species_as( this_species ) == output_type::field_lagrangian)
+                && this_species != cosmo_species::neutrino )
             {
                 bool shifted_lattice = (this_species == cosmo_species::baryon &&
                                         the_output_plugin->write_species_as(this_species) == output_type::particles) ? true : false;
@@ -779,8 +878,9 @@ int run( config_file& the_config )
                 }
             }
 
-            if( the_output_plugin->write_species_as( this_species ) == output_type::particles 
-             || the_output_plugin->write_species_as( this_species ) == output_type::field_lagrangian )
+            if( (the_output_plugin->write_species_as( this_species ) == output_type::particles
+             || the_output_plugin->write_species_as( this_species ) == output_type::field_lagrangian)
+             && this_species != cosmo_species::neutrino )
             {
                 //===================================================================================
                 // we store displacements and velocities here if we compute them
@@ -958,6 +1058,100 @@ int run( config_file& the_config )
 
         }
         
+        if( the_output_plugin->write_species_as( this_species ) == output_type::particles
+            && this_species == cosmo_species::neutrino)
+        {
+#ifdef USE_FASTDF
+            struct params pars;
+            struct units us;
+
+            // Set up FastDF unit system
+            us.UnitLengthMetres = 3.085677581491e+022; // Mpc
+            us.UnitTimeSeconds = 3.08567758148957E+019; // for km/s velocities
+            us.UnitMassKilogram = 1.988435e40; // 1e10 M_sol
+            us.UnitTemperatureKelvin = 1.0;
+            us.UnitCurrentAmpere = 1.0;
+
+            setPhysicalConstants(&us);
+
+            // Set up FastDF parameters
+            initParams(&pars);
+            pars.FirstID = ngrid * ngrid * ngrid + 1; // immediately after the dm particles
+            pars.CubeRootNumber = NeutrinoCubeRootNum;
+            pars.NumPartGenerate = TotalNeutrinoNum;
+            pars.ScaleFactorBegin = 1e-9;
+            pars.ScaleFactorEnd = 1.0/(zstart + 1.0);
+            pars.ScaleFactorStep = NeutrinoStepSize;
+            pars.RecomputeTrigger = 0.01;
+            pars.RecomputeScaleRef = 0.0;
+            pars.InterpolationOrder = NeutrinoInterpOrder;
+            pars.InvertField = 0;
+            pars.BoxLen = boxlen / the_cosmo_calc->cosmo_param_["h"];
+            pars.AlternativeEquations = 0;
+            pars.OutputFields = 0;
+            pars.NormalizeGaussianField = 0;
+            pars.AssumeMonofonicNormalization = 1;
+            pars.PrimordialScalarAmplitude = the_cosmo_calc->cosmo_param_["A_s"];
+            pars.PrimordialSpectralIndex = the_cosmo_calc->cosmo_param_["n_s"];
+            pars.PrimordialPivotScale = the_cosmo_calc->cosmo_param_["k_p"];
+            pars.PrimordialRunning = the_cosmo_calc->cosmo_param_["alpha_s"];
+            pars.PrimordialRunningSecond = the_cosmo_calc->cosmo_param_["beta_s"];
+
+            std::string out_fname;
+            out_fname = the_config.get_value<std::string>("output", "filename");
+
+            std::string nupart_density_tfunc = "d_ncdm[0]";
+            std::string gauge = "N-body";
+            std::string class_parameter_file = "input_class_parameters.ini";
+
+            // Determine output settings depending on the output plugin
+            std::string out_plug = the_config.get_value<std::string>("output", "format");
+            std::string velocity_type;
+            int include_h_factor;
+            int distributed_files;
+            if (out_plug == "gadget_hdf5" || out_plug == "AREPO") {
+                velocity_type = "Gadget";
+                include_h_factor = 1;
+                distributed_files = 1;
+            } else if (out_plug == "SWIFT") {
+                velocity_type = "peculiar";
+                include_h_factor = 0;
+                distributed_files = 0;
+            } else {
+                throw std::runtime_error("Output format not supported by FastDF (only HDF5 particle formats, e.g. Gadget, SWIFT).");
+            }
+
+            // The group name for this species, according to the output plugin
+            int export_key = the_output_plugin->get_species_idx(this_species);
+            std::string export_name = std::string("PartType") + std::to_string(export_key);
+
+            // Should coordinates and masses include a factor of h^-1?
+            pars.IncludeHubbleFactors = include_h_factor;
+            // Does each task create its own file?
+            pars.DistributedFiles = distributed_files;
+
+            // Set string parameters
+            strcpy(pars.OutputDirectory, ".");
+            strcpy(pars.ExportName, export_name.c_str());
+            strcpy(pars.OutputFilename, out_fname.c_str());
+            strcpy(pars.GaussianRandomFieldFile, white_noise_fname.c_str());
+            strcpy(pars.GaussianRandomFieldDataset, white_noise_dset.c_str());
+            strcpy(pars.TransferFunctionDensity, nupart_density_tfunc.c_str());
+            strcpy(pars.Gauge, gauge.c_str());
+            strcpy(pars.ClassIniFile, class_parameter_file.c_str());
+            strcpy(pars.VelocityType, velocity_type.c_str());
+
+            uint64_t num_local_nuparts = run_fastdf(&pars, &us);
+
+            music::ilog << std::endl;
+
+            // Also set Header attributes
+            the_output_plugin->set_particle_attributes(num_local_nuparts, (uint64_t) (TotalNeutrinoNum), this_species, the_cosmo_calc->cosmo_param_["Omega_nu_1"]);
+#else
+            throw std::runtime_error("Not compiled with FastDF.");
+#endif
+        }
+
         music::ilog << "-------------------------------------------------------------------------------" << std::endl;
         
     }
