@@ -357,7 +357,7 @@ public:
             deg_nu.push_back(cosmo_params_.get("deg_nu2"));
             c_s_nu.push_back(0.0);
         }
-        if( cosmo_params_.get("m_nu1") > 1e-9 ) {
+        if( cosmo_params_.get("m_nu3") > 1e-9 ) {
             M_nu.push_back(cosmo_params_.get("m_nu3"));
             deg_nu.push_back(cosmo_params_.get("deg_nu3"));
             c_s_nu.push_back(0.0);
@@ -519,19 +519,28 @@ public:
     // now scale forward with the asymptotic growth factor, as assumed in the ic generator
     for (size_t i = 0; i < k.size(); ++i)
     {
+
+        // we want to use the linear theory growth rate at z = z_start,
+        // so we need to keep the ratio of theta_i / delta_i.
+        real_t tc_over_dc = tc[i] / dc[i];
+        real_t tb_over_db = tb[i] / db[i];
+        real_t tn_over_dn = tn[i] / dn[i];
+
         // scale back the density transfer functions from the target redshift
         // to the starting redshift using the scale-dependent growth factors
         dc[i] = dc_target[i] * Dc[i];
         db[i] = db_target[i] * Db[i];
         dn[i] = dn_target[i] * Dn[i];
 
-        // scale all transfer functions forward with the total asymptotic factor
+        // scale the density transfer functions forward by the monofonIC factor
         dc[i] /= D_scale_forward;
         db[i] /= D_scale_forward;
         dn[i] /= D_scale_forward;
-        tc[i] /= D_scale_forward;
-        tb[i] /= D_scale_forward;
-        tn[i] /= D_scale_forward;
+
+        // set the velocity transfer functions accordingly
+        tc[i] = dc[i] * tc_over_dc;
+        tb[i] = db[i] * tb_over_db;
+        tn[i] = dn[i] * tn_over_dn;
 
         // mass-weighted cdm+baryon density and velocity transfer functions
         double dcb, tcb;
