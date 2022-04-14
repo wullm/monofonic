@@ -138,9 +138,12 @@ namespace cosmology
                 pmap_["N_ur"] = cf.get_value_safe<double>("cosmology", "N_ur", 3.046 - N_nu_massive);
             
                 // dark energy
-                pmap_["Omega_DE"] = cf.get_value_safe<double>("cosmology", "Omega_L", defaultp["Omega_DE"]);
+                // pmap_["Omega_DE"] = cf.get_value_safe<double>("cosmology", "Omega_L", defaultp["Omega_DE"]);
                 pmap_["w_0"] = cf.get_value_safe<double>("cosmology", "w_0", defaultp["w_0"]);
                 pmap_["w_a"] = cf.get_value_safe<double>("cosmology", "w_a", defaultp["w_a"]);
+
+                // curvature
+                pmap_["Omega_k"] = cf.get_value_safe<double>("cosmology", "Omega_k", defaultp["Omega_k"]);
 
             }else{
 
@@ -201,10 +204,10 @@ namespace cosmology
             pmap_["f_c"] = 1.0 - this->get("f_b"); // this means we add massive neutrinos to CDM here
 
 #if 1
-            // assume zero curvature, take difference from dark energy
-            pmap_["Omega_DE"] += 1.0 - this->get("Omega_m") - this->get("Omega_DE") - this->get("Omega_r");
+            // close the Universe with dark energy
+            pmap_["Omega_DE"] = 1.0 - this->get("Omega_m") - this->get("Omega_r") - this->get("Omega_k");
             // Omega_DE += 1.0 - Omega_m - Omega_DE - Omega_r;
-            pmap_["Omega_k"] = 0.0;
+            // pmap_["Omega_k"] = 0.0;
 #else
             // allow for curvature
             Omega_k = 1.0 - Omega_m - Omega_DE - Omega_r;
@@ -227,8 +230,7 @@ namespace cosmology
             music::ilog << " Omega_c  = " << std::setw(16) << this->get("Omega_c")  << "Omega_b  = " << std::setw(16) << this->get("Omega_b") << "Omega_m = " << std::setw(16) << this->get("Omega_m") << std::endl;
             music::ilog << " Omega_r  = " << std::setw(16) << this->get("Omega_r")  << "Omega_nu = " << std::setw(16) << this->get("Omega_nu_massive") << "∑m_nu   = " << sum_m_nu << "eV" << std::endl;
             music::ilog << " Omega_DE = " << std::setw(16) << this->get("Omega_DE") << "w_0      = " << std::setw(16) << this->get("w_0")      << "w_a     = " << std::setw(16) << this->get("w_a") << std::endl;
-            music::ilog << " alpha_s  = " << std::setw(16) << this->get("alpha_s")  << "beta_s   = " << std::setw(16) << this->get("beta_s") << std::endl;
-            //music::ilog << " Omega_k  = " << 1.0 - this->get("Omega_m") - this->get("Omega_r") - this->get("Omega_DE") << std::endl;
+            music::ilog << " alpha_s  = " << std::setw(16) << this->get("alpha_s")  << "beta_s   = " << std::setw(16) << this->get("beta_s") << "Omega_k = " << std::setw(16) << this->get("Omega_k") << std::endl;
             if (this->get("Omega_r") > 0.0)
             {
                 music::wlog << " Radiation enabled, using Omega_r=" << this->get("Omega_r") << " internally for backscaling." << std::endl;
