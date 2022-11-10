@@ -116,7 +116,8 @@ int run( config_file& the_config )
         : ((lattice_str=="fcc")? particle::lattice_fcc 
         : ((lattice_str=="rsc")? particle::lattice_rsc 
         : ((lattice_str=="glass")? particle::lattice_glass
-        : particle::lattice_sc))));
+        : ((lattice_str=="masked")? particle::lattice_masked
+        : particle::lattice_sc)))));
 
     //--------------------------------------------------------------------------------------------------------
     //! apply fixing of the complex mode amplitude following Angulo & Pontzen (2016) [https://arxiv.org/abs/1603.05253]
@@ -536,8 +537,11 @@ int run( config_file& the_config )
                 size_t IDoffset = (this_species == cosmo_species::baryon)? ((the_output_plugin->has_64bit_ids())? 1 : 1): 0 ;
 
                 // allocate particle structure and generate particle IDs
+                bool secondary_lattice = (this_species == cosmo_species::baryon &&
+                                        the_output_plugin->write_species_as(this_species) == output_type::particles) ? true : false;
+
                 particle_lattice_generator_ptr = 
-                std::make_unique<particle::lattice_generator<Grid_FFT<real_t>>>( lattice_type, the_output_plugin->has_64bit_reals(), the_output_plugin->has_64bit_ids(), 
+                std::make_unique<particle::lattice_generator<Grid_FFT<real_t>>>( lattice_type, secondary_lattice, the_output_plugin->has_64bit_reals(), the_output_plugin->has_64bit_ids(), 
                     bDoBaryons, IDoffset, tmp, the_config );
             }
 
@@ -545,7 +549,7 @@ int run( config_file& the_config )
             if( bDoBaryons && (the_output_plugin->write_species_as( this_species ) == output_type::particles
                 || the_output_plugin->write_species_as( this_species ) == output_type::field_lagrangian) ) 
             {
-                bool shifted_lattice = (this_species == cosmo_species::baryon &&
+                bool secondary_lattice = (this_species == cosmo_species::baryon &&
                                         the_output_plugin->write_species_as(this_species) == output_type::particles) ? true : false;
 
                 const real_t munit = the_output_plugin->mass_unit();
@@ -568,7 +572,7 @@ int run( config_file& the_config )
                 });
                 
                 if( the_output_plugin->write_species_as( this_species ) == output_type::particles ){
-                    particle_lattice_generator_ptr->set_masses( lattice_type, shifted_lattice, 1.0, the_output_plugin->has_64bit_reals(), rho, the_config );
+                    particle_lattice_generator_ptr->set_masses( lattice_type, secondary_lattice, 1.0, the_output_plugin->has_64bit_reals(), rho, the_config );
                 }else if( the_output_plugin->write_species_as( this_species ) == output_type::field_lagrangian ){
                     the_output_plugin->write_grid_data( rho, this_species, fluid_component::mass );
                 }
