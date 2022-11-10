@@ -20,6 +20,7 @@
 
 #include <complex>
 #include <map>
+#include <memory>
 
 #if defined(USE_MPI)
 #include <mpi.h>
