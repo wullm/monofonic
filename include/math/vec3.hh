@@ -30,7 +30,7 @@ public:
 
     //! empty constructor
     vec3_t()
-    : x(data_[0]),y(data_[1]),z(data_[2]){}
+    : data_{{T(0),T(0),T(0)}},x(data_[0]),y(data_[1]),z(data_[2]){}
 
     //! copy constructor
     vec3_t( const vec3_t<T> &v)
