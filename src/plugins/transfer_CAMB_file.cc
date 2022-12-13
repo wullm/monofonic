@@ -188,40 +188,50 @@ public:
     case delta_matter0:
     case delta_matter:  
       val = delta_m_(k);
+      break;
 
     case delta_cdm0:
     case delta_cdm:
       val = delta_c_(k);
+      break;
 
     case delta_baryon0:
     case delta_baryon:
       val = delta_b_(k);
+      break;
 
     case theta_matter0:
     case theta_matter:
       val = theta_m_(k);
+      break;
 
     case theta_cdm0:
     case theta_cdm:
       val = theta_c_(k);
+      break;
 
     case theta_baryon0:
     case theta_baryon:
       val = theta_b_(k);
+      break;
 
     case delta_bc:
       val = delta_b_(k)-delta_c_(k);
+      break;
     
     case theta_bc:
       val = theta_b_(k)-theta_c_(k);
+      break;
 
     case delta_nu0:
     case delta_nu:
       val = delta_n_(k);
+      break;
 
     case theta_nu0:
     case theta_nu:
       val = theta_n_(k);
+      break;
 
     default:
       throw std::runtime_error("Invalid type requested in transfer function evaluation");
