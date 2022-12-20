@@ -77,6 +77,8 @@ public:
 
 	real_t mass_unit() const { return 1.0; }
 	
+	int get_species_idx(const cosmo_species &s) const { return 0; }
+
 	void write_grid_data(const Grid_FFT<real_t> &g, const cosmo_species &s, const fluid_component &c );
 };
 

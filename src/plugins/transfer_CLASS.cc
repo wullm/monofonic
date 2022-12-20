@@ -58,10 +58,10 @@ private:
   void init_ClassEngine(void)
   {
     //--- general parameters ------------------------------------------
-    add_class_parameter("z_max_pk", std::max(std::max(zstart_, ztarget_),199.0)); // use 1.2 as safety
+    add_class_parameter("z_max_pk", std::max(std::max(zstart_, ztarget_),199.0) * 1.2); // use 1.2 as safety
     add_class_parameter("P_k_max_h/Mpc", std::max(2.0,kmax_));
     add_class_parameter("output", "dTk,vTk");
-    add_class_parameter("extra metric transfer functions","yes");
+    add_class_parameter("extra_metric_transfer_functions","yes");
     // add_class_parameter("lensing", "no");
 
     //--- choose gauge ------------------------------------------------
@@ -74,14 +74,20 @@ private:
     add_class_parameter("Omega_b", cosmo_params_.get("Omega_b"));
     add_class_parameter("Omega_cdm", cosmo_params_.get("Omega_c"));
     add_class_parameter("Omega_k", cosmo_params_.get("Omega_k"));
-    add_class_parameter("Omega_fld", 0.0);
     add_class_parameter("Omega_scf", 0.0);
 
-
-    // add_class_parameter("fluid_equation_of_state","CLP");
-    // add_class_parameter("w0_fld", -1 );
-    // add_class_parameter("wa_fld", 0. );
-    // add_class_parameter("cs2_fld", 1);
+    //--- dark energy -------------------------------------------------
+    real_t w_0 = cosmo_params_.get("w_0");
+    real_t w_a = cosmo_params_.get("w_a");
+    if (w_0 == -1.0 && w_a == 0.0) {
+        // Disable fluid. CLASS will close the Universe with Lambda.
+        add_class_parameter("Omega_fld", 0.0);
+    } else {
+        // This is not supported, because the CLASS plugin uses the
+        // total matter transfer functions from ClassEngine, which
+        // include the unwanted dark energy fluid contributions.
+        throw std::runtime_error("Non-standard dark energy requested. This is only supported with the zwindstroom plugin.");
+    }
 
     //--- massive neutrinos -------------------------------------------
 #if 0
@@ -100,6 +106,12 @@ private:
       if( cosmo_params_.get("m_nu2") > 1e-9 ) sstr << ", " << cosmo_params_.get("m_nu2");
       if( cosmo_params_.get("m_nu3") > 1e-9 ) sstr << ", " << cosmo_params_.get("m_nu3");
       add_class_parameter("m_ncdm", sstr.str().c_str());
+
+      std::stringstream sstr2;
+      if( cosmo_params_.get("m_nu1") > 1e-9 ) sstr2 << cosmo_params_.get("deg_nu1");
+      if( cosmo_params_.get("m_nu2") > 1e-9 ) sstr2 << ", " << cosmo_params_.get("deg_nu2");
+      if( cosmo_params_.get("m_nu3") > 1e-9 ) sstr2 << ", " << cosmo_params_.get("deg_nu3");
+      add_class_parameter("deg_ncdm", sstr2.str().c_str());
     }
     
     // change above to enable
@@ -117,7 +129,7 @@ private:
       add_class_parameter("sigma8", cosmo_params_.get("sigma_8"));
     }
     add_class_parameter("n_s", cosmo_params_.get("n_s"));
-    add_class_parameter("alpha_s", 0.0);
+    add_class_parameter("alpha_s", cosmo_params_.get("alpha_s"));
     add_class_parameter("T_cmb", cosmo_params_.get("Tcmb"));
     add_class_parameter("YHe", cosmo_params_.get("YHe"));
 
@@ -127,8 +139,8 @@ private:
     // precision parameters
     add_class_parameter("k_per_decade_for_pk", 100);
     add_class_parameter("k_per_decade_for_bao", 100);
-    add_class_parameter("compute damping scale", "yes");
-    add_class_parameter("tol_perturb_integration", 1.e-8);
+    add_class_parameter("compute_damping_scale", "yes");
+    add_class_parameter("tol_perturbations_integration", 1.e-8);
     add_class_parameter("tol_background_integration", 1e-9);
 
     // high precision options from cl_permille.pre:
@@ -147,8 +159,8 @@ private:
     add_class_parameter("perturbations_verbose", class_verbosity);
     add_class_parameter("transfer_verbose", class_verbosity);
     add_class_parameter("primordial_verbose", class_verbosity);
-    add_class_parameter("spectra_verbose", class_verbosity);
-    add_class_parameter("nonlinear_verbose", class_verbosity);
+    add_class_parameter("harmonic_verbose", class_verbosity);
+    add_class_parameter("fourier_verbose", class_verbosity);
     add_class_parameter("lensing_verbose", class_verbosity);
     add_class_parameter("output_verbose", class_verbosity);
 
@@ -188,12 +200,17 @@ private:
       auto ik2 = 1.0 / (k[i] * k[i]) * h * h;
       dc[i] = -dc[i] * ik2;
       db[i] = -db[i] * ik2;
-      dn[i] = -dn[i] * ik2;
       dm[i] = -dm[i] * ik2;
       tc[i] = -tc[i] * ik2;
       tb[i] = -tb[i] * ik2;
-      tn[i] = -tn[i] * ik2;
       tm[i] = -tm[i] * ik2;
+      if (cosmo_params_.get("N_nu_massive") > 0) {
+        dn[i] = -dn[i] * ik2;
+        tn[i] = -tn[i] * ik2;
+      } else {
+        dn[i] = DBL_MIN; // cannot be 0, since we are interpolation log-log
+        tn[i] = DBL_MIN; // cannot be 0, since we are interpolation log-log
+      }
     }
   }
 
@@ -250,7 +267,7 @@ public:
     delta_m0_.set_data(k, dm);
     theta_m0_.set_data(k, tm);
 
-     // compute the transfer function at z=z_target using CLASS engine
+    // compute the transfer function at z=z_target using CLASS engine
     this->run_ClassEngine(ztarget_, k, dc, tc, db, tb, dn, tn, dm, tm);
     delta_c_.set_data(k, dc);
     theta_c_.set_data(k, tc);
@@ -269,6 +286,7 @@ public:
     tf_distinct_ = true;
     tf_withvel_ = true;
     tf_withtotal0_ = true;
+    tf_with_asymptotic_growth_factors_ = false;
   }
 
   ~transfer_CLASS_plugin()
@@ -304,6 +322,10 @@ public:
       val = delta_b_(k)-delta_c_(k); break;
     case theta_bc:
       val = theta_b_(k)-theta_c_(k); break;
+    case delta_nu:
+      val = delta_n_(k); break;
+    case theta_nu:
+      val = theta_n_(k); break;
 
       // values at zstart:
     case delta_matter0:
@@ -318,14 +340,23 @@ public:
       val = theta_c0_(k); break;
     case theta_baryon0:
       val = theta_b0_(k); break;
+    case delta_nu0:
+      val = delta_n0_(k); break;
+    case theta_nu0:
+      val = theta_n0_(k); break;
     default:
       throw std::runtime_error("Invalid type requested in transfer function evaluation");
     }
-    return val * tnorm_;
+
+    return val * tnorm_ * cosmology::compute_running_factor(&cosmo_params_, k);
   }
 
   inline double get_kmin(void) const { return kmin_ / h_; }
   inline double get_kmax(void) const { return kmax_ / h_; }
+
+  inline double get_vfac_asymptotic(void) const {
+      throw std::runtime_error("Transfer function does not have asymptotic growth factrs.");
+  }
 };
 
 namespace

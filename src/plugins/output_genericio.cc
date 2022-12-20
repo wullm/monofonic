@@ -72,6 +72,8 @@ public:
 
     bool has_64bit_ids() const { return true; }
 
+    int get_species_idx(const cosmo_species &s) const { return 0; }
+
     void write_particle_data(const particle::container &pc, const cosmo_species &s, double Omega_species)
     {
         double boxmass = Omega_species * munit_;

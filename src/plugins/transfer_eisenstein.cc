@@ -232,13 +232,14 @@ public:
     
     tf_distinct_ = false;
     tf_withvel_ = false;
+    tf_with_asymptotic_growth_factors_ = false;
   }
 
   //! Computes the transfer function for k in Mpc/h by calling TFfit_onek
   inline double compute(double k, tf_type type) const
   {
     if( type == theta_bc || type == delta_bc ) return 0.0;
-    return etf_.at_k(k);
+    return etf_.at_k(k) * cosmology::compute_running_factor(&cosmo_params_, k);
   }
 
   inline double get_kmin(void) const
@@ -249,6 +250,10 @@ public:
   inline double get_kmax(void) const
   {
     return 1.e4;
+  }
+
+  inline double get_vfac_asymptotic(void) const {
+      throw std::runtime_error("Transfer function does not have asymptotic growth factrs.");
   }
 };
 
@@ -334,7 +339,7 @@ public:
   inline double compute(double k, tf_type type) const
   {
     if( type == theta_bc || type == delta_bc ) return 0.0;
-    return etf_.at_k(k) * pow(1.0 + pow(m_WDMalpha * k, 2.0 * wdmnu_), -5.0 / wdmnu_);
+    return etf_.at_k(k) * pow(1.0 + pow(m_WDMalpha * k, 2.0 * wdmnu_), -5.0 / wdmnu_) * cosmology::compute_running_factor(&cosmo_params_, k);
   }
 
   inline double get_kmin(void) const
@@ -345,6 +350,10 @@ public:
   inline double get_kmax(void) const
   {
     return 1.e4;
+  }
+
+  inline double get_vfac_asymptotic(void) const {
+      throw std::runtime_error("Transfer function does not have asymptotic growth factrs.");
   }
 };
 
@@ -391,7 +400,7 @@ public:
     // in principle the Green et al. (2004) works only up to k/k_fs < 1
     // the fit crosses zero at (k/k_fs)**2 = 3/2, we just zero it there...
     if (kkfs2 < 1.5)
-      return etf_.at_k(k) * (1.0 - 2.0 / 3.0 * kkfs2) * exp(-kkfs2 - kkd2);
+      return etf_.at_k(k) * (1.0 - 2.0 / 3.0 * kkfs2) * exp(-kkfs2 - kkd2) * cosmology::compute_running_factor(&cosmo_params_, k);
     else
       return 0.0;
   }
@@ -404,6 +413,10 @@ public:
   inline double get_kmax(void) const
   {
     return 1.e8;
+  }
+
+  inline double get_vfac_asymptotic(void) const {
+      throw std::runtime_error("Transfer function does not have asymptotic growth factrs.");
   }
 };
 
