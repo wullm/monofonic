@@ -104,11 +104,12 @@ namespace cosmology
                 pmap_["A_s"] = cf.get_value_safe<double>("cosmology", "A_s", cf.contains_key("cosmology/sigma_8")? -1.0 : defaultp["A_s"]);
                 pmap_["k_p"] = cf.get_value_safe<double>("cosmology", "k_p", defaultp["k_p"]);
 
+                pmap_["sigma_8"] = cf.get_value_safe<double>("cosmology", "sigma_8", -1.0);
+
+                // running of the spectral index
                 pmap_["alpha_s"] = cf.get_value_safe<double>("cosmology", "alpha_s", defaultp["alpha_s"]);
                 pmap_["beta_s"] = cf.get_value_safe<double>("cosmology", "beta_s", defaultp["beta_s"]);
 
-                pmap_["sigma_8"] = cf.get_value_safe<double>("cosmology", "sigma_8", -1.0);
-                
                 // baryon and non-relativistic matter content
                 pmap_["Omega_b"] = cf.get_value_safe<double>("cosmology", "Omega_b", defaultp["Omega_b"]);
                 pmap_["Omega_m"] = cf.get_value_safe<double>("cosmology", "Omega_m", defaultp["Omega_m"]);
