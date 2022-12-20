@@ -33,6 +33,11 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #define NUMBER_THREEFRY_ROUNDS 20
 
+#ifndef __STDC_FORMAT_MACROS
+#define __STDC_FORMAT_MACROS 1
+#include <inttypes.h>
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
@@ -100,8 +105,8 @@ void threefry4x64_test_(int verbose)
     if ((rand.v[0] != result.v[0]) || (rand.v[1] != result.v[1]) || (rand.v[2] != result.v[2]) || (rand.v[3] != result.v[3]))
     {
       printf("Serious error occured !!!!!!!!!!  Random generator is not working correctly \n");
-      printf("Random generated: %lu %lu %lu %lu\n", rand.v[0], rand.v[1], rand.v[2], rand.v[3]);
-      printf("Random expected:  %lu %lu %lu %lu\n", result.v[0], result.v[1], result.v[2], result.v[3]);
+      printf("Random generated: %" PRIu64 " %" PRIu64 " %" PRIu64 " %" PRIu64 "\n", rand.v[0], rand.v[1], rand.v[2], rand.v[3]);
+      printf("Random expected:  %" PRIu64 " %" PRIu64 " %" PRIu64 " %" PRIu64 "\n", result.v[0], result.v[1], result.v[2], result.v[3]);
       //abort();
     }
     else
@@ -121,8 +126,8 @@ void threefry4x64_test_(int verbose)
     if ((rand.v[0] != result.v[0]) || (rand.v[1] != result.v[1]) || (rand.v[2] != result.v[2]) || (rand.v[3] != result.v[3]))
     {
       printf("Serious error occured !!!!!!!!!!  Random generator is not working correctly \n");
-      printf("Random generated: %lu %lu %lu %lu\n", rand.v[0], rand.v[1], rand.v[2], rand.v[3]);
-      printf("Random expected:  %lu %lu %lu %lu\n", result.v[0], result.v[1], result.v[2], result.v[3]);
+      printf("Random generated: %" PRIu64 " %" PRIu64 " %" PRIu64 " %" PRIu64 "\n", rand.v[0], rand.v[1], rand.v[2], rand.v[3]);
+      printf("Random expected:  %" PRIu64 " %" PRIu64 " %" PRIu64 " %" PRIu64 "\n", result.v[0], result.v[1], result.v[2], result.v[3]);
       //abort();
     }
     else
@@ -143,8 +148,8 @@ void threefry4x64_test_(int verbose)
     if ((rand.v[0] != result.v[0]) || (rand.v[1] != result.v[1]) || (rand.v[2] != result.v[2]) || (rand.v[3] != result.v[3]))
     {
       printf("Serious error occured !!!!!!!!!!  Random generator is not working correctly \n");
-      printf("Random generated: %lu %lu %lu %lu\n", rand.v[0], rand.v[1], rand.v[2], rand.v[3]);
-      printf("Random expected:  %lu %lu %lu %lu\n", result.v[0], result.v[1], result.v[2], result.v[3]);
+      printf("Random generated: %" PRIu64 " %" PRIu64 " %" PRIu64 " %" PRIu64 "\n", rand.v[0], rand.v[1], rand.v[2], rand.v[3]);
+      printf("Random expected:  %" PRIu64 " %" PRIu64 " %" PRIu64 " %" PRIu64 "\n", result.v[0], result.v[1], result.v[2], result.v[3]);
       //abort();
     }
     else
@@ -176,7 +181,7 @@ void set_panphasia_key_(int verbose)
   verbose = 0; //ARJ
 
   if (verbose)
-    printf("Setting the threefry4x64 key to\n(%0lu %0lu %0lu %0lu)\n\n",
+    printf("Setting the threefry4x64 key to\n(%0" PRIu64 " %0" PRIu64 " %0" PRIu64 " %0" PRIu64 ")\n\n",
            panphasia_key.v[0], panphasia_key.v[1], panphasia_key.v[2], panphasia_key.v[3]);
   panphasia_key_initialised = 999;
 
@@ -237,10 +242,10 @@ void check_panphasia_key_(int verbose)
   if (panphasia_check_key.v[0] != panphasia_key.v[0] || panphasia_check_key.v[1] != panphasia_key.v[1] || panphasia_check_key.v[2] != panphasia_key.v[2] || panphasia_check_key.v[2] != panphasia_key.v[2])
   {
     printf("A serious error has happened - the threefry4x64 key has become corrupted!\n");
-    printf("Should be:  (%0lu %0lu %0lu %0lu)\n", panphasia_check_key.v[0],
+    printf("Should be:  (%0" PRIu64 " %0" PRIu64 " %0" PRIu64 " %0" PRIu64 ")\n", panphasia_check_key.v[0],
            panphasia_check_key.v[1], panphasia_check_key.v[2], panphasia_check_key.v[3]);
 
-    printf("But now is: (%0lu %0lu %0lu %0lu)\n", panphasia_key.v[0],
+    printf("But now is: (%0" PRIu64 " %0" PRIu64 " %0" PRIu64 " %0" PRIu64 ")\n", panphasia_key.v[0],
            panphasia_key.v[1], panphasia_key.v[2], panphasia_key.v[3]);
     printf("The fact that it has changed suggests the key has been overwritten in memory.\n");
     abort();
@@ -283,13 +288,13 @@ void return_uniform_pseudo_rands_threefry4x64_(size_t l, size_t j1, size_t j2, s
 
   if ((l < 0) || (l > 63))
   {
-    printf("Level %lu is out of range (0-63)!\n", l); // Not part of Panphasia
+    printf("Level %" PRIu64 " is out of range (0-63)!\n", l); // Not part of Panphasia
     abort();
   };
 
   if ((j1 >> l != 0) || (j2 >> l != 0) || (j3 >> l != 0))
   { // Cell outside of Panphasia
-    printf("Level %lu: Cell coordinate out of range (%lu,%lu,%lu)\n", l, j1, j2, j3);
+    printf("Level %" PRIu64 ": Cell coordinate out of range (%" PRIu64 ",%" PRIu64 ",%" PRIu64 ")\n", l, j1, j2, j3);
     abort();
   };
 
@@ -323,7 +328,7 @@ void return_uniform_pseudo_rands_threefry4x64_(size_t l, size_t j1, size_t j2, s
 
   if (seed_value >> 32 != 0)
   {
-    printf("Seed value %lu, outside range   0 <= seed <2^32 \n", seed_value);
+    printf("Seed value %" PRIu64 ", outside range   0 <= seed <2^32 \n", seed_value);
     abort();
   };
 
@@ -507,7 +512,7 @@ long long int compute_check_digit_()
     abort();
   };
 
-  sprintf(str, "%lu%lu%lu%lu%lu%lu%lu%s", descriptor_order, descriptor_base_level,
+  sprintf(str, "%" PRIu64 "%" PRIu64 "%" PRIu64 "%" PRIu64 "%" PRIu64 "%" PRIu64 "%" PRIu64 "%s", descriptor_order, descriptor_base_level,
           descriptor_xorigin, descriptor_yorigin, descriptor_zorigin,
           descriptor_base_size, descriptor_kk_limit, descriptor_name);
 
@@ -640,10 +645,10 @@ void test_propogation_of_moments_(int iterations)
       char descriptor1[300];
       char descriptor2[300];
 
-      sprintf(descriptor1, "[Panph%lld,L%ld,(%lu,%lu,%lu),S%lu,CH-999,test]",
+      sprintf(descriptor1, "[Panph%lld,L%ld,(%" PRIu64 ",%" PRIu64 ",%" PRIu64 "),S%" PRIu64 ",CH-999,test]",
               p_order, level_desc1, desc1_x, desc1_y, desc1_z, desc1_s);
 
-      sprintf(descriptor2, "[Panph%lld,L%ld,(%lu,%lu,%lu),S%lu,CH-999,test]",
+      sprintf(descriptor2, "[Panph%lld,L%ld,(%" PRIu64 ",%" PRIu64 ",%" PRIu64 "),S%" PRIu64 ",CH-999,test]",
               p_order, level_desc2, desc2_x, desc2_y, desc2_z, desc2_s);
 
       //printf("Descriptor 1: %s\nDescriptor 2: %s\n",descriptor1,descriptor2);

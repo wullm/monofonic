@@ -495,4 +495,4 @@ namespace PANPHASIA1
       music::ilog.Print("PANPHASIA k-space statistices: mean Re = %f, std = %f", g.mean(), g.std());
     }
   };
-};
+}
