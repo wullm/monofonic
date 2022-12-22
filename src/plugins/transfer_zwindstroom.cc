@@ -249,11 +249,6 @@ public:
     {
         throw std::runtime_error("Using ZeroRadiation=true for simplified backscaling, in which case zwindstroom is not needed.");
     }
-    // Throw an error if there are no massive neutrinos
-    if (cosmo_params_.get("N_nu_massive") <= 0)
-    {
-        throw std::runtime_error("Running without massive neutrinos, in which case zwindstroom is not needed.");
-    }
 
     this->tf_isnormalised_ = true;
 
@@ -421,6 +416,20 @@ public:
     const double hstart = 1e-12;
     prepare_fluid_integrator(&m, &us, &pcs, &tab, tol, hstart);
 
+    // if we have no neutrinos, zero out the neutrino transfer functions
+    if (N_nu == 0) {
+        for (size_t i = 0; i < k.size(); ++i) {
+            dn[i] = 0.;
+            tn[i] = 0.;
+            dn_min[i] = 0.;
+            tn_min[i] = 0.;
+            dn_pls[i] = 0.;
+            tn_pls[i] = 0.;
+            dn_target[i] = 0.;
+            tn_target[i] = 0.;
+        }
+    }
+
     // compute the scale-dependent logarithmic growth rates at z=z_start
     std::vector<double> gc, gb, gn, gcb, gm;
     for (size_t i = 0; i < k.size(); ++i)
@@ -436,9 +445,13 @@ public:
       // store the values for this row
       gc.push_back((dc_pls[i] - dc_min[i]) / (2.0 * delta_log_a) / dc[i]);
       gb.push_back((db_pls[i] - db_min[i]) / (2.0 * delta_log_a) / db[i]);
-      gn.push_back((dn_pls[i] - dn_min[i]) / (2.0 * delta_log_a) / dn[i]);
       gcb.push_back((dcb_pls - dcb_min) / (2.0 * delta_log_a) / dcb);
       gm.push_back((dm_pls - dm_min) / (2.0 * delta_log_a) / dm);
+      if (N_nu > 0) {
+          gn.push_back((dn_pls[i] - dn_min[i]) / (2.0 * delta_log_a) / dn[i]);
+      } else {
+          gn.push_back(0.);
+      }
     }
 
     // compute the scale-dependent growth factors in the 3-fluid approximation
@@ -477,7 +490,11 @@ public:
         // store the relative growth factors between the target and starting redshifts
         Dc.push_back(gfac.Dc);
         Db.push_back(gfac.Db);
-        Dn.push_back(gfac.Dn[0]); // read off the first species
+        if (N_nu > 0) {
+            Dn.push_back(gfac.Dn[0]); // read off the first species
+        } else {
+            Dn.push_back(0.0);
+        }
     }
 
     // done with fluid integration
@@ -524,7 +541,12 @@ public:
         // so we need to keep the ratio of theta_i / delta_i.
         real_t tc_over_dc = tc[i] / dc[i];
         real_t tb_over_db = tb[i] / db[i];
-        real_t tn_over_dn = tn[i] / dn[i];
+        real_t tn_over_dn;
+        if (N_nu > 0) {
+            tn_over_dn = tn[i] / dn[i];
+        } else {
+            tn_over_dn = 0.;
+        }
 
         // scale back the density transfer functions from the target redshift
         // to the starting redshift using the scale-dependent growth factors
@@ -614,7 +636,9 @@ public:
             if (z <= 0) break;
         }
     }
-    music::wlog << " Make sure that your sim code can handle massive neutrinos in its background FLRW model." << std::endl;
+    if (N_nu > 0) {
+        music::wlog << " Make sure that your sim code can handle massive neutrinos in its background FLRW model." << std::endl;
+    }
     music::ilog << "Wrote Hubble rate table to file \'" << fname_hubble << "\'" << std::endl;
 
     // clean up zwindstroom
