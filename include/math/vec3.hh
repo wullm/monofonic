@@ -45,12 +45,15 @@ public:
     : data_(std::move(v.data_)), x(data_[0]), y(data_[1]), z(data_[2]){}
 
     //! construct vec3_t from initializer list
-    template<typename ...E>
-    vec3_t(E&&...e) 
-    : data_{{std::forward<E>(e)...}}, x{data_[0]}, y{data_[1]}, z{data_[2]}
-    {}
-    // vec3_t( T a, T b, T c ) 
-    // : data_{{a,b,c}}, x(data_[0]), y(data_[1]), z(data_[2]){}
+//    template<typename ...E>
+//    vec3_t(E&&...e) 
+//    : data_{{std::forward<E>(e)...}}, x{data_[0]}, y{data_[1]}, z{data_[2]}
+//    {}
+    vec3_t( T a, T b, T c )
+        : data_{{a,b,c}}, x(data_[0]), y(data_[1]), z(data_[2]){}
+  
+    explicit vec3_t( T a)
+        : data_{{a,a,a}}, x(data_[0]), y(data_[1]), z(data_[2]){}
     
     //! bracket index access to vector components
     T &operator[](size_t i) noexcept{ return data_[i];}

@@ -62,9 +62,9 @@ std::unique_ptr<cosmology::calculator>  the_cosmo_calc;
  */
 int initialise( config_file& the_config )
 {
-    the_random_number_generator = std::move(select_RNG_plugin(the_config));
+    the_random_number_generator = select_RNG_plugin(the_config);
     the_cosmo_calc              = std::make_unique<cosmology::calculator>(the_config);
-    the_output_plugin           = std::move(select_output_plugin(the_config, the_cosmo_calc));
+    the_output_plugin           = select_output_plugin(the_config, the_cosmo_calc);
     
     return 0;
 }
@@ -150,12 +150,12 @@ int run( config_file& the_config )
     //--------------------------------------------------------------------------------------------------------
     //! add beyond box tidal field modes following Schmidt et al. (2018) [https://arxiv.org/abs/1803.03274]
     bool bAddExternalTides = the_config.contains_key("cosmology", "LSS_aniso_lx") 
-                           & the_config.contains_key("cosmology", "LSS_aniso_ly") 
-                           & the_config.contains_key("cosmology", "LSS_aniso_lz");
+                           && the_config.contains_key("cosmology", "LSS_aniso_ly") 
+                           && the_config.contains_key("cosmology", "LSS_aniso_lz");
 
     if( bAddExternalTides && !(  the_config.contains_key("cosmology", "LSS_aniso_lx") 
-                               | the_config.contains_key("cosmology", "LSS_aniso_ly") 
-                               | the_config.contains_key("cosmology", "LSS_aniso_lz") ))
+                               || the_config.contains_key("cosmology", "LSS_aniso_ly") 
+                               || the_config.contains_key("cosmology", "LSS_aniso_lz") ))
     {
         music::elog << "Not all dimensions of LSS_aniso_l{x,y,z} specified! Will ignore external tidal field!" << std::endl;
         bAddExternalTides = false;

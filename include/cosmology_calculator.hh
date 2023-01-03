@@ -179,7 +179,7 @@ public:
         music::ilog << "Linear growth factors: D+_target = " << Dplus_target_ << ", D+_start = " << Dplus_start_ << std::endl;
 
         // set up transfer functions and compute normalisation
-        transfer_function_ = std::move(select_TransferFunction_plugin(cf, cosmo_param_));
+        transfer_function_ = select_TransferFunction_plugin(cf, cosmo_param_);
         transfer_function_->intialise();
         if( !transfer_function_->tf_isnormalised_ ){
             cosmo_param_.set("pnorm", this->compute_pnorm_from_sigma8() );
