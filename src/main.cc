@@ -273,9 +273,9 @@ int main( int argc, char** argv )
 #endif
 
     if( peak_mem > (1ull<<30) )
-        music::ilog << "----mem-> peak memory usage was " << peak_mem /(1ull<<30) << " GBytes / task" << std::endl;
+        music::ilog << "Peak memory usage was " << peak_mem /(1ull<<30) << " GBytes / task" << std::endl;
     else 
-        music::ilog << "----mem-> peak memory usage was " << peak_mem /(1ull<<20) << " MBytes / task" << std::endl;
+        music::ilog << "Peak memory usage was " << peak_mem /(1ull<<20) << " MBytes / task" << std::endl;
 
 
 #if defined(USE_MPI)

@@ -32,7 +32,7 @@ void memory_report(void)
     curr_mem_high_mark = local_mem_high_mark;
 #endif
     if( curr_mem_high_mark > 1.1*global_mem_high_mark ){
-        music::ilog << "----mem-> new memory high mark: " << curr_mem_high_mark/(1ull<<20) << " MBytes / task" << std::endl;
+        music::ilog << std::setw(57) << std::setfill(' ') << std::right << "mem high: " << std::setw(8) << curr_mem_high_mark/(1ull<<20) << " MBytes / task" << std::endl;
         global_mem_high_mark = curr_mem_high_mark;
     }
 }
