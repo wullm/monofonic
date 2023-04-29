@@ -359,6 +359,19 @@ public:
         }
     }
 
+    // Get external Hubble and gravitational constant filenames
+    int has_external_E = pcf_->get_value_safe<int>("cosmology", "use_external_Hubble_file", 0);
+    int has_external_G_eff = pcf_->get_value_safe<int>("cosmology", "use_external_G_eff_file", 0);
+    std::string path_external_E = pcf_->get_value_safe<std::string>("cosmology", "path_external_Hubble_file", "");
+    std::string path_external_G_eff = pcf_->get_value_safe<std::string>("cosmology", "path_external_G_eff_file", "");
+
+    if (has_external_E) {
+        music::ilog << "Reading Hubble table from '" <<  path_external_E << "'." << std::endl;
+    }
+    if (has_external_G_eff) {
+        music::ilog << "Reading G_eff table from '" <<  path_external_G_eff << "'." << std::endl;
+    }
+
     // Zwindstroom structures
     struct model m;
     struct units us;
@@ -382,6 +395,11 @@ public:
     // Does the cosmological sim use constant mass energy for the neutrinos?
     m.sim_neutrino_nonrel_masses = 1; //TODO: make parameter
     m.sim_neutrino_nonrel_Hubble = 0;
+    // Apply the external table files
+    m.has_external_E = has_external_E;
+    m.has_external_G_eff = has_external_G_eff;
+    m.path_external_E = path_external_E.c_str();
+    m.path_external_G_eff = path_external_G_eff.c_str();
 
     // Set up zwindstroom unit system
     us.UnitLengthMetres = MPC_METRES; // match CLASS
