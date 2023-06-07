@@ -38,12 +38,14 @@ class gadget_hdf5_output_plugin : public output_plugin
   struct header_t
   {
     unsigned npart[6];
+    size_t npart64[6];
     double mass[6];
     double time;
     double redshift;
     int flag_sfr;
     int flag_feedback;
     unsigned int npartTotal[6];
+    size_t npartTotal64[6];
     int flag_cooling;
     int num_files;
     double BoxSize;
@@ -62,6 +64,7 @@ protected:
   header_t header_;
   real_t lunit_, vunit_, munit_;
   bool blongids_;
+  bool bgadget2_compatibility_;
   std::string this_fname_;
 
 public:
@@ -84,11 +87,15 @@ public:
     blongids_ = cf_.get_value_safe<bool>("output", "UseLongids", false);
     num_simultaneous_writers_ = cf_.get_value_safe<int>("output", "NumSimWriters", num_files_);
 
+    bgadget2_compatibility_ = cf_.get_value_safe<bool>("output", "Gadget2Compatibility", false);
+
     for (int i = 0; i < 6; ++i)
     {
       header_.npart[i] = 0;
+      header_.npart64[i] = 0;
       header_.npartTotal[i] = 0;
       header_.npartTotalHighWord[i] = 0;
+      header_.npartTotal64[i] = 0;
       header_.mass[i] = 0.0;
     }
 
@@ -165,13 +172,19 @@ public:
     if (!std::uncaught_exception())
     {
       HDFCreateGroup(this_fname_, "Header");
-      HDFWriteGroupAttribute(this_fname_, "Header", "NumPart_ThisFile", from_6array<unsigned>(header_.npart));
+      if( bgadget2_compatibility_ ){
+        HDFWriteGroupAttribute(this_fname_, "Header", "NumPart_ThisFile", from_6array<unsigned>(header_.npart));
+        HDFWriteGroupAttribute(this_fname_, "Header", "NumPart_Total", from_6array<unsigned>(header_.npartTotal));
+        HDFWriteGroupAttribute(this_fname_, "Header", "NumPart_Total_HighWord", from_6array<unsigned>(header_.npartTotalHighWord));
+      }else{
+        HDFWriteGroupAttribute(this_fname_, "Header", "NumPart_ThisFile", from_6array<size_t>(header_.npart64));
+        HDFWriteGroupAttribute(this_fname_, "Header", "NumPart_Total", from_6array<size_t>(header_.npartTotal64));
+      }
       HDFWriteGroupAttribute(this_fname_, "Header", "MassTable", from_6array<double>(header_.mass));
       HDFWriteGroupAttribute(this_fname_, "Header", "Time", from_value<double>(header_.time));
       HDFWriteGroupAttribute(this_fname_, "Header", "Redshift", from_value<double>(header_.redshift));
       HDFWriteGroupAttribute(this_fname_, "Header", "Flag_Sfr", from_value<int>(header_.flag_sfr));
       HDFWriteGroupAttribute(this_fname_, "Header", "Flag_Feedback", from_value<int>(header_.flag_feedback));
-      HDFWriteGroupAttribute(this_fname_, "Header", "NumPart_Total", from_6array<unsigned>(header_.npartTotal));
       HDFWriteGroupAttribute(this_fname_, "Header", "Flag_Cooling", from_value<int>(header_.flag_cooling));
       HDFWriteGroupAttribute(this_fname_, "Header", "NumFilesPerSnapshot", from_value<int>(header_.num_files));
       HDFWriteGroupAttribute(this_fname_, "Header", "BoxSize", from_value<double>(header_.BoxSize));
@@ -180,7 +193,6 @@ public:
       HDFWriteGroupAttribute(this_fname_, "Header", "HubbleParam", from_value<double>(header_.HubbleParam));
       HDFWriteGroupAttribute(this_fname_, "Header", "Flag_StellarAge", from_value<int>(header_.flag_stellarage));
       HDFWriteGroupAttribute(this_fname_, "Header", "Flag_Metals", from_value<int>(header_.flag_metals));
-      HDFWriteGroupAttribute(this_fname_, "Header", "NumPart_Total_HighWord", from_6array<unsigned>(header_.npartTotalHighWord));
       HDFWriteGroupAttribute(this_fname_, "Header", "Flag_Entropy_ICs", from_value<int>(header_.flag_entropy_instead_u));
 
       music::ilog << "Wrote Gadget-HDF5 file(s) to " << this_fname_ << std::endl;
@@ -237,9 +249,14 @@ public:
 
     assert(sid != -1);
 
+    // use 32 bit integers for Gadget-2 compatibility
     header_.npart[sid] = (pc.get_local_num_particles());
     header_.npartTotal[sid] = (uint32_t)(pc.get_global_num_particles());
     header_.npartTotalHighWord[sid] = (uint32_t)((pc.get_global_num_particles()) >> 32);
+
+    // use 64 bit integers for Gadget >2 compatibility
+    header_.npart64[sid] = pc.get_local_num_particles();
+    header_.npartTotal64[sid] = pc.get_global_num_particles();
 
     if( pc.bhas_individual_masses_ )
       header_.mass[sid] = 0.0;
