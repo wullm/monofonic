@@ -114,13 +114,20 @@ public:
     header_.flag_entropy_instead_u = 0;
     header_.flag_doubleprecision = (typeid(write_real_t) == typeid(double)) ? true : false;
 
-    this_fname_ = fname_;
+    // split fname into prefix and file suffix (at last dot)
+    std::string::size_type pos = fname_.find_last_of(".");
+    std::string fname_prefix = fname_.substr(0, pos);
+    std::string fname_suffix = fname_.substr(pos + 1);
+
+    // add rank to filename if we have more than one file
+    this_fname_ = fname_prefix;
 #ifdef USE_MPI
     int thisrank = 0;
     MPI_Comm_rank(MPI_COMM_WORLD, &thisrank);
     if (num_files_ > 1)
       this_fname_ += "." + std::to_string(thisrank);
 #endif
+    this_fname_ += "." + fname_suffix;
 
     unlink(this_fname_.c_str());
     HDFCreateFile(this_fname_);
