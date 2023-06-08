@@ -152,8 +152,10 @@ private:
 
 public:
     
+    //! default constructor [deleted]
     calculator() = delete;
     
+    //! copy constructor [deleted]
     calculator(const calculator& c) = delete;
 
     //! constructor for a cosmology calculator object
@@ -204,9 +206,12 @@ public:
         m_sqrtpnorm_ = cosmo_param_["sqrtpnorm"];
     }
 
+    //! destructor
     ~calculator() { }
 
-    //! Write out a correctly scaled power spectrum at time a
+    /// @brief Write out a correctly scaled power spectrum at time a
+    /// @param a scale factor
+    /// @param fname file name
     void write_powerspectrum(real_t a, std::string fname) const
     {
         // const real_t Dplus0 = this->get_growth_factor(a);
@@ -253,7 +258,8 @@ public:
         music::ilog << "Wrote power spectrum at a=" << a << " to file \'" << fname << "\'" << std::endl;
     }
 
-    //! Write out a correctly scaled power spectrum at starting time
+    /// @brief Write out a correctly scaled transfer function at time a
+    /// @param[in] fname filename to write to
     void write_transfer( std::string fname ) const
     {
         // const real_t Dplus0 = this->get_growth_factor(a);
@@ -299,12 +305,16 @@ public:
         music::ilog << "Wrote input transfer functions at a=" << astart_ << " to file \'" << fname << "\'" << std::endl;
     }
 
+    /// @brief return the cosmological parameter object
+    /// @return cosmological parameter object
     const cosmology::parameters &get_parameters(void) const noexcept
     {
         return cosmo_param_;
     }
 
-    //! return the value of the Hubble function H(a) = dloga/dt 
+    /// @brief return the value of the Hubble function H(a) = dloga/dt 
+    /// @param[in] a scale factor
+    /// @return H(a)
     inline double H_of_a(double a) const noexcept
     {
         double HH2 = 0.0;
@@ -315,13 +325,17 @@ public:
         return cosmo_param_["H0"] * std::sqrt(HH2);
     }
 
-    //! Computes the linear theory growth factor D+, normalised to D+(a=1)=1
+    /// @brief Computes the linear theory growth factor D+, normalised to D+(a=1)=1
+    /// @param[in] a scale factor
+    /// @return D+(a)
     real_t get_growth_factor(real_t a) const noexcept
     {
         return D_of_a_(a) / Dnow_;
     }
 
-    //! Computes the inverse of get_growth_factor
+    /// @brief Computes the inverse of get_growth_factor, i.e. a(D+)
+    /// @param[in] Dplus growth factor
+    /// @return a(D+)
     real_t get_a( real_t Dplus ) const noexcept
     {
         return a_of_D_( Dplus * Dnow_ );
