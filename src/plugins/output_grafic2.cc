@@ -323,5 +323,5 @@ void grafic2_output_plugin::write_ramses_namelist(void) const
 
 namespace
 {
-  output_plugin_creator_concrete<grafic2_output_plugin> creator1("grafic2");
+  output_plugin_creator_concrete<grafic2_output_plugin> creator201("grafic2");
 } // namespace

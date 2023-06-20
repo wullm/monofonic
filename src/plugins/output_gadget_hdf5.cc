@@ -70,7 +70,7 @@ protected:
 public:
   //! constructor
   explicit gadget_hdf5_output_plugin(config_file &cf, std::unique_ptr<cosmology::calculator> &pcc)
-      : output_plugin(cf, pcc, "GADGET-HDF5")
+      : output_plugin(cf, pcc, (std::string("GADGET-HDF5-")+typeid(write_real_t).name()).c_str() )
   {
     num_files_ = 1;
 #ifdef USE_MPI
@@ -88,6 +88,7 @@ public:
     num_simultaneous_writers_ = cf_.get_value_safe<int>("output", "NumSimWriters", num_files_);
 
     bgadget2_compatibility_ = cf_.get_value_safe<bool>("output", "Gadget2Compatibility", false);
+    music::ilog << std::setw(32) << std::left << "Gadget2Compatibility" << " : " << (bgadget2_compatibility_? "yes" : "no") << std::endl;
 
     for (int i = 0; i < 6; ++i)
     {
@@ -305,9 +306,9 @@ public:
 
 namespace
 {
-output_plugin_creator_concrete<gadget_hdf5_output_plugin<float>> creator1("gadget_hdf5");
+output_plugin_creator_concrete<gadget_hdf5_output_plugin<float>> creator991("gadget_hdf5");
 #if !defined(USE_SINGLEPRECISION)
-output_plugin_creator_concrete<gadget_hdf5_output_plugin<double>> creator3("gadget_hdf5_double");
+output_plugin_creator_concrete<gadget_hdf5_output_plugin<double>> creator992("gadget_hdf5_double");
 #endif
 } // namespace
 
