@@ -206,8 +206,9 @@ namespace cosmology
                 pmap_["Omega_r"] = 0.0;
             }
 
-            pmap_["f_b"] = this->get("Omega_b") / this->get("Omega_m");
-            pmap_["f_c"] = 1.0 - this->get("f_b"); // this means we add massive neutrinos to CDM here
+
+            pmap_["f_b"] = 0; // will be set later
+            pmap_["f_c"] = 0; // will be set later
 
             // close the Universe with dark energy
             pmap_["Omega_DE"] = 1.0 - this->get("Omega_c") - this->get("Omega_b") - this->get("Omega_dcdmdr_0") - this->get("Omega_r") - this->get("Omega_k");

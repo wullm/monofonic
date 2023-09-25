@@ -86,8 +86,10 @@ private:
     add_class_parameter("Omega_scf", 0.0);
 
     //--- decaying dark matter and dark radiation ---------------------
-    add_class_parameter("Omega_dcdmdr", cosmo_params_.get("Omega_dcdmdr_0"));
-    add_class_parameter("Gamma_dcdm", cosmo_params_.get("Gamma_dcdm"));
+    if (cosmo_params_.get("Omega_dcdmdr_0") > 0.) {
+        add_class_parameter("Omega_dcdmdr", cosmo_params_.get("Omega_dcdmdr_0"));
+        add_class_parameter("Gamma_dcdm", cosmo_params_.get("Gamma_dcdm"));
+    }
 
     //--- dark energy -------------------------------------------------
     real_t w_0 = cosmo_params_.get("w_0");
@@ -419,6 +421,9 @@ public:
     // ic_generator.cc and elsewhere. For those purposes, Omega_m should
     // include neutrinos, because that is what monofonIC assumes
     cosmo_params_.set("Omega_m", Omega_m);
+    cosmo_params_.set("f_b", m.Omega_b / Omega_m);
+    cosmo_params_.set("f_c", 1 - m.Omega_b / Omega_m);
+    cosmo_params_.set("Omega_dcdm_start", Omega_dcdm_start);
 
     // the present-day baryon fracrion (as a fraction of the cold matter species)
     const double f_b = m.Omega_b / (m.Omega_b + m.Omega_c + Omega_dcdm_start);

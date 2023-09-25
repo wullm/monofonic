@@ -697,10 +697,13 @@ int run( config_file& the_config )
 
         // total matter density at z=0, including massive neutrinos
         const real_t O_m = the_cosmo_calc->cosmo_param_["Omega_m"];
+        const real_t O_c = the_cosmo_calc->cosmo_param_["Omega_c"];
+        const real_t O_dcdm = the_cosmo_calc->cosmo_param_["Omega_dcdm_start"];
+        const real_t O_dm = O_c + O_dcdm;
 
         // baryon, cdm, and massive neutrino fractions of the total matter density (z=0)
         const real_t f_b = the_cosmo_calc->cosmo_param_["Omega_b"] / O_m;
-        const real_t f_c = the_cosmo_calc->cosmo_param_["Omega_c"] / O_m;
+        const real_t f_c = O_dm / O_m;
 
         // C factor for baryons and cdm
         real_t C_species;
