@@ -56,7 +56,8 @@ parameters::defaultmmap_t parameters::default_pmaps_
     {"Tcmb",        2.7255},
     {"O_nu_norm",   93.13861},
     {"Omega_dcdmdr_0",   0},
-    {"Gamma_dcdm",  0}}}
+    {"Gamma_dcdm",  0},
+    {"Omega_dcdm_start",   0}}}
 };
 
 /**

@@ -222,6 +222,7 @@ namespace cosmology
             pmap_["vfact"] = 0.0;
             pmap_["dplus_start"] = 0.0;
             pmap_["dplus_target"] = 0.0;
+            pmap_["Omega_dcdm_start"] = 0.0;
 
             music::ilog << "Cosmological parameters are: " << std::endl;
             music::ilog << " h        = " << std::setw(16) << this->get("h");
