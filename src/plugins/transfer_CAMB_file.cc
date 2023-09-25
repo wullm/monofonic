@@ -155,7 +155,7 @@ private:
   }
 
 public:
-  transfer_CAMB_file_plugin(config_file &cf, const cosmology::parameters& cosmo_params)
+  transfer_CAMB_file_plugin(config_file &cf, cosmology::parameters& cosmo_params)
       : TransferFunction_plugin(cf, cosmo_params)
   {
     music::wlog << "The CAMB file plugin is not well tested! Proceed with checks of correctness of output before running a simulation!" << std::endl;

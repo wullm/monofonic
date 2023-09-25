@@ -57,7 +57,7 @@ void print_TransferFunction_plugins()
  * @param cosmo_param reference to cosmology::parameters object holding cosmological parameter values
  * @return std::unique_ptr<TransferFunction_plugin> 
  */
-std::unique_ptr<TransferFunction_plugin> select_TransferFunction_plugin(config_file &cf, const cosmology::parameters& cosmo_param)
+std::unique_ptr<TransferFunction_plugin> select_TransferFunction_plugin(config_file &cf, cosmology::parameters& cosmo_param)
 {
     std::string tfname = cf.get_value<std::string>("cosmology", "transfer");
 

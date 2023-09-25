@@ -3,7 +3,7 @@ include(FetchContent)
 FetchContent_Declare(
     zwindstroom
     GIT_REPOSITORY https://github.com/wullm/zwindstroom.git
-    GIT_TAG main
+    GIT_TAG dcdm
     GIT_SHALLOW YES
     GIT_PROGRESS TRUE
 )

@@ -145,6 +145,12 @@ int run( config_file& the_config )
         Omega[cosmo_species::baryon] = 0.0;
     }
 
+    music::ilog << "Using Omega_m = " << the_cosmo_calc->cosmo_param_["Omega_m"] << std::endl;
+    music::ilog << "Using Omega_c = " << the_cosmo_calc->cosmo_param_["Omega_c"] << std::endl;
+    music::ilog << "Using Omega_b = " << the_cosmo_calc->cosmo_param_["Omega_b"] << std::endl;
+    music::ilog << "Using Omega_dm_parts = " << Omega[cosmo_species::dm] << std::endl;
+    music::ilog << "Using Omega_b_parts = " << Omega[cosmo_species::baryon] << std::endl;
+
     //! master switch to activate the following neutrino corrections by default
     const bool bWithNeutrinos = the_config.get_value_safe<bool>("setup", "WithNeutrinos", false );
 

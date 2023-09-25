@@ -215,7 +215,7 @@ private:
   }
 
 public:
-  explicit transfer_CLASS_plugin(config_file &cf, const cosmology::parameters& cosmo_params)
+  explicit transfer_CLASS_plugin(config_file &cf, cosmology::parameters& cosmo_params)
       : TransferFunction_plugin(cf,cosmo_params)
   {
     this->tf_isnormalised_ = true;

@@ -85,6 +85,10 @@ private:
     add_class_parameter("Omega_k", cosmo_params_.get("Omega_k"));
     add_class_parameter("Omega_scf", 0.0);
 
+    //--- decaying dark matter and dark radiation ---------------------
+    add_class_parameter("Omega_dcdmdr", cosmo_params_.get("Omega_dcdmdr_0"));
+    add_class_parameter("Gamma_dcdm", cosmo_params_.get("Gamma_dcdm"));
+
     //--- dark energy -------------------------------------------------
     real_t w_0 = cosmo_params_.get("w_0");
     real_t w_a = cosmo_params_.get("w_a");
@@ -240,7 +244,7 @@ private:
   }
 
 public:
-  explicit transfer_zwindstroom_plugin(config_file &cf, const cosmology::parameters& cosmo_params)
+  explicit transfer_zwindstroom_plugin(config_file &cf, cosmology::parameters& cosmo_params)
       : TransferFunction_plugin(cf,cosmo_params)
   {
     // Before starting, throw an error if ZeroRadiation is used, because
@@ -370,6 +374,8 @@ public:
     m.Omega_b = cosmo_params_.get("Omega_b");
     m.Omega_c = cosmo_params_.get("Omega_c");
     m.Omega_k = cosmo_params_.get("Omega_k");
+    m.Omega_dcdmdr_0 = cosmo_params_.get("Omega_dcdmdr_0");
+    m.Gamma_dcdm = cosmo_params_.get("Gamma_dcdm");
     m.N_ur = cosmo_params_.get("N_ur");
     m.N_nu = N_nu;
     m.M_nu = M_nu.data();
@@ -385,7 +391,7 @@ public:
 
     // Set up zwindstroom unit system
     us.UnitLengthMetres = MPC_METRES; // match CLASS
-    us.UnitTimeSeconds = 1e15; // can be anything
+    us.UnitTimeSeconds = 3.08567758148957E+019; // km/s
     us.UnitMassKilogram = 1.0;
     us.UnitTemperatureKelvin = 1.0;
     us.UnitCurrentAmpere = 1.0;
@@ -396,14 +402,24 @@ public:
     music::ilog << "Integrating cosmological tables with zwindstroom." << std::endl;
 
     // Integrate the cosmological tables with zwindstroom (accounting for neutrinos)
-    const double tab_a_start = astart_ * 0.99;
+    const double tab_a_start = fmin(astart_ * 0.99, 1e-3);
     const double tab_a_final = atarget_ * 1.01;
     integrate_cosmology_tables(&m, &us, &pcs, &tab, tab_a_start, tab_a_final, 1000);
 
-    // extract the present-day neutrino fraction and the baryon fraction
+    // extract the present-day neutrino fraction
     const double atoday_ = 1.0;
     const double f_nu_nr_0 = get_f_nu_nr_tot_of_a(&tab, atoday_);
-    const double f_b = m.Omega_b / (m.Omega_b + m.Omega_c);
+
+    // extract the decaying dark matter density at the starting redshift
+    const double Omega_dcdm_start = get_Omega_dcdm_of_a(&tab, astart_);
+    const double Omega_m = m.Omega_b + m.Omega_c + Omega_dcdm_start;
+
+    // set the matter density at the starting redshift for use in
+    // ic_generator.cc and elsewhere
+    cosmo_params_.set("Omega_m", Omega_m);
+
+    // the present-day baryon fracrion
+    const double f_b = m.Omega_b / Omega_m;
     // extract the Hubble rate at a_start and normalize by H0
     const double H_start = get_H_of_a(&tab, astart_); // in zwindstroom units
     const double H_0 = get_H_of_a(&tab, atoday_); // in zwindstroom units

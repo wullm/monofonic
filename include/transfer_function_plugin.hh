@@ -49,7 +49,7 @@ class TransferFunction_plugin
 {
   public:
     config_file *pcf_;   //!< pointer to config_file from which to read parameters
-    const cosmology::parameters& cosmo_params_; //!< cosmological parameters are stored here
+    cosmology::parameters& cosmo_params_; //!< cosmological parameters are stored here
     bool tf_distinct_;   //!< bool if density transfer function is distinct for baryons and DM
     bool tf_withvel_;    //!< bool if also have velocity transfer functions
     bool tf_withtotal0_; //!< have the z=0 spectrum for normalisation purposes
@@ -59,7 +59,7 @@ class TransferFunction_plugin
     
   public:
     //! constructor
-    TransferFunction_plugin(config_file &cf, const cosmology::parameters& cosmo_params)
+    TransferFunction_plugin(config_file &cf, cosmology::parameters& cosmo_params)
         : pcf_(&cf), cosmo_params_( cosmo_params ), tf_distinct_(false), tf_withvel_(false), 
           tf_withtotal0_(false), tf_velunits_(false), tf_isnormalised_(false)
     { }
@@ -117,7 +117,7 @@ class TransferFunction_plugin
 struct TransferFunction_plugin_creator
 {
     //! create an instance of a transfer function plug-in
-    virtual std::unique_ptr<TransferFunction_plugin> create(config_file &cf, const cosmology::parameters& cp) const = 0;
+    virtual std::unique_ptr<TransferFunction_plugin> create(config_file &cf, cosmology::parameters& cp) const = 0;
 
     //! destroy an instance of a plug-in
     virtual ~TransferFunction_plugin_creator() {}
@@ -138,7 +138,7 @@ struct TransferFunction_plugin_creator_concrete : public TransferFunction_plugin
     }
 
     //! create an instance of the plug-in
-    std::unique_ptr<TransferFunction_plugin> create(config_file &cf, const cosmology::parameters& cp) const
+    std::unique_ptr<TransferFunction_plugin> create(config_file &cf, cosmology::parameters& cp) const
     {
         return std::make_unique<Derived>(cf,cp);
     }
@@ -146,4 +146,4 @@ struct TransferFunction_plugin_creator_concrete : public TransferFunction_plugin
 
 // typedef TransferFunction_plugin TransferFunction;
 
-std::unique_ptr<TransferFunction_plugin> select_TransferFunction_plugin(config_file &cf, const cosmology::parameters& cp);
+std::unique_ptr<TransferFunction_plugin> select_TransferFunction_plugin(config_file &cf, cosmology::parameters& cp);

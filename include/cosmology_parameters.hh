@@ -112,7 +112,7 @@ namespace cosmology
 
                 // baryon and non-relativistic matter content
                 pmap_["Omega_b"] = cf.get_value_safe<double>("cosmology", "Omega_b", defaultp["Omega_b"]);
-                pmap_["Omega_m"] = cf.get_value_safe<double>("cosmology", "Omega_m", defaultp["Omega_m"]);
+                pmap_["Omega_c"] = cf.get_value_safe<double>("cosmology", "Omega_c", defaultp["Omega_c"]);
 
                 // massive neutrino species
                 pmap_["m_nu1"] = cf.get_value_safe<double>("cosmology", "m_nu1", defaultp["m_nu1"]);
@@ -145,6 +145,10 @@ namespace cosmology
 
                 // curvature
                 pmap_["Omega_k"] = cf.get_value_safe<double>("cosmology", "Omega_k", defaultp["Omega_k"]);
+
+                // Decaying dark matter and dark radiation
+                pmap_["Omega_dcdmdr_0"] = cf.get_value_safe<double>("cosmology", "Omega_dcdmdr_0", defaultp["Omega_dcdmdr_0"]);
+                pmap_["Gamma_dcdm"] = cf.get_value_safe<double>("cosmology", "Gamma_dcdm", defaultp["Gamma_dcdm"]);
 
             }else{
 
@@ -194,7 +198,8 @@ namespace cosmology
             pmap_["Omega_r"] = this->get("Omega_gamma") + this->get("Omega_nu_massless");
 
             // compute amount of cold dark matter as the rest
-            pmap_["Omega_c"] = this->get("Omega_m") - this->get("Omega_b") - this->get("Omega_nu_massive");
+            // pmap_["Omega_c"] = this->get("Omega_m") - this->get("Omega_b") - this->get("Omega_nu_massive");
+            pmap_["Omega_m"] = 0.; // will be set later
 
             if (cf.get_value_safe<bool>("cosmology", "ZeroRadiation", false))
             {
@@ -204,15 +209,11 @@ namespace cosmology
             pmap_["f_b"] = this->get("Omega_b") / this->get("Omega_m");
             pmap_["f_c"] = 1.0 - this->get("f_b"); // this means we add massive neutrinos to CDM here
 
-#if 1
             // close the Universe with dark energy
-            pmap_["Omega_DE"] = 1.0 - this->get("Omega_m") - this->get("Omega_r") - this->get("Omega_k");
+            pmap_["Omega_DE"] = 1.0 - this->get("Omega_c") - this->get("Omega_b") - this->get("Omega_dcdmdr_0") - this->get("Omega_r") - this->get("Omega_k");
             // Omega_DE += 1.0 - Omega_m - Omega_DE - Omega_r;
             // pmap_["Omega_k"] = 0.0;
-#else
-            // allow for curvature
-            Omega_k = 1.0 - Omega_m - Omega_DE - Omega_r;
-#endif
+
 
             pmap_["dplus"] = 0.0;
             pmap_["pnorm"] = 0.0;
@@ -228,10 +229,11 @@ namespace cosmology
             else
               music::ilog << "sigma_8  = " << std::setw(16) << this->get("sigma_8");
             music::ilog << "n_s     = " << std::setw(16) << this->get("n_s") << std::endl;
-            music::ilog << " Omega_c  = " << std::setw(16) << this->get("Omega_c")  << "Omega_b  = " << std::setw(16) << this->get("Omega_b") << "Omega_m = " << std::setw(16) << this->get("Omega_m") << std::endl;
+            music::ilog << " Omega_c  = " << std::setw(16) << this->get("Omega_c")  << "Omega_b  = " << std::setw(16) << this->get("Omega_b") << "Omega_m = tbd " << std::endl;
             music::ilog << " Omega_r  = " << std::setw(16) << this->get("Omega_r")  << "Omega_nu = " << std::setw(16) << this->get("Omega_nu_massive") << "∑m_nu   = " << sum_m_nu << "eV" << std::endl;
             music::ilog << " Omega_DE = " << std::setw(16) << this->get("Omega_DE") << "w_0      = " << std::setw(16) << this->get("w_0")      << "w_a     = " << std::setw(16) << this->get("w_a") << std::endl;
             music::ilog << " alpha_s  = " << std::setw(16) << this->get("alpha_s")  << "beta_s   = " << std::setw(16) << this->get("beta_s") << "Omega_k = " << std::setw(16) << this->get("Omega_k") << std::endl;
+            music::ilog << " Omega_dcdmdr_0  = " << std::setw(9) << this->get("Omega_dcdmdr_0")  << "Gamma_dcdm   = " << std::setw(16) << this->get("Gamma_dcdm") << std::endl;
             if (this->get("Omega_r") > 0.0)
             {
                 music::wlog << " Radiation enabled, using Omega_r=" << this->get("Omega_r") << " internally for backscaling." << std::endl;

@@ -220,7 +220,7 @@ public:
 	 \param Tcmb mean temperature of the CMB fluctuations (defaults to
 	 Tcmb = 2.726 if not specified)
 	 */
-  transfer_eisenstein_plugin(config_file &cf, const cosmology::parameters& cp)
+  transfer_eisenstein_plugin(config_file &cf, cosmology::parameters& cp)
       : TransferFunction_plugin(cf, cp)
   {
     double Tcmb = cosmo_params_["Tcmb"];
@@ -278,7 +278,7 @@ protected:
   };
 
 public:
-  transfer_eisenstein_wdm_plugin(config_file &cf, const cosmology::parameters& cp)
+  transfer_eisenstein_wdm_plugin(config_file &cf, cosmology::parameters& cp)
       : TransferFunction_plugin(cf, cp)
   {
     double Tcmb = cosmo_params_["Tcmb"];
@@ -369,7 +369,7 @@ protected:
   eisenstein_transfer etf_;
 
 public:
-  transfer_eisenstein_cdmbino_plugin(config_file &cf, const cosmology::parameters& cp)
+  transfer_eisenstein_cdmbino_plugin(config_file &cf, cosmology::parameters& cp)
       : TransferFunction_plugin(cf, cp)
   { 
     double Tcmb = cosmo_params_["Tcmb"];

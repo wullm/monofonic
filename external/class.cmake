@@ -3,7 +3,7 @@ include(FetchContent)
 FetchContent_Declare(
     class
     GIT_REPOSITORY https://github.com/wullm/class_public.git
-    GIT_TAG monofonic_compatible
+    GIT_TAG monofonic_compatible_dcdm
     GIT_SHALLOW YES
     GIT_PROGRESS TRUE
     USES_TERMINAL_DOWNLOAD TRUE   # <---- this is needed only for Ninja
