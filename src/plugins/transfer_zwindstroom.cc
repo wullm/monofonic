@@ -412,14 +412,16 @@ public:
 
     // extract the decaying dark matter density at the starting redshift
     const double Omega_dcdm_start = get_Omega_dcdm_of_a(&tab, astart_);
-    const double Omega_m = m.Omega_b + m.Omega_c + Omega_dcdm_start;
+    const double Omega_nu = cosmo_params_.get("Omega_nu_massive");
+    const double Omega_m = m.Omega_b + m.Omega_c + Omega_dcdm_start + Omega_nu;
 
     // set the matter density at the starting redshift for use in
-    // ic_generator.cc and elsewhere
+    // ic_generator.cc and elsewhere. For those purposes, Omega_m should
+    // include neutrinos, because that is what monofonIC assumes
     cosmo_params_.set("Omega_m", Omega_m);
 
-    // the present-day baryon fracrion
-    const double f_b = m.Omega_b / Omega_m;
+    // the present-day baryon fracrion (as a fraction of the cold matter species)
+    const double f_b = m.Omega_b / (m.Omega_b + m.Omega_c + Omega_dcdm_start);
     // extract the Hubble rate at a_start and normalize by H0
     const double H_start = get_H_of_a(&tab, astart_); // in zwindstroom units
     const double H_0 = get_H_of_a(&tab, atoday_); // in zwindstroom units
