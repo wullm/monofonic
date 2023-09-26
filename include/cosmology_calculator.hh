@@ -437,6 +437,8 @@ public:
         const real_t O_b = cosmo_param_["Omega_b"];
         const real_t O_c = cosmo_param_["Omega_c"];
         const real_t O_nu = cosmo_param_["Omega_nu_massive"];
+        const real_t O_dcdm = cosmo_param_["Omega_dcdm_start"];
+        const real_t O_dm = O_c + O_dcdm;
         const real_t t_b = transfer_function_->compute(k, theta_baryon);
         const real_t t_c = transfer_function_->compute(k, theta_cdm);
         const real_t t_nu = transfer_function_->compute(k, theta_nu);
@@ -446,11 +448,11 @@ public:
 
         real_t t_m, d_m;
         if (bCDMBaryonMatterOnly) {
-            t_m = (O_b * t_b + O_c * t_c) / (O_b + O_c);
-            d_m = (O_b * d_b + O_c * d_c) / (O_b + O_c);
+            t_m = (O_b * t_b + O_dm * t_c) / (O_b + O_dm);
+            d_m = (O_b * d_b + O_dm * d_c) / (O_b + O_dm);
         } else {
-            t_m = (O_b * t_b + O_c * t_c + O_nu * t_nu) / (O_b + O_c + O_nu);
-            d_m = (O_b * d_b + O_c * d_c + O_nu * d_nu) / (O_b + O_c + O_nu);
+            t_m = (O_b * t_b + O_dm * t_c + O_nu * t_nu) / (O_b + O_dm + O_nu);
+            d_m = (O_b * d_b + O_dm * d_c + O_nu * d_nu) / (O_b + O_dm + O_nu);
         }
 
         const real_t td_m = (t_m - d_m) / Dratio;
