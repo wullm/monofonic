@@ -145,32 +145,32 @@ public:
     int do_baryonsVrel = cf_.get_value<bool>("setup", "DoBaryonVrel");
     int L = cf_.get_value<int>("setup", "GridRes");
 
-    HDFCreateGroup(fname_, "ICs_parameters");
-    HDFWriteGroupAttribute(fname_, "ICs_parameters", "Code", std::string("MUSIC2 - monofonIC"));
-    HDFWriteGroupAttribute(fname_, "ICs_parameters", "Git Revision", std::string(GIT_REV));
-    HDFWriteGroupAttribute(fname_, "ICs_parameters", "Git Tag", std::string(GIT_TAG));
-    HDFWriteGroupAttribute(fname_, "ICs_parameters", "Git Branch", std::string(GIT_BRANCH));
-    HDFWriteGroupAttribute(fname_, "ICs_parameters", "Precision", std::string(CMAKE_PRECISION_STR));
-    HDFWriteGroupAttribute(fname_, "ICs_parameters", "Convolutions", std::string(CMAKE_CONVOLVER_STR));
-    HDFWriteGroupAttribute(fname_, "ICs_parameters", "PLT", std::string(CMAKE_PLT_STR));
-    HDFWriteGroupAttribute(fname_, "ICs_parameters", "LPT Order", order);
-    HDFWriteGroupAttribute(fname_, "ICs_parameters", "Particle Load", load);
-    HDFWriteGroupAttribute(fname_, "ICs_parameters", "Transfer Function", tf);
-    HDFWriteGroupAttribute(fname_, "ICs_parameters", "Cosmology Parameter Set", cosmo_set);
-    HDFWriteGroupAttribute(fname_, "ICs_parameters", "Random Generator", rng);
-    HDFWriteGroupAttribute(fname_, "ICs_parameters", "Mode Fixing", do_fixing);
-    HDFWriteGroupAttribute(fname_, "ICs_parameters", "Mode inversion", do_invert);
-    HDFWriteGroupAttribute(fname_, "ICs_parameters", "Baryons", do_baryons);
-    HDFWriteGroupAttribute(fname_, "ICs_parameters", "Baryons Relative Velocity", do_baryonsVrel);
-    HDFWriteGroupAttribute(fname_, "ICs_parameters", "Grid Resolution", L);
+    HDFCreateGroup(this_fname_, "ICs_parameters");
+    HDFWriteGroupAttribute(this_fname_, "ICs_parameters", "Code", std::string("MUSIC2 - monofonIC"));
+    HDFWriteGroupAttribute(this_fname_, "ICs_parameters", "Git Revision", std::string(GIT_REV));
+    HDFWriteGroupAttribute(this_fname_, "ICs_parameters", "Git Tag", std::string(GIT_TAG));
+    HDFWriteGroupAttribute(this_fname_, "ICs_parameters", "Git Branch", std::string(GIT_BRANCH));
+    HDFWriteGroupAttribute(this_fname_, "ICs_parameters", "Precision", std::string(CMAKE_PRECISION_STR));
+    HDFWriteGroupAttribute(this_fname_, "ICs_parameters", "Convolutions", std::string(CMAKE_CONVOLVER_STR));
+    HDFWriteGroupAttribute(this_fname_, "ICs_parameters", "PLT", std::string(CMAKE_PLT_STR));
+    HDFWriteGroupAttribute(this_fname_, "ICs_parameters", "LPT Order", order);
+    HDFWriteGroupAttribute(this_fname_, "ICs_parameters", "Particle Load", load);
+    HDFWriteGroupAttribute(this_fname_, "ICs_parameters", "Transfer Function", tf);
+    HDFWriteGroupAttribute(this_fname_, "ICs_parameters", "Cosmology Parameter Set", cosmo_set);
+    HDFWriteGroupAttribute(this_fname_, "ICs_parameters", "Random Generator", rng);
+    HDFWriteGroupAttribute(this_fname_, "ICs_parameters", "Mode Fixing", do_fixing);
+    HDFWriteGroupAttribute(this_fname_, "ICs_parameters", "Mode inversion", do_invert);
+    HDFWriteGroupAttribute(this_fname_, "ICs_parameters", "Baryons", do_baryons);
+    HDFWriteGroupAttribute(this_fname_, "ICs_parameters", "Baryons Relative Velocity", do_baryonsVrel);
+    HDFWriteGroupAttribute(this_fname_, "ICs_parameters", "Grid Resolution", L);
 
     if (tf == "CLASS") {
       double ztarget = cf_.get_value<double>("cosmology", "ztarget");
-      HDFWriteGroupAttribute(fname_, "ICs_parameters", "Target Redshift", ztarget);
+      HDFWriteGroupAttribute(this_fname_, "ICs_parameters", "Target Redshift", ztarget);
     }
     if (rng == "PANPHASIA") {
       std::string desc = cf_.get_value<std::string>("random", "descriptor");
-      HDFWriteGroupAttribute(fname_, "ICs_parameters", "Descriptor", desc);
+      HDFWriteGroupAttribute(this_fname_, "ICs_parameters", "Descriptor", desc);
     }
   }
 
