@@ -122,4 +122,4 @@ inline size_t getCurrentRSS( )
 #endif
 }
 
-};
+}
