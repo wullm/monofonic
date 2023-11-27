@@ -16,6 +16,7 @@ protected:
     std::vector<float> vx, vy, vz;
     std::vector<float> mass, hh, uu;
     std::vector<float> mu, phi, rho;
+    std::vector<float> zmet, yhe;
     std::vector<uint16_t> mask;
 
 public:
@@ -75,8 +76,7 @@ public:
 
     void write_particle_data(const particle::container &pc, const cosmo_species &s, double Omega_species)
     {
-        double rhoc = 27.7519737; // in h^2 1e10 M_sol / Mpc^3
-        double boxmass = Omega_species * rhoc * std::pow(cf_.get_value<double>("setup", "BoxLength"), 3.);
+        double boxmass = Omega_species * munit_;
         double particle_mass = boxmass / pc.get_global_num_particles();
 
         size_t npart = pc.get_local_num_particles();
@@ -87,12 +87,16 @@ public:
         vy.reserve(vy.size() + npart);
         vz.reserve(vz.size() + npart);
         ids.reserve(ids.size() + npart);
-        
+        mask.reserve(mask.size() + npart);
+        // phi doesn't need to be initialized, just needs to be present in data
+        phi.resize(phi.size() + npart, 0.0f);
+
+
         auto _pos = reinterpret_cast<const float*>(pc.get_pos32_ptr());
         auto _vel = reinterpret_cast<const float*>(pc.get_vel32_ptr());
         auto _ids = reinterpret_cast<const uint64_t*>(pc.get_ids64_ptr());
         auto _mass = reinterpret_cast<const float*>(pc.get_mass32_ptr());
-        
+
         for(size_t i=0; i<npart; ++i) {
             xx.push_back(fmod(_pos[3*i + 0]+lunit_, lunit_));
             yy.push_back(fmod(_pos[3*i + 1]+lunit_, lunit_));
@@ -100,16 +104,15 @@ public:
             vx.push_back(_vel[3*i + 0]);
             vy.push_back(_vel[3*i + 1]);
             vz.push_back(_vel[3*i + 2]);
+            mask.push_back(s == cosmo_species::baryon ? 1<<2 : 0);
         }
 
-        // phi doesn't need to be initialized, just needs to be present in data
-        phi.resize(phi.size() + npart);
         std::copy(_ids, _ids+npart, std::back_inserter(ids));
 
         if(hacc_hydro_) {
             size_t prev_size = mass.size();
             size_t new_size = prev_size + npart;
-            
+
             if(pc.bhas_individual_masses_) {
                 std::copy(_mass, _mass+npart, std::back_inserter(mass));
             } else {
@@ -117,20 +120,12 @@ public:
                 std::fill(mass.begin() + prev_size, mass.end(), particle_mass);
             }
 
-            mask.resize(new_size);
-            std::fill(mask.begin() + prev_size, mask.end(), s == cosmo_species::baryon ? 1<<2 : 0);
-
-            hh.resize(new_size);
-            std::fill(hh.begin() + prev_size, hh.end(), hh_value_);
-
-            uu.resize(new_size);
-            std::fill(uu.begin() + prev_size, uu.end(), s == cosmo_species::baryon ? uu_value_ : 0.0f);
-
-            rho.resize(new_size);
-            std::fill(rho.begin() + prev_size, rho.end(), rho_value_);
-
-            mu.resize(new_size);
-            std::fill(mu.begin() + prev_size, mu.end(), s == cosmo_species::baryon ? mu_value_ : 0.0f);
+            hh.resize(new_size, hh_value_);
+            uu.resize(new_size, s == cosmo_species::baryon ? uu_value_ : 0.0f);
+            rho.resize(new_size, rho_value_);
+            mu.resize(new_size, s == cosmo_species::baryon ? mu_value_ : 0.0f);
+            zmet.resize(new_size, 0.0f);
+            yhe.resize(new_size, 0.0f);
         }
     }
 
@@ -147,13 +142,15 @@ public:
         writer.addVariable("vz", vz);
         writer.addVariable("id", ids);
         writer.addVariable("phi", phi);
+        writer.addVariable("mask", mask);
         if(hacc_hydro_) {
             writer.addVariable("mass", mass);
-            writer.addVariable("mask", mask);
             writer.addVariable("hh", hh);
             writer.addVariable("uu", uu);
             writer.addVariable("rho", rho);
             writer.addVariable("mu", mu);
+            writer.addVariable("zmet", zmet);
+            writer.addVariable("yhe", yhe);
         }
         writer.write();
         MPI_Barrier(MPI_COMM_WORLD);
@@ -162,7 +159,7 @@ public:
 
 namespace
 {
-output_plugin_creator_concrete<genericio_output_plugin> creator1("genericio");
+output_plugin_creator_concrete<genericio_output_plugin> creator101("genericio");
 } // namespace
 
 #endif // ENABLE_GENERICIO
