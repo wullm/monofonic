@@ -172,13 +172,13 @@ private:
     music::ilog << "Computing transfer function via ClassEngine... (synchronous gauge)" << std::endl;
     double wtime = get_wtime();
 
-    the_ClassEngine_ = std::move(std::make_unique<ClassEngine>(pars_, false));
+    the_ClassEngine_ = std::make_unique<ClassEngine>(pars_, false);
 
     music::ilog << "Computing transfer function via ClassEngine... (N-body gauge)" << std::endl;
 
     // do the calculation again, but now exporting N-body gauge transfer functions
     add_class_parameter("nbody_gauge_transfer_functions", "yes");
-    the_ClassEngine_Nbody_ = std::move(std::make_unique<ClassEngine>(pars_, false));
+    the_ClassEngine_Nbody_ = std::make_unique<ClassEngine>(pars_, false);
 
     wtime = get_wtime() - wtime;
     music::ilog << "CLASS took " << wtime << " s." << std::endl;
