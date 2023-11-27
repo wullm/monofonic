@@ -560,7 +560,7 @@ int run( config_file& the_config )
         const real_t f_nu = the_cosmo_calc->cosmo_param_["Omega_nu_massive"] / O_m;
         const real_t C_2 = 14. * (1. - f_nu) / (19. - 18. * f_nu - sqrt(25. - 24. * f_nu));
 
-        music::ilog << "Rescaling phi(2) by " << C_2 << std::endl;
+        // music::ilog << "Rescaling phi(2) by " << C_2 << std::endl;
 
         phi2 *= C_2;
     }
@@ -593,7 +593,7 @@ int run( config_file& the_config )
             const real_t f_nu = the_cosmo_calc->cosmo_param_["Omega_nu_massive"] / O_m;
             const real_t C_1 = 20. * (1 - f_nu) / (25. - 24. * f_nu - sqrt(25. - 24. * f_nu));
 
-            music::ilog << "Rescaling phi(3a) by " << C_1 << std::endl;
+            // music::ilog << "Rescaling phi(3a) by " << C_1 << std::endl;
 
             phi3 *= C_1;
         }
@@ -636,7 +636,7 @@ int run( config_file& the_config )
         const real_t C_3 = 12. * (1. - f_nu) / (17. - 16. * f_nu - sqrt(25. - 24. * f_nu));
         const real_t Phi3RescaleFact = C_3 / C_1;
 
-        music::ilog << "Rescaling phi(3a) and phi(3b) by " << Phi3RescaleFact << std::endl;
+        // music::ilog << "Rescaling phi(3a) and phi(3b) by " << Phi3RescaleFact << std::endl;
 
         phi3 *= Phi3RescaleFact;
     }
