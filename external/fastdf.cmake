@@ -3,7 +3,7 @@ include(FetchContent)
 FetchContent_Declare(
     fastdf
     GIT_REPOSITORY https://github.com/wullm/fastdf.git
-    GIT_TAG master
+    GIT_TAG multiple_species
     GIT_SHALLOW YES
     GIT_PROGRESS TRUE
 )

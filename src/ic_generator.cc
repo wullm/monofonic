@@ -1122,7 +1122,6 @@ int run( config_file& the_config )
             std::string out_fname;
             out_fname = the_config.get_value<std::string>("output", "filename");
 
-            std::string nupart_density_tfunc = "d_ncdm[0]";
             std::string gauge = "N-body";
             std::string class_parameter_file = "input_class_parameters.ini";
 
@@ -1158,7 +1157,6 @@ int run( config_file& the_config )
             strcpy(pars.OutputFilename, out_fname.c_str());
             strcpy(pars.GaussianRandomFieldFile, white_noise_fname.c_str());
             strcpy(pars.GaussianRandomFieldDataset, white_noise_dset.c_str());
-            strcpy(pars.TransferFunctionDensity, nupart_density_tfunc.c_str());
             strcpy(pars.Gauge, gauge.c_str());
             strcpy(pars.ClassIniFile, class_parameter_file.c_str());
             strcpy(pars.VelocityType, velocity_type.c_str());
