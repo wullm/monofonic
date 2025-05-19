@@ -139,9 +139,13 @@ namespace cosmology
                 pmap_["N_ur"] = cf.get_value_safe<double>("cosmology", "N_ur", 3.046 - N_nu_massive);
             
                 // dark energy
-                // pmap_["Omega_DE"] = cf.get_value_safe<double>("cosmology", "Omega_L", defaultp["Omega_DE"]);
                 pmap_["w_0"] = cf.get_value_safe<double>("cosmology", "w_0", defaultp["w_0"]);
                 pmap_["w_a"] = cf.get_value_safe<double>("cosmology", "w_a", defaultp["w_a"]);
+
+                // the user should *not* input any value for Omega_L
+                if (cf.get_value_safe<double>("cosmology", "Omega_L", -1.0) != -1.0) {
+                    throw std::runtime_error("The parameter Omega_L is deprecated and should not be specified. The dark energy density is inferred from Omega_tot = 1.");
+                }
 
                 // curvature
                 pmap_["Omega_k"] = cf.get_value_safe<double>("cosmology", "Omega_k", defaultp["Omega_k"]);
@@ -211,7 +215,7 @@ namespace cosmology
             pmap_["f_c"] = 0; // will be set later
 
             // close the Universe with dark energy
-            pmap_["Omega_DE"] = 1.0 - this->get("Omega_c") - this->get("Omega_b") - this->get("Omega_dcdmdr_0") - this->get("Omega_r") - this->get("Omega_k");
+            pmap_["Omega_DE"] = 1.0 - this->get("Omega_c") - this->get("Omega_b") - this->get("Omega_dcdmdr_0") - this->get("Omega_r") - this->get("Omega_k") - pmap_["Omega_nu_massive"];
             // Omega_DE += 1.0 - Omega_m - Omega_DE - Omega_r;
             // pmap_["Omega_k"] = 0.0;
 
