@@ -48,7 +48,7 @@ private:
   double zstart_, ztarget_, astart_, atarget_, kmax_, kmin_, h_, tnorm_;
 
   // asymptotic growth factor and growth rates at large k
-  double Dm_asymptotic_, fm_asymptotic_, fcb_asymptotic_, vfac_asymptotic_;
+  double Dm_asymptotic_, Dcb_asymptotic_, Dfac_asymptotic_, fm_asymptotic_, fcb_asymptotic_, vfac_asymptotic_;
 
   ClassParams pars_;
   std::unique_ptr<ClassEngine> the_ClassEngine_; //synchronous gauge
@@ -530,6 +530,8 @@ public:
     // modes (k > 1/Mpc)
     double gm_sum = 0.;
     double gcb_sum = 0.;
+    double Dm_sum = 0.;
+    double Dcb_sum = 0.;
     int count = 0;
     for (size_t i = 0; i < k.size(); ++i)
     {
@@ -537,17 +539,29 @@ public:
 
         gm_sum += gm[i];
         gcb_sum += gcb[i];
+
+        double Dcb = f_b * Db[i] + (1.0 - f_b) * Dc[i];
+        Dm_sum += f_nu_nr_0 * Dn[i] + (1.0 - f_nu_nr_0) * Dcb;
+        Dcb_sum += Dcb;
         count++;
     }
 
     fm_asymptotic_ = gm_sum / count;
     fcb_asymptotic_ = gcb_sum / count;
+    Dm_asymptotic_ = Dm_sum / count;
+    Dcb_asymptotic_ = Dcb_sum / count;
 
     vfac_asymptotic_ = astart_ * H_start * H_units / cosmo_params_.get("h");
     if (bCDMBaryonMatterOnly){
         vfac_asymptotic_ *= fcb_asymptotic_;
     } else {
         vfac_asymptotic_ *= fm_asymptotic_;
+    }
+
+    if (bCDMBaryonMatterOnly){
+        Dfac_asymptotic_ = Dcb_asymptotic_;
+    } else {
+        Dfac_asymptotic_ = Dm_asymptotic_;
     }
 
     // The growth factor ratio as computed by monofonIC. This isn't correct
@@ -632,6 +646,9 @@ public:
     music::ilog << "Asymptotic fm_start = " << fm_asymptotic_ << std::endl;
     music::ilog << "Asymptotic fcb_start = " << fcb_asymptotic_ << std::endl;
     music::ilog << "Asymptotic vfac = " << vfac_asymptotic_ << " km/s/Mpc at a_start" << std::endl;
+    music::ilog << "Asymptotic Dm_start = " << Dm_asymptotic_ << std::endl;
+    music::ilog << "Asymptotic Dcb_start = " << Dcb_asymptotic_ << std::endl;
+    music::ilog << "Asymptotic Dfac = " << Dfac_asymptotic_ << " at a_start" << std::endl;
 
     // export a table with Hubble rates for cosmological sims that require this
     std::string fname_hubble = "input_hubble.txt";
@@ -738,6 +755,7 @@ public:
   inline double get_kmin(void) const { return kmin_ / h_; }
   inline double get_kmax(void) const { return kmax_ / h_; }
   inline double get_vfac_asymptotic(void) const { return vfac_asymptotic_; }
+  inline double get_Dfac_asymptotic(void) const { return Dfac_asymptotic_; }
 };
 
 namespace

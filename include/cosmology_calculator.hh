@@ -179,8 +179,6 @@ public:
         cosmo_param_.set("dplus_start", Dplus_start_);
         cosmo_param_.set("dplus_target", Dplus_target_);
 
-        music::ilog << "Linear growth factors: D+_target = " << Dplus_target_ << ", D+_start = " << Dplus_start_ << std::endl;
-
         // set up transfer functions and compute normalisation
         transfer_function_ = std::move(select_TransferFunction_plugin(cf, cosmo_param_));
         transfer_function_->intialise();
@@ -205,6 +203,13 @@ public:
         } else {
             vfac_start_ = get_vfact( astart_ );
         }
+
+        // fetch the growth factor ratio
+        if (transfer_function_->tf_has_asymptotic_growth_factors()) {
+            Dplus_start_ = Dplus_target_ * transfer_function_->get_Dfac_asymptotic();
+        }
+
+        music::ilog << "Linear growth factors: D+_target = " << Dplus_target_ << ", D+_start = " << Dplus_start_ << std::endl;
 
         music::ilog << std::setw(32) << std::left << "TF supports distinct CDM+baryons"
                     << " : " << (transfer_function_->tf_is_distinct() ? "yes" : "no") << std::endl;

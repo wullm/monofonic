@@ -82,6 +82,9 @@ class TransferFunction_plugin
     //! return asymptotic velocity factor vfac=aHf/h rate at large k
     virtual double get_vfac_asymptotic(void) const = 0;
 
+    //! return asymptotic growth factor at large k
+    virtual double get_Dfac_asymptotic(void) const = 0;
+
     //! has asymptotic growth factor/rate
     bool tf_has_asymptotic_growth_factors(void)
     {

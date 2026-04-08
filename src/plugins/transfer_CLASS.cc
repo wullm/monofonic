@@ -357,6 +357,9 @@ public:
   inline double get_vfac_asymptotic(void) const {
       throw std::runtime_error("Transfer function does not have asymptotic growth factrs.");
   }
+  inline double get_Dfac_asymptotic(void) const {
+      throw std::runtime_error("Transfer function does not have asymptotic growth factrs.");
+  }
 };
 
 namespace
