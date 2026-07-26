@@ -431,6 +431,7 @@ int PANPHASIA_compute_kspace_field_(size_t relative_level, ptrdiff_t N0_fourier_
 
   //printf("Reached here 12!\n");
 
+  /*
   int rank;
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   char filename[100];
@@ -475,6 +476,7 @@ int PANPHASIA_compute_kspace_field_(size_t relative_level, ptrdiff_t N0_fourier_
         };
     fclose(fp);
   };
+*/
 
   // Transpose output field
 
@@ -514,6 +516,70 @@ int PANPHASIA_compute_kspace_field_(size_t relative_level, ptrdiff_t N0_fourier_
 
     //printf("Transpose completed.\n");
   };
+
+  {
+      for (int iy = 0; iy < local_n0_fourier_return; iy++) {
+        long local_iy = iy + local_0_start_fourier_return;
+        if (local_iy <= nfft_dim / 2) {
+          char filename[100];
+          sprintf(filename, "output_k_space_slab_y.%ld", local_iy);
+          FILE *fp;
+          fp = fopen(filename, "wb");
+
+          for (int ix = 0; ix < nfft_dim; ix++) {
+            for (int iz = 0; iz <= nfft_dim / 2; iz++) {
+              int index = iy * N0_fourier_grid * (N0_fourier_grid / 2 + 1) + ix * (N0_fourier_grid / 2 + 1) + iz;
+
+              FFTW_REAL buffer[2];
+              buffer[0] = creal(return_field[index]);
+              buffer[1] = cimag(return_field[index]);
+
+              fwrite(buffer, sizeof(FFTW_REAL), 2, fp);
+            }
+            // skip the elements z = (nfft_dim/2+1) ... nfft_dim-1
+            fseek(fp, sizeof(FFTW_REAL) * (nfft_dim - (nfft_dim/2 + 1)) * 2, SEEK_CUR);
+          }
+
+          fclose(fp);
+        }
+      }
+
+      // Synchronize all processes before writing the Hermitian conjugate part
+      MPI_Barrier(MPI_COMM_WORLD);
+
+      for (int iy = 0; iy < local_n0_fourier_return; iy++) {
+        long local_iy = iy + local_0_start_fourier_return;
+        if (local_iy == 0 || local_iy > nfft_dim / 2) {
+          char filename[100];
+          sprintf(filename, "output_k_space_slab.%ld", (local_iy == 0) ? 0 : (nfft_dim - local_iy));
+          FILE *fp;
+          fp = fopen(filename, "rb+");
+
+          // Reset to the beginning
+          rewind(fp);
+
+          for (int ix = 0; ix < nfft_dim; ix++) {
+            // skip the elements z = 0 ... (nfft_dim/2)
+            fseek(fp, sizeof(FFTW_REAL) * (nfft_dim/2 + 1) * 2, SEEK_CUR);
+
+            for (int iz = nfft_dim / 2 + 1; iz < nfft_dim; iz++) {
+              int hix = (ix == 0) ? 0 : (nfft_dim - ix);
+              int hiz = (iz == 0) ? 0 : (nfft_dim - iz);
+
+              int index = iy * N0_fourier_grid * (N0_fourier_grid / 2 + 1) + hix * (N0_fourier_grid / 2 + 1) + hiz;
+
+              FFTW_REAL buffer[2];
+              buffer[0] = creal(return_field[index]);
+              buffer[1] = cimag(return_field[index]);
+
+              fwrite(buffer, sizeof(FFTW_REAL), 2, fp);
+            }
+          }
+
+          fclose(fp);
+        }
+      }
+  }
 
   // Free all memory assigned by FFTW_MALLOC
   FFTW_FREE(mode_weightings);
