@@ -518,6 +518,16 @@ int PANPHASIA_compute_kspace_field_(size_t relative_level, ptrdiff_t N0_fourier_
   };
 
   {
+      // Output the k-space grid in slabs of constant k_y for all k_y >= 0.
+      // We thus write (N/2+1) grids of 2*N^2 real numbers, applying Hermitian
+      // symmetry for the plane at k_y = 0. The grids are in order of (ix,iz)
+      // with iz varying rapidly.
+      
+      // Since the Hermitian symmetry is currently used by FFTW to store the
+      // half-grid up to k_z = N/2, we pass through the array twice: first
+      // writing files with the elements k_z <= N/2 and then inserting
+      // the elements with k_z > N/2 in the second pass.
+            
       for (int iy = 0; iy < local_n0_fourier_return; iy++) {
         long local_iy = iy + local_0_start_fourier_return;
         if (local_iy <= nfft_dim / 2) {
