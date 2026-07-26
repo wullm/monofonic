@@ -8,6 +8,7 @@
 
 #include "PAN_FFTW3.h"
 #include "panphasia_functions.h"
+#include <errno.h>
 
 #ifdef USE_OPENMP
 #include <omp.h>
@@ -522,12 +523,12 @@ int PANPHASIA_compute_kspace_field_(size_t relative_level, ptrdiff_t N0_fourier_
       // We thus write (N/2+1) grids of 2*N^2 real numbers, applying Hermitian
       // symmetry for the plane at k_y = 0. The grids are in order of (ix,iz)
       // with iz varying rapidly.
-      
+
       // Since the Hermitian symmetry is currently used by FFTW to store the
       // half-grid up to k_z = N/2, we pass through the array twice: first
       // writing files with the elements k_z <= N/2 and then inserting
       // the elements with k_z > N/2 in the second pass.
-            
+
       for (int iy = 0; iy < local_n0_fourier_return; iy++) {
         long local_iy = iy + local_0_start_fourier_return;
         if (local_iy <= nfft_dim / 2) {
@@ -535,6 +536,13 @@ int PANPHASIA_compute_kspace_field_(size_t relative_level, ptrdiff_t N0_fourier_
           sprintf(filename, "output_k_space_slab_y.%ld", local_iy);
           FILE *fp;
           fp = fopen(filename, "wb");
+
+          if (fp == NULL) {
+            int rank;
+            MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+            fprintf(stderr, "Rank %d: failed to open '%s' for writing: %s\n", rank, filename, strerror(errno));
+            MPI_Abort(MPI_COMM_WORLD, errno);
+          }
 
           for (int ix = 0; ix < nfft_dim; ix++) {
             for (int iz = 0; iz <= nfft_dim / 2; iz++) {
@@ -559,11 +567,18 @@ int PANPHASIA_compute_kspace_field_(size_t relative_level, ptrdiff_t N0_fourier_
 
       for (int iy = 0; iy < local_n0_fourier_return; iy++) {
         long local_iy = iy + local_0_start_fourier_return;
-        if (local_iy == 0 || local_iy > nfft_dim / 2) {
+        if (local_iy == 0 || local_iy >= nfft_dim / 2) {
           char filename[100];
           sprintf(filename, "output_k_space_slab_y.%ld", (local_iy == 0) ? 0 : (nfft_dim - local_iy));
           FILE *fp;
           fp = fopen(filename, "rb+");
+
+          if (fp == NULL) {
+            int rank;
+            MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+            fprintf(stderr, "Rank %d: failed to reopen '%s' for read/write: %s\n", rank, filename, strerror(errno));
+            MPI_Abort(MPI_COMM_WORLD, errno);
+          }
 
           // Reset to the beginning
           rewind(fp);
@@ -580,7 +595,7 @@ int PANPHASIA_compute_kspace_field_(size_t relative_level, ptrdiff_t N0_fourier_
 
               FFTW_REAL buffer[2];
               buffer[0] = creal(return_field[index]);
-              buffer[1] = cimag(return_field[index]);
+              buffer[1] = -cimag(return_field[index]);
 
               fwrite(buffer, sizeof(FFTW_REAL), 2, fp);
             }
