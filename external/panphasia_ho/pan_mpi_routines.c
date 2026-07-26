@@ -551,7 +551,7 @@ int PANPHASIA_compute_kspace_field_(size_t relative_level, ptrdiff_t N0_fourier_
         long local_iy = iy + local_0_start_fourier_return;
         if (local_iy == 0 || local_iy > nfft_dim / 2) {
           char filename[100];
-          sprintf(filename, "output_k_space_slab.%ld", (local_iy == 0) ? 0 : (nfft_dim - local_iy));
+          sprintf(filename, "output_k_space_slab_y.%ld", (local_iy == 0) ? 0 : (nfft_dim - local_iy));
           FILE *fp;
           fp = fopen(filename, "rb+");
 
